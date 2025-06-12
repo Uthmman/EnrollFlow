@@ -193,21 +193,21 @@ const EnrollmentForm: React.FC = () => {
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl">
           <CardHeader>
-            <div className="flex items-center space-x-2 mb-4">
-              <School className="h-8 w-8 text-primary" />
-              <CardTitle className="text-3xl font-headline">EnrollFlow Registration</CardTitle>
+            <div className="flex items-center space-x-2 mb-2 sm:mb-4">
+              <School className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+              <CardTitle className="text-2xl sm:text-3xl font-headline">EnrollFlow Registration</CardTitle>
             </div>
-            <div className="flex justify-between items-center">
-               <CardDescription>Step {currentStep + 1} of {formSteps.length-1}: {formSteps[currentStep].title}</CardDescription>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center space-y-1 sm:space-y-0">
+               <CardDescription className="text-sm">Step {currentStep + 1} of {formSteps.length-1}: {formSteps[currentStep].title}</CardDescription>
                 <div className="flex space-x-1">
                 {formSteps.slice(0, -1).map((step, index) => (
                     <div
                     key={step.id}
                     className={cn(
-                        "h-2 w-8 rounded-full",
+                        "h-2 w-6 sm:w-8 rounded-full",
                         currentStep >= index ? "bg-primary" : "bg-muted"
                     )}
                     />
@@ -215,11 +215,11 @@ const EnrollmentForm: React.FC = () => {
                 </div>
             </div>
           </CardHeader>
-          <CardContent className="min-h-[300px]">
+          <CardContent className="min-h-[250px] sm:min-h-[300px] p-4 sm:p-6">
             {currentStep === 0 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div>
-                  <Label htmlFor="schoolLevel" className="text-lg">School Level</Label>
+                  <Label htmlFor="schoolLevel" className="text-base sm:text-lg">School Level</Label>
                    <Controller
                     name="schoolLevel"
                     control={control}
@@ -240,7 +240,7 @@ const EnrollmentForm: React.FC = () => {
                 </div>
                 {watchedSchoolLevel && (
                   <div>
-                    <Label htmlFor="program" className="text-lg">Program/Grade</Label>
+                    <Label htmlFor="program" className="text-base sm:text-lg">Program/Grade</Label>
                     <Controller
                       name="program"
                       control={control}
@@ -264,14 +264,14 @@ const EnrollmentForm: React.FC = () => {
             )}
 
             {currentStep === 1 && (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <Label htmlFor="fullName" className="text-lg">Full Name</Label>
+                  <Label htmlFor="fullName" className="text-base sm:text-lg">Full Name</Label>
                   <Input id="fullName" {...methods.register('fullName')} className="mt-1" placeholder="John Doe" />
                   {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName.message}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="dateOfBirth" className="text-lg">Date of Birth</Label>
+                  <Label htmlFor="dateOfBirth" className="text-base sm:text-lg">Date of Birth</Label>
                   <Controller
                     name="dateOfBirth"
                     control={control}
@@ -304,17 +304,17 @@ const EnrollmentForm: React.FC = () => {
                   {errors.dateOfBirth && <p className="text-sm text-destructive mt-1">{errors.dateOfBirth.message}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="email" className="text-lg">Email Address</Label>
+                  <Label htmlFor="email" className="text-base sm:text-lg">Email Address</Label>
                   <Input id="email" type="email" {...methods.register('email')} className="mt-1" placeholder="john.doe@example.com" />
                   {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
                 </div>
                  <div>
-                  <Label htmlFor="phone" className="text-lg">Phone Number (Optional)</Label>
+                  <Label htmlFor="phone" className="text-base sm:text-lg">Phone Number (Optional)</Label>
                   <Input id="phone" type="tel" {...methods.register('phone')} className="mt-1" placeholder="123-456-7890"/>
                   {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="address" className="text-lg">Address (Optional)</Label>
+                  <Label htmlFor="address" className="text-base sm:text-lg">Address (Optional)</Label>
                   <Input id="address" {...methods.register('address')} className="mt-1" placeholder="123 Main St, Anytown USA"/>
                   {errors.address && <p className="text-sm text-destructive mt-1">{errors.address.message}</p>}
                 </div>
@@ -322,8 +322,8 @@ const EnrollmentForm: React.FC = () => {
             )}
             
             {currentStep === 2 && (
-                 <div className="space-y-4">
-                 <h3 className="text-xl font-semibold font-headline">Available Courses for {currentProgramDetails?.label}</h3>
+                 <div className="space-y-3 sm:space-y-4">
+                 <h3 className="text-lg sm:text-xl font-semibold font-headline">Available Courses for {currentProgramDetails?.label}</h3>
                  {availableCourses.length > 0 ? (
                    <Controller
                      name="selectedCourses"
@@ -331,7 +331,7 @@ const EnrollmentForm: React.FC = () => {
                      render={({ field }) => (
                        <div className="space-y-2">
                          {availableCourses.map((course: Course) => (
-                           <div key={course.value} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                           <div key={course.value} className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 border rounded-md hover:bg-muted/50 transition-colors">
                              <Checkbox
                                id={course.value}
                                checked={field.value?.includes(course.value)}
@@ -342,35 +342,35 @@ const EnrollmentForm: React.FC = () => {
                                  field.onChange(newValue);
                                }}
                              />
-                             <Label htmlFor={course.value} className="flex-grow text-md cursor-pointer">
+                             <Label htmlFor={course.value} className="flex-grow text-sm sm:text-md cursor-pointer">
                                {course.label}
                              </Label>
-                             <span className="text-sm text-foreground/80">${course.price.toFixed(2)}</span>
+                             <span className="text-xs sm:text-sm text-foreground/80">${course.price.toFixed(2)}</span>
                            </div>
                          ))}
                        </div>
                      )}
                    />
                  ) : (
-                   <p className="text-muted-foreground">No specific courses to select for this program, or program not yet selected.</p>
+                   <p className="text-muted-foreground text-sm sm:text-base">No specific courses to select for this program, or program not yet selected.</p>
                  )}
-                 <Separator className="my-6"/>
-                 <div className="text-right">
-                    <p className="text-lg">Program Base Price: <span className="font-semibold">${currentProgramDetails?.basePrice.toFixed(2) || '0.00'}</span></p>
-                    <p className="text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
+                 <Separator className="my-4 sm:my-6"/>
+                 <div className="text-right space-y-1">
+                    <p className="text-base sm:text-lg">Program Base Price: <span className="font-semibold">${currentProgramDetails?.basePrice.toFixed(2) || '0.00'}</span></p>
+                    <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
                  </div>
                </div>
             )}
 
             {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="p-4 border rounded-lg bg-primary/10">
-                  <h3 className="text-xl font-semibold font-headline text-primary">Payment Summary</h3>
-                  <p className="mt-2 text-lg">Program: {currentProgramDetails?.label}</p>
+              <div className="space-y-4 sm:space-y-6">
+                <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
+                  <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
+                  <p className="mt-1 sm:mt-2 text-base sm:text-lg">Program: {currentProgramDetails?.label}</p>
                   { (getValues("selectedCourses")?.length || 0) > 0 && (
                     <div className="mt-1">
-                        <p className="text-md">Selected Courses:</p>
-                        <ul className="list-disc list-inside ml-4 text-sm">
+                        <p className="text-sm sm:text-md">Selected Courses:</p>
+                        <ul className="list-disc list-inside ml-4 text-xs sm:text-sm">
                         {getValues("selectedCourses")?.map(courseValue => {
                             const course = availableCourses.find(c => c.value === courseValue);
                             return course ? <li key={course.value}>{course.label} (${course.price.toFixed(2)})</li> : null;
@@ -378,19 +378,19 @@ const EnrollmentForm: React.FC = () => {
                         </ul>
                     </div>
                   )}
-                  <p className="mt-4 text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
+                  <p className="mt-2 sm:mt-4 text-xl sm:text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
                 </div>
 
                 <Tabs defaultValue={watchedPaymentType || "screenshot"} 
-                      onValueChange={(value) => setValue('paymentType', value)} 
+                      onValueChange={(value) => setValue('paymentType', value as "screenshot" | "link" | "transaction_id")} 
                       className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
                     {PAYMENT_TYPES.map(type => (
-                      <TabsTrigger key={type.value} value={type.value}>{type.label}</TabsTrigger>
+                      <TabsTrigger key={type.value} value={type.value} className="py-2 sm:py-1.5 text-xs sm:text-sm">{type.label}</TabsTrigger>
                     ))}
                   </TabsList>
-                  <TabsContent value="screenshot" className="mt-4 space-y-2">
-                    <Label htmlFor="screenshotFile" className="text-lg">Upload Payment Screenshot</Label>
+                  <TabsContent value="screenshot" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
+                    <Label htmlFor="screenshotFile" className="text-base sm:text-lg">Upload Payment Screenshot</Label>
                     <Controller
                         name="screenshot"
                         control={control}
@@ -401,43 +401,43 @@ const EnrollmentForm: React.FC = () => {
                                 accept="image/*"
                                 onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
                                 {...restField} 
-                                className="mt-1 file:text-primary file:font-semibold file:mr-2 file:bg-primary/10 file:border-none file:rounded file:px-2 file:py-1 hover:file:bg-primary/20"
+                                className="mt-1 text-xs sm:text-sm file:text-primary file:font-semibold file:mr-2 file:bg-primary/10 file:border-none file:rounded file:px-2 file:py-1 hover:file:bg-primary/20"
                             />
                         )}
                     />
                     {errors.screenshot && <p className="text-sm text-destructive mt-1">{errors.screenshot.message}</p>}
-                    {getValues("screenshot") && <p className="text-sm text-muted-foreground mt-1">Selected: {(getValues("screenshot") as File)?.name}</p>}
+                    {getValues("screenshot") && <p className="text-xs sm:text-sm text-muted-foreground mt-1">Selected: {(getValues("screenshot") as File)?.name}</p>}
                   </TabsContent>
-                  <TabsContent value="link" className="mt-4 space-y-2">
-                    <Label htmlFor="pdfLink" className="text-lg">PDF Link</Label>
-                    <Input id="pdfLink" type="url" {...methods.register('pdfLink')} className="mt-1" placeholder="https://example.com/receipt.pdf"/>
+                  <TabsContent value="link" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
+                    <Label htmlFor="pdfLink" className="text-base sm:text-lg">PDF Link</Label>
+                    <Input id="pdfLink" type="url" {...methods.register('pdfLink')} className="mt-1 text-xs sm:text-sm" placeholder="https://example.com/receipt.pdf"/>
                     {errors.pdfLink && <p className="text-sm text-destructive mt-1">{errors.pdfLink.message}</p>}
                   </TabsContent>
-                  <TabsContent value="transaction_id" className="mt-4 space-y-2">
-                    <Label htmlFor="transactionId" className="text-lg">Transaction ID</Label>
-                    <Input id="transactionId" {...methods.register('transactionId')} className="mt-1" placeholder="Enter your transaction ID"/>
+                  <TabsContent value="transaction_id" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
+                    <Label htmlFor="transactionId" className="text-base sm:text-lg">Transaction ID</Label>
+                    <Input id="transactionId" {...methods.register('transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID"/>
                     {errors.transactionId && <p className="text-sm text-destructive mt-1">{errors.transactionId.message}</p>}
                   </TabsContent>
                 </Tabs>
                 {calculatedPrice === 0 && (
-                    <div className="flex items-center p-3 rounded-md bg-destructive/10 text-destructive">
-                        <AlertTriangle className="h-5 w-5 mr-2" />
+                    <div className="flex items-start sm:items-center p-2 sm:p-3 rounded-md bg-destructive/10 text-destructive text-xs sm:text-sm">
+                        <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 shrink-0 mt-0.5 sm:mt-0" />
                         <p>Total amount is $0.00. Please ensure your selections are correct. Payment verification might be skipped for $0 amount.</p>
                     </div>
                 )}
               </div>
             )}
           </CardContent>
-          <CardFooter className="flex justify-between pt-6">
-            <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0 || isLoading}>
+          <CardFooter className="flex flex-col sm:flex-row sm:justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
+            <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0 || isLoading} className="w-full sm:w-auto">
               <ArrowLeft className="mr-2 h-4 w-4" /> Previous
             </Button>
             {currentStep < formSteps.length - 2 ? (
-              <Button type="button" onClick={handleNext} disabled={isLoading}>
+              <Button type="button" onClick={handleNext} disabled={isLoading} className="w-full sm:w-auto">
                 Next <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button type="submit" disabled={isLoading || calculatedPrice < 0}> {/* Allow $0 submission */}
+              <Button type="submit" disabled={isLoading || calculatedPrice < 0} className="w-full sm:w-auto"> {/* Allow $0 submission */}
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                 Verify & Register
               </Button>

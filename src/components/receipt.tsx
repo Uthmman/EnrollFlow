@@ -27,25 +27,25 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-xl my-8 print:shadow-none">
-      <CardHeader className="text-center bg-accent/10 print:bg-transparent">
+    <Card className="w-full max-w-2xl mx-auto shadow-xl my-6 sm:my-8 print:shadow-none">
+      <CardHeader className="text-center bg-accent/10 print:bg-transparent p-4 sm:p-6">
         <div className="flex flex-col items-center">
           <Image 
-            src="https://placehold.co/100x100.png" 
+            src="https://placehold.co/80x80.png" 
             alt="EnrollFlow Logo" 
-            width={80} 
-            height={80} 
+            width={60} 
+            height={60}
             data-ai-hint="school logo"
-            className="mb-4 rounded-full"
+            className="sm:w-20 sm:h-20 mb-3 sm:mb-4 rounded-full"
           />
-          <CardTitle className="text-3xl font-headline text-primary">Registration Confirmed!</CardTitle>
-          <CardDescription className="text-lg mt-1">Thank you for registering with EnrollFlow.</CardDescription>
+          <CardTitle className="text-2xl sm:text-3xl font-headline text-primary">Registration Confirmed!</CardTitle>
+          <CardDescription className="text-base sm:text-lg mt-1">Thank you for registering with EnrollFlow.</CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6 text-sm sm:text-base">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div>
-            <h3 className="text-lg font-semibold font-headline mb-1">Student Information</h3>
+            <h3 className="text-md sm:text-lg font-semibold font-headline mb-1">Student Information</h3>
             <p><strong>Name:</strong> {data.fullName}</p>
             <p><strong>Email:</strong> {data.email}</p>
             <p><strong>Date of Birth:</strong> {format(new Date(data.dateOfBirth), "MMMM d, yyyy")}</p>
@@ -53,12 +53,12 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
             {data.address && <p><strong>Address:</strong> {data.address}</p>}
           </div>
           <div>
-            <h3 className="text-lg font-semibold font-headline mb-1">Enrollment Details</h3>
+            <h3 className="text-md sm:text-lg font-semibold font-headline mb-1">Enrollment Details</h3>
             <p><strong>Program:</strong> {programDetails?.label || data.program}</p>
             {courseDetailsList && courseDetailsList.length > 0 && (
               <>
                 <p className="mt-1"><strong>Courses:</strong></p>
-                <ul className="list-disc list-inside ml-4 text-sm">
+                <ul className="list-disc list-inside ml-4 text-xs sm:text-sm">
                   {courseDetailsList.map(course => course && (
                     <li key={course.value}>{course.label} (${course.price.toFixed(2)})</li>
                   ))}
@@ -72,7 +72,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
         <Separator />
 
         <div>
-          <h3 className="text-lg font-semibold font-headline mb-1">Payment Details</h3>
+          <h3 className="text-md sm:text-lg font-semibold font-headline mb-1">Payment Details</h3>
           <p><strong>Total Amount Paid:</strong> <span className="font-bold text-accent">${data.calculatedPrice.toFixed(2)}</span></p>
           <p><strong>Payment Method:</strong> {
             data.paymentType === 'screenshot' ? 'Screenshot Upload' : 
@@ -83,27 +83,27 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
              <p><strong>Transaction ID:</strong> {data.paymentVerificationDetails.transactionNumber}</p>
           )}
           <div className="flex items-center mt-2 text-accent">
-            <CheckCircle className="h-5 w-5 mr-2" />
+            <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
             <span>Payment Verified Successfully</span>
           </div>
         </div>
         
-        <div className="mt-6 p-4 border-dashed border-2 border-muted rounded-lg text-center print:hidden">
+        <div className="mt-4 sm:mt-6 p-3 sm:p-4 border-dashed border-2 border-muted rounded-lg text-center print:hidden">
             <Image 
-                src="https://placehold.co/400x100.png" 
+                src="https://placehold.co/300x75.png" 
                 alt="Success illustration" 
-                width={400} 
-                height={100} 
+                width={300} 
+                height={75} 
                 data-ai-hint="certificate graduation"
-                className="mx-auto mb-2 rounded"
+                className="mx-auto mb-2 rounded max-w-full h-auto sm:w-[400px] sm:h-[100px]"
             />
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-xs sm:text-sm">
             You will receive a confirmation email shortly with further details.
           </p>
         </div>
 
       </CardContent>
-      <CardFooter className="flex justify-end p-6 print:hidden">
+      <CardFooter className="flex justify-end p-4 sm:p-6 print:hidden">
         <Button onClick={handlePrint} variant="outline">
           <Printer className="mr-2 h-4 w-4" /> Print Receipt
         </Button>
