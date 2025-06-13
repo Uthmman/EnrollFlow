@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2 } from 'lucide-react';
+import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2, Settings, Building } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -23,21 +23,24 @@ import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 
 import { SCHOOL_LEVELS, PROGRAMS_BY_LEVEL, PAYMENT_TYPES, Course, Program } from '@/lib/constants';
-import type { EnrollmentFormData, RegistrationData, ChildEnrollmentData } from '@/types';
+import type { EnrollmentFormData, RegistrationData, ChildEnrollmentData, ParentInfoData } from '@/types';
 import { EnrollmentFormSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
-const formSteps = [
-  { id: 'parent', title: 'Parent Information', icon: <Users className="h-5 w-5" /> },
-  { id: 'children', title: "Children's Enrollment", icon: <User className="h-5 w-5" /> },
+const accountCreationSteps = [
+  { id: 'parent', title: 'Create Parent Account' },
+];
+
+const dashboardStepsConfig = [
+  { id: 'enrollmentDetails', title: "Enrollment Details", icon: <Users className="h-5 w-5" /> },
   { id: 'payment', title: 'Payment & Verification', icon: <CreditCard className="h-5 w-5" /> },
   { id: 'confirmation', title: 'Confirmation', icon: <CheckCircle className="h-5 w-5" /> },
 ];
 
 const defaultChildValues: ChildEnrollmentData = {
   fullName: '',
-  dateOfBirth: undefined as any, // Needs to be undefined for placeholder
+  dateOfBirth: undefined as any, 
   schoolLevel: '',
   program: '',
   selectedCourses: [],
@@ -179,7 +182,8 @@ const ChildEnrollmentFields: React.FC<{ childIndex: number; removeChild: (index:
 
 
 const EnrollmentForm: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentView, setCurrentView] = useState<'createAccount' | 'enrollmentDashboard'>('createAccount');
+  const [currentDashboardStep, setCurrentDashboardStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
@@ -193,7 +197,7 @@ const EnrollmentForm: React.FC = () => {
         parentEmail: '',
         parentPhone: '',
       },
-      children: [defaultChildValues], // Start with one child
+      children: [defaultChildValues],
       paymentProof: {
         paymentType: 'screenshot',
       },
@@ -207,7 +211,7 @@ const EnrollmentForm: React.FC = () => {
     name: "children",
   });
 
-  const watchedChildren = watch('children'); // Watch all children for price calculation
+  const watchedChildren = watch('children'); 
   const watchedPaymentType = watch('paymentProof.paymentType');
 
   useEffect(() => {
@@ -232,50 +236,34 @@ const EnrollmentForm: React.FC = () => {
     calculateTotal();
   }, [watchedChildren, getValues]);
 
-
-  const handleNext = async () => {
-    let fieldsToValidate: (keyof EnrollmentFormData | `parentInfo.${keyof EnrollmentFormData["parentInfo"]}` | `children.${number}.${keyof ChildEnrollmentData}` | `children`)[] = [];
-    
-    if (currentStep === 0) fieldsToValidate = ['parentInfo.parentFullName', 'parentInfo.parentEmail']; // parentPhone is optional
-    if (currentStep === 1) { // Children step
-      fieldsToValidate.push('children'); // This validates the array (e.g., min length) and all its items
-      // To validate all fields for all children explicitly:
-      // getValues("children").forEach((_, index) => {
-      //   fieldsToValidate.push(`children.${index}.fullName`);
-      //   fieldsToValidate.push(`children.${index}.dateOfBirth`);
-      //   fieldsToValidate.push(`children.${index}.schoolLevel`);
-      //   fieldsToValidate.push(`children.${index}.program`);
-      // });
+  const handleCreateAccountAndProceed = async () => {
+    const isValid = await trigger(['parentInfo.parentFullName', 'parentInfo.parentEmail', 'parentInfo.parentPhone']);
+    if (isValid) {
+      setCurrentView('enrollmentDashboard');
+      setCurrentDashboardStep(0); // Reset to the first step of the dashboard
+    } else {
+      toast({ title: "Validation Error", description: "Please check your parent information.", variant: "destructive" });
     }
-    // Payment step validation handled during submission
+  };
+  
+  const handleDashboardNext = async () => {
+    let fieldsToValidate: (keyof EnrollmentFormData | `children.${number}.${keyof ChildEnrollmentData}` | `children`)[] = [];
+    
+    if (currentDashboardStep === 0) { // Enrollment Details (Children + Settings Tabs)
+      fieldsToValidate.push('children'); // Validate all children data
+    }
+    // Payment step validation handled during final submission by Zod schema
 
     const isValid = fieldsToValidate.length > 0 ? await trigger(fieldsToValidate) : true;
     
     if (isValid) {
-      setCurrentStep(prev => prev + 1);
+      setCurrentDashboardStep(prev => prev + 1);
     } else {
-       const firstErrorKey = Object.keys(errors)[0];
-       let firstErrorPath = firstErrorKey;
-
-       if (firstErrorKey === 'parentInfo' && errors.parentInfo) {
-         firstErrorPath = `parentInfo.${Object.keys(errors.parentInfo)[0]}`;
-       } else if (firstErrorKey === 'children' && errors.children && Array.isArray(errors.children)) {
-          const firstChildErrorIndex = errors.children.findIndex(c => c && Object.keys(c).length > 0);
-          if (firstChildErrorIndex !== -1 && errors.children[firstChildErrorIndex]) {
-            const childErrorDetail = errors.children[firstChildErrorIndex];
-            if(childErrorDetail) {
-                 const firstChildErrorField = Object.keys(childErrorDetail)[0] as keyof ChildEnrollmentData;
-                 firstErrorPath = `children.${firstChildErrorIndex}.${firstChildErrorField}`;
-            }
-          }
-       }
-       // Try to focus on the element, document.getElementsByName might not work with nested RHF names directly
-       console.log("Validation errors:", errors, "Trying to focus on path:", firstErrorPath);
-       toast({ title: "Validation Error", description: "Please check the highlighted fields.", variant: "destructive" });
+       toast({ title: "Validation Error", description: "Please check the children's enrollment details.", variant: "destructive" });
     }
   };
 
-  const handlePrevious = () => setCurrentStep(prev => prev - 1);
+  const handleDashboardPrevious = () => setCurrentDashboardStep(prev => prev - 1);
 
   const onSubmit = async (data: EnrollmentFormData) => {
     setIsLoading(true);
@@ -288,8 +276,8 @@ const EnrollmentForm: React.FC = () => {
           reader.onerror = reject;
           reader.readAsDataURL(data.paymentProof.screenshot as File);
         });
-        setValue('paymentProof.screenshotDataUri', screenshotDataUri);
-        data.paymentProof.screenshotDataUri = screenshotDataUri;
+        setValue('paymentProof.screenshotDataUri', screenshotDataUri); // Set it in form state
+        data.paymentProof.screenshotDataUri = screenshotDataUri; // Also update data object
       }
       
       const verificationInput = {
@@ -298,8 +286,6 @@ const EnrollmentForm: React.FC = () => {
           screenshotDataUri: data.paymentProof.screenshotDataUri,
           pdfLink: data.paymentProof.pdfLink,
           transactionId: data.paymentProof.transactionId,
-          // Ensure the 'screenshot' File object itself is not sent if screenshotDataUri is used by AI
-          // screenshot: undefined // or omit if not needed by handlePaymentVerification directly
         },
         expectedAmount: calculatedPrice,
       };
@@ -316,11 +302,11 @@ const EnrollmentForm: React.FC = () => {
         const finalRegistrationData: RegistrationData = {
           parentInfo: data.parentInfo,
           children: data.children,
-          paymentProof: { // ensure we are sending the correct structure
+          paymentProof: { 
              paymentType: data.paymentProof.paymentType,
-             screenshotDataUri: data.paymentProof.screenshotDataUri, // AI might populate this
+             screenshotDataUri: data.paymentProof.screenshotDataUri,
              pdfLink: data.paymentProof.pdfLink,
-             transactionId: result.transactionNumber || data.paymentProof.transactionId, // Use AI extracted if available
+             transactionId: result.transactionNumber || data.paymentProof.transactionId,
           },
           calculatedPrice,
           paymentVerified: true,
@@ -328,7 +314,7 @@ const EnrollmentForm: React.FC = () => {
           registrationDate: new Date(),
         };
         setRegistrationData(finalRegistrationData);
-        setCurrentStep(prev => prev + 1); 
+        setCurrentDashboardStep(prev => prev + 1); 
       } else {
         toast({
           title: "Payment Verification Failed",
@@ -348,9 +334,30 @@ const EnrollmentForm: React.FC = () => {
     }
   };
   
-  if (registrationData && currentStep === formSteps.length - 1) {
+  if (currentView === 'enrollmentDashboard' && registrationData && currentDashboardStep === dashboardStepsConfig.length - 1) {
     return <Receipt data={registrationData} />;
   }
+
+  const getCurrentStepTitle = () => {
+    if (currentView === 'createAccount') {
+      return accountCreationSteps[0].title;
+    }
+    if (currentView === 'enrollmentDashboard' && dashboardStepsConfig[currentDashboardStep]) {
+      return dashboardStepsConfig[currentDashboardStep].title;
+    }
+    return "Enrollment";
+  };
+
+  const getCurrentProgressSteps = () => {
+    if (currentView === 'createAccount') return 0; // No progress dots for single step
+    return dashboardStepsConfig.length -1; // Exclude confirmation for dots
+  };
+
+  const currentActiveProgressStep = () => {
+    if (currentView === 'createAccount') return 0;
+    return currentDashboardStep;
+  }
+
 
   return (
     <FormProvider {...methods}>
@@ -362,22 +369,24 @@ const EnrollmentForm: React.FC = () => {
               <CardTitle className="text-2xl sm:text-3xl font-headline">EnrollFlow Registration</CardTitle>
             </div>
             <div className="flex flex-col sm:flex-row justify-between sm:items-center space-y-1 sm:space-y-0">
-               <CardDescription className="text-sm">Step {currentStep + 1} of {formSteps.length-1}: {formSteps[currentStep].title}</CardDescription>
-                <div className="flex space-x-1">
-                {formSteps.slice(0, -1).map((step, index) => (
-                    <div
-                    key={step.id}
-                    className={cn(
-                        "h-2 w-6 sm:w-8 rounded-full",
-                        currentStep >= index ? "bg-primary" : "bg-muted"
-                    )}
-                    />
-                ))}
-                </div>
+               <CardDescription className="text-sm">{getCurrentStepTitle()}</CardDescription>
+                {currentView === 'enrollmentDashboard' && (
+                  <div className="flex space-x-1">
+                  {dashboardStepsConfig.slice(0, -1).map((step, index) => ( // Exclude confirmation from dots
+                      <div
+                      key={step.id}
+                      className={cn(
+                          "h-2 w-6 sm:w-8 rounded-full",
+                          currentDashboardStep >= index ? "bg-primary" : "bg-muted"
+                      )}
+                      />
+                  ))}
+                  </div>
+                )}
             </div>
           </CardHeader>
           <CardContent className="min-h-[250px] sm:min-h-[300px] p-4 sm:p-6">
-            {currentStep === 0 && ( // Parent Information
+            {currentView === 'createAccount' && (
               <div className="space-y-3 sm:space-y-4">
                 <div>
                   <Label htmlFor="parentInfo.parentFullName" className="text-base sm:text-lg">Parent's Full Name</Label>
@@ -397,108 +406,142 @@ const EnrollmentForm: React.FC = () => {
               </div>
             )}
 
-            {currentStep === 1 && ( // Children Enrollment
-              <div className="space-y-4 sm:space-y-6">
-                {fields.map((field, index) => (
-                  <ChildEnrollmentFields key={field.id} childIndex={index} removeChild={remove} />
-                ))}
-                 {errors.children && typeof errors.children === 'object' && !Array.isArray(errors.children) && (errors.children as any).message && (
-                    <p className="text-sm text-destructive mt-1">{(errors.children as any).message}</p>
-                 )}
-                <Button type="button" variant="outline" onClick={() => append(defaultChildValues)} className="w-full sm:w-auto">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Another Child
-                </Button>
-                <Separator className="my-4 sm:my-6"/>
-                <div className="text-right space-y-1">
-                   <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
-                </div>
-              </div>
-            )}
-            
-            {currentStep === 2 && ( // Payment Step
-              <div className="space-y-4 sm:space-y-6">
-                <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
-                  <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
-                    {getValues("children").map((child, index) => {
-                        const programDetails = PROGRAMS_BY_LEVEL[child.schoolLevel]?.find(p => p.value === child.program);
-                        return (
-                            <div key={index} className="mt-1 text-sm">
-                                <p>Child {index+1}: {child.fullName || `Child ${index+1}`}</p>
-                                <p className="ml-2">Program: {programDetails?.label || 'N/A'}</p>
-                                {(child.selectedCourses?.length || 0) > 0 && (
-                                    <ul className="list-disc list-inside ml-6 text-xs">
-                                    {child.selectedCourses?.map(courseValue => {
-                                        const course = programDetails?.courses?.find(c => c.value === courseValue);
-                                        return course ? <li key={course.value}>{course.label} (${course.price.toFixed(2)})</li> : null;
-                                    })}
-                                    </ul>
-                                )}
-                            </div>
-                        );
-                    })}
-                  <p className="mt-2 sm:mt-4 text-xl sm:text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
-                </div>
-
-                <Tabs defaultValue={watchedPaymentType || "screenshot"} 
-                      onValueChange={(value) => setValue('paymentProof.paymentType', value as "screenshot" | "link" | "transaction_id")} 
-                      className="w-full">
-                  <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
-                    {PAYMENT_TYPES.map(type => (
-                      <TabsTrigger key={type.value} value={type.value} className="py-2 sm:py-1.5 text-xs sm:text-sm">{type.label}</TabsTrigger>
-                    ))}
-                  </TabsList>
-                  <TabsContent value="screenshot" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
-                    <Label htmlFor="paymentProof.screenshotFile" className="text-base sm:text-lg">Upload Payment Screenshot</Label>
-                    <Controller
-                        name="paymentProof.screenshot"
-                        control={control}
-                        render={({ field: { onChange, value, ...restField } }) => (
-                            <Input 
-                                id="paymentProof.screenshotFile" 
-                                type="file" 
-                                accept="image/*"
-                                onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
-                                {...restField} 
-                                className="mt-1 text-xs sm:text-sm file:text-primary file:font-semibold file:mr-2 file:bg-primary/10 file:border-none file:rounded file:px-2 file:py-1 hover:file:bg-primary/20"
-                            />
-                        )}
-                    />
-                    {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{errors.paymentProof.screenshot.message as string}</p>}
-                    {getValues("paymentProof.screenshot") && <p className="text-xs sm:text-sm text-muted-foreground mt-1">Selected: {(getValues("paymentProof.screenshot") as File)?.name}</p>}
-                  </TabsContent>
-                  <TabsContent value="link" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
-                    <Label htmlFor="paymentProof.pdfLink" className="text-base sm:text-lg">PDF Link</Label>
-                    <Input id="paymentProof.pdfLink" type="url" {...register('paymentProof.pdfLink')} className="mt-1 text-xs sm:text-sm" placeholder="https://example.com/receipt.pdf"/>
-                    {errors.paymentProof?.pdfLink && <p className="text-sm text-destructive mt-1">{errors.paymentProof.pdfLink.message}</p>}
-                  </TabsContent>
-                  <TabsContent value="transaction_id" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
-                    <Label htmlFor="paymentProof.transactionId" className="text-base sm:text-lg">Transaction ID</Label>
-                    <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID"/>
-                    {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
-                  </TabsContent>
-                </Tabs>
-                {calculatedPrice === 0 && (
-                    <div className="flex items-start sm:items-center p-2 sm:p-3 rounded-md bg-destructive/10 text-destructive text-xs sm:text-sm">
-                        <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 shrink-0 mt-0.5 sm:mt-0" />
-                        <p>Total amount is $0.00. Please ensure selections are correct. Payment verification might be skipped for $0 amount if all registrations are free.</p>
-                    </div>
+            {currentView === 'enrollmentDashboard' && (
+              <>
+                {currentDashboardStep === 0 && ( // Enrollment Details (Tabs)
+                  <Tabs defaultValue="childrenRegistration" className="w-full">
+                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto sm:h-10">
+                      <TabsTrigger value="childrenRegistration" className="py-2 sm:py-1.5 text-xs sm:text-sm">
+                        <Users className="mr-2 h-4 w-4" /> Register Children
+                      </TabsTrigger>
+                      <TabsTrigger value="accountSettings" className="py-2 sm:py-1.5 text-xs sm:text-sm">
+                        <Settings className="mr-2 h-4 w-4" /> Account Settings
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="childrenRegistration" className="mt-4 space-y-4 sm:space-y-6">
+                      {fields.map((field, index) => (
+                        <ChildEnrollmentFields key={field.id} childIndex={index} removeChild={remove} />
+                      ))}
+                      {errors.children && typeof errors.children === 'object' && !Array.isArray(errors.children) && (errors.children as any).message && (
+                          <p className="text-sm text-destructive mt-1">{(errors.children as any).message}</p>
+                      )}
+                      <Button type="button" variant="outline" onClick={() => append(defaultChildValues)} className="w-full sm:w-auto">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Another Child
+                      </Button>
+                      <Separator className="my-4 sm:my-6"/>
+                      <div className="text-right space-y-1">
+                        <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="accountSettings" className="mt-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Account Settings</CardTitle>
+                          <CardDescription>Manage your parent account details here.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-muted-foreground">Account settings functionality is not yet implemented. This is a placeholder.</p>
+                          {/* Future: Add fields to edit parentInfo, change password, etc. */}
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  </Tabs>
                 )}
-              </div>
+                
+                {currentDashboardStep === 1 && ( // Payment Step
+                  <div className="space-y-4 sm:space-y-6">
+                    <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
+                      <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
+                        {getValues("children").map((child, index) => {
+                            const programDetails = PROGRAMS_BY_LEVEL[child.schoolLevel]?.find(p => p.value === child.program);
+                            return (
+                                <div key={index} className="mt-1 text-sm">
+                                    <p>Child {index+1}: {child.fullName || `Child ${index+1}`}</p>
+                                    <p className="ml-2">Program: {programDetails?.label || 'N/A'}</p>
+                                    {(child.selectedCourses?.length || 0) > 0 && (
+                                        <ul className="list-disc list-inside ml-6 text-xs">
+                                        {child.selectedCourses?.map(courseValue => {
+                                            const course = programDetails?.courses?.find(c => c.value === courseValue);
+                                            return course ? <li key={course.value}>{course.label} (${course.price.toFixed(2)})</li> : null;
+                                        })}
+                                        </ul>
+                                    )}
+                                </div>
+                            );
+                        })}
+                      <p className="mt-2 sm:mt-4 text-xl sm:text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
+                    </div>
+
+                    <Tabs defaultValue={watchedPaymentType || "screenshot"} 
+                          onValueChange={(value) => setValue('paymentProof.paymentType', value as "screenshot" | "link" | "transaction_id")} 
+                          className="w-full">
+                      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
+                        {PAYMENT_TYPES.map(type => (
+                          <TabsTrigger key={type.value} value={type.value} className="py-2 sm:py-1.5 text-xs sm:text-sm">{type.label}</TabsTrigger>
+                        ))}
+                      </TabsList>
+                      <TabsContent value="screenshot" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
+                        <Label htmlFor="paymentProof.screenshotFile" className="text-base sm:text-lg">Upload Payment Screenshot</Label>
+                        <Controller
+                            name="paymentProof.screenshot"
+                            control={control}
+                            render={({ field: { onChange, value, ...restField } }) => (
+                                <Input 
+                                    id="paymentProof.screenshotFile" 
+                                    type="file" 
+                                    accept="image/*"
+                                    onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
+                                    {...restField} 
+                                    className="mt-1 text-xs sm:text-sm file:text-primary file:font-semibold file:mr-2 file:bg-primary/10 file:border-none file:rounded file:px-2 file:py-1 hover:file:bg-primary/20"
+                                />
+                            )}
+                        />
+                        {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{errors.paymentProof.screenshot.message as string}</p>}
+                        {getValues("paymentProof.screenshot") && <p className="text-xs sm:text-sm text-muted-foreground mt-1">Selected: {(getValues("paymentProof.screenshot") as File)?.name}</p>}
+                      </TabsContent>
+                      <TabsContent value="link" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
+                        <Label htmlFor="paymentProof.pdfLink" className="text-base sm:text-lg">PDF Link</Label>
+                        <Input id="paymentProof.pdfLink" type="url" {...register('paymentProof.pdfLink')} className="mt-1 text-xs sm:text-sm" placeholder="https://example.com/receipt.pdf"/>
+                        {errors.paymentProof?.pdfLink && <p className="text-sm text-destructive mt-1">{errors.paymentProof.pdfLink.message}</p>}
+                      </TabsContent>
+                      <TabsContent value="transaction_id" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
+                        <Label htmlFor="paymentProof.transactionId" className="text-base sm:text-lg">Transaction ID</Label>
+                        <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID"/>
+                        {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
+                      </TabsContent>
+                    </Tabs>
+                    {calculatedPrice === 0 && (
+                        <div className="flex items-start sm:items-center p-2 sm:p-3 rounded-md bg-destructive/10 text-destructive text-xs sm:text-sm">
+                            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 shrink-0 mt-0.5 sm:mt-0" />
+                            <p>Total amount is $0.00. Please ensure selections are correct. Payment verification might be skipped for $0 amount if all registrations are free.</p>
+                        </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row sm:justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
-            <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0 || isLoading} className="w-full sm:w-auto">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-            </Button>
-            {currentStep < formSteps.length - 2 ? (
-              <Button type="button" onClick={handleNext} disabled={isLoading} className="w-full sm:w-auto">
-                Next <ArrowRight className="ml-2 h-4 w-4" />
+            {currentView === 'createAccount' ? (
+              <Button type="button" onClick={handleCreateAccountAndProceed} disabled={isLoading} className="w-full sm:w-auto">
+                Create Account & Proceed <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            ) : (
-              <Button type="submit" disabled={isLoading || (calculatedPrice < 0)} className="w-full sm:w-auto"> {/* Allow $0 submission */}
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                Verify & Register
-              </Button>
+            ) : ( // enrollmentDashboard view
+              <>
+                <Button type="button" variant="outline" onClick={handleDashboardPrevious} disabled={currentDashboardStep === 0 || isLoading} className="w-full sm:w-auto">
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Previous
+                </Button>
+                {currentDashboardStep < dashboardStepsConfig.length - 2 ? ( // Before payment step
+                  <Button type="button" onClick={handleDashboardNext} disabled={isLoading} className="w-full sm:w-auto">
+                    {currentDashboardStep === 0 ? "Proceed to Payment" : "Next"} <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : ( // Payment step
+                  <Button type="submit" disabled={isLoading || (calculatedPrice < 0)} className="w-full sm:w-auto">
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                    Verify & Register
+                  </Button>
+                )}
+              </>
             )}
           </CardFooter>
         </Card>
@@ -508,6 +551,3 @@ const EnrollmentForm: React.FC = () => {
 };
 
 export default EnrollmentForm;
-
-
-    
