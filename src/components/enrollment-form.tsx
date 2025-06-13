@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 
-import { HAFSA_PROGRAMS, HAFSA_PAYMENT_METHODS, HafsaProgram, ProgramField, SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
+import { HAFSA_PROGRAMS, HAFSA_PAYMENT_METHODS, HafsaProgram, ProgramField } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ChildInfoData, AdultTraineeData, RegistrationData, EnrolledChildData } from '@/types';
 import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
@@ -315,16 +315,25 @@ const EnrollmentForm: React.FC = () => {
       return;
     }
 
-    // Check if adult is already enrolled in any adult program
     const existingAdultEnrollment = getValues('adultTraineeInfo');
-    if (existingAdultEnrollment && existingAdultEnrollment.programId) {
+    if (existingAdultEnrollment && existingAdultEnrollment.programId && existingAdultEnrollment.programId !== programForNewParticipant.id) {
         toast({
-            title: "Already Enrolled",
-            description: `You are already enrolled in ${HAFSA_PROGRAMS.find(p => p.id === existingAdultEnrollment.programId)?.label}. You can only enroll in one adult program at a time. This new selection will replace the previous one.`,
+            title: "Enrollment Updated",
+            description: `Your enrollment has been updated to ${programForNewParticipant.label}. You can only be enrolled in one adult program at a time.`,
             variant: "default",
             duration: 7000,
         });
+    } else if (existingAdultEnrollment && existingAdultEnrollment.programId === programForNewParticipant.id) {
+         toast({
+            title: "Already Enrolled",
+            description: `You are already enrolled in ${programForNewParticipant.label}.`,
+            variant: "default",
+        });
+        setCurrentView('dashboard');
+        setActiveDashboardTab('enrollments');
+        return;
     }
+
 
     setValue('adultTraineeInfo', {
       programId: programForNewParticipant.id,
@@ -422,21 +431,35 @@ const EnrollmentForm: React.FC = () => {
     <div className="space-y-4 sm:space-y-6">
       {!programForNewParticipant ? (
         <div>
-          <h3 className="text-xl sm:text-2xl font-semibold mb-4 text-primary">Select a Program to Enroll In</h3>
+          <h3 className="text-xl sm:text-2xl font-semibold mb-1 text-primary">Select a Program</h3>
+          <p className="text-muted-foreground mb-4 text-sm">Choose a program to enroll a participant or yourself.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {HAFSA_PROGRAMS.map(prog => {
               let IconComponent;
               switch(prog.category) {
                 case 'daycare': IconComponent = Baby; break;
-                case 'quran_kids': IconComponent = GraduationCap; break; // Or BookOpenText
-                case 'arabic_women': IconComponent = Briefcase; break; // Or User
+                case 'quran_kids': IconComponent = GraduationCap; break; 
+                case 'arabic_women': IconComponent = Briefcase; break; 
                 default: IconComponent = BookOpenText;
               }
+              const isEnrolledAsAdult = watchedAdultTraineeInfo?.programId === prog.id;
+              const cantEnrollSelfAgain = !prog.isChildProgram && watchedAdultTraineeInfo?.programId && watchedAdultTraineeInfo?.programId !== prog.id;
+
               return (
                 <Card 
                   key={prog.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
-                  onClick={() => setProgramForNewParticipant(prog)}
+                  className={cn(
+                    "hover:shadow-lg transition-shadow cursor-pointer flex flex-col",
+                    isEnrolledAsAdult && "ring-2 ring-accent",
+                    cantEnrollSelfAgain && "opacity-60 cursor-not-allowed"
+                  )}
+                  onClick={() => {
+                    if (cantEnrollSelfAgain) {
+                        toast({title: "Limit Reached", description: "You can only enroll yourself in one adult program at a time.", variant:"destructive"});
+                        return;
+                    }
+                    setProgramForNewParticipant(prog);
+                  }}
                 >
                   <CardHeader className="pb-2">
                     <div className="flex items-center space-x-3 mb-1">
@@ -444,6 +467,8 @@ const EnrollmentForm: React.FC = () => {
                         <CardTitle className="text-lg sm:text-xl text-primary">{prog.label}</CardTitle>
                     </div>
                     <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
+                     {isEnrolledAsAdult && <span className="text-xs text-accent font-semibold mt-1 block">You are enrolled in this program.</span>}
+                     {cantEnrollSelfAgain && <span className="text-xs text-destructive font-semibold mt-1 block">You are already in another adult program.</span>}
                   </CardHeader>
                   <CardContent className="text-xs sm:text-sm flex-grow">
                     {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
@@ -467,15 +492,15 @@ const EnrollmentForm: React.FC = () => {
              <ChildParticipantFields 
                 programSpecificFields={programForNewParticipant.specificFields}
                 onSave={handleSaveChild}
-                onCancel={() => { setProgramForNewParticipant(null); setCurrentView('dashboard'); setActiveDashboardTab('enrollments'); }}
+                onCancel={() => { setProgramForNewParticipant(null);}}
                 isLoading={isLoading}
                 selectedProgramLabel={programForNewParticipant.label}
             />
-          ) : (
+          ) : ( // Adult Self-Enrollment
             <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
                 <CardHeader>
                     <CardTitle className="text-lg sm:text-xl font-headline">Enroll in {programForNewParticipant.label}</CardTitle>
-                    <CardDescription>Please provide your date of birth for this adult program.</CardDescription>
+                    <CardDescription>Please provide your date of birth for this program.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
                      <div>
@@ -498,13 +523,16 @@ const EnrollmentForm: React.FC = () => {
                     </div>
                 </CardContent>
                  <CardFooter className="flex justify-end gap-2 p-2 pt-1">
-                    <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null); setCurrentView('dashboard'); setActiveDashboardTab('enrollments');}} disabled={isLoading}>Cancel</Button>
+                    <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null);}} disabled={isLoading}>Back to Program Selection</Button>
                     <Button type="button" onClick={handleSaveAdultEnrollment} disabled={isLoading || !adultDOB}>
                         {isLoading ? <Loader2 className="animate-spin mr-2"/> : <UserPlus className="mr-2 h-4 w-4" />} Confirm My Enrollment
                     </Button>
                 </CardFooter>
             </Card>
           )}
+           <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null);}} className="w-full mt-2 sm:hidden">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Program Selection
+            </Button>
         </>
       )}
     </div>
@@ -513,27 +541,36 @@ const EnrollmentForm: React.FC = () => {
 
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="enrollments"><Users className="mr-1 sm:mr-2 h-4 w-4"/>Manage Enrollments</TabsTrigger>
-            <TabsTrigger value="account"><UserCog className="mr-1 sm:mr-2 h-4 w-4"/>Account</TabsTrigger>
-            <TabsTrigger value="payment"><CreditCard className="mr-1 sm:mr-2 h-4 w-4"/>Payment</TabsTrigger>
+        <TabsList className="flex items-center justify-center space-x-1 sm:space-x-2 bg-neutral-800 dark:bg-neutral-950 p-1.5 rounded-full shadow-md max-w-xs mx-auto mb-4">
+            <TabsTrigger value="enrollments" className="flex-1 p-2.5 rounded-full transition-colors duration-150 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700/50 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:hover:bg-background">
+                <Users className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="sr-only">Manage Enrollments</span>
+            </TabsTrigger>
+            <TabsTrigger value="account" className="flex-1 p-2.5 rounded-full transition-colors duration-150 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700/50 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:hover:bg-background">
+                <UserCog className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="sr-only">Account</span>
+            </TabsTrigger>
+            <TabsTrigger value="payment" className="flex-1 p-2.5 rounded-full transition-colors duration-150 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700/50 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:hover:bg-background">
+                <CreditCard className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="sr-only">Payment</span>
+            </TabsTrigger>
         </TabsList>
 
         <TabsContent value="enrollments" className="space-y-4 pt-4">
-            <h3 className="text-xl font-semibold text-primary">Current Enrollments</h3>
+            <h3 className="text-xl font-semibold text-primary">Manage Enrollments</h3>
             
             {watchedAdultTraineeInfo && watchedAdultTraineeInfo.programId && (
-                <Card className="p-3 mb-3 bg-blue-50 border-blue-200">
+                <Card className="p-3 mb-3 bg-primary/10 border-primary/30">
                      <div className="flex justify-between items-start">
                         <div>
-                            <p className="font-semibold text-md text-blue-700">Your Enrollment (Primary Registrant)</p>
-                            <p className="text-sm text-blue-600">
+                            <p className="font-semibold text-md text-primary">Your Enrollment (Primary Registrant)</p>
+                            <p className="text-sm text-foreground/90">
                                 {HAFSA_PROGRAMS.find(p => p.id === watchedAdultTraineeInfo.programId)?.label || 'Unknown Program'}
                                 {' - $'}{(HAFSA_PROGRAMS.find(p => p.id === watchedAdultTraineeInfo.programId)?.price || 0).toFixed(2)}
                             </p>
                             <p className="text-xs text-muted-foreground">Date of Birth: {watchedAdultTraineeInfo.dateOfBirth ? format(new Date(watchedAdultTraineeInfo.dateOfBirth), "PPP") : 'N/A'}</p>
                         </div>
-                         <Button type="button" variant="ghost" size="sm" onClick={() => { setValue('adultTraineeInfo', undefined); toast({title: "Adult Enrollment Removed"});}} className="text-destructive hover:text-destructive/80">
+                         <Button type="button" variant="ghost" size="sm" onClick={() => { setValue('adultTraineeInfo', undefined); toast({title: "Your Enrollment Removed"});}} className="text-destructive hover:text-destructive/80">
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
@@ -589,7 +626,7 @@ const EnrollmentForm: React.FC = () => {
             <div>
                 <Label htmlFor="couponCode">Coupon Code (Optional)</Label>
                 <div className="flex items-center gap-2 mt-1">
-                    <Input id="couponCode" {...formRegister('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
+                    <Input id="couponCode" {...methods.register('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
                     <Button type="button" variant="outline" size="sm" onClick={() => toast({title: "Coupon Applied!", description:"(Example: 10% off - not functional yet)"})}>Apply</Button>
                 </div>
             </div>
@@ -658,18 +695,7 @@ const EnrollmentForm: React.FC = () => {
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl">
-          <CardHeader>
-            <div className="flex items-center space-x-2 mb-2 sm:mb-4">
-                <Image src="https://placehold.co/40x40.png" alt="Hafsa Madrassa Logo" width={40} height={40} data-ai-hint="islamic education logo" className="rounded-md"/>
-                <CardTitle className="text-2xl sm:text-3xl font-headline">Hafsa Madrassa Registration</CardTitle>
-            </div>
-             <CardDescription className="text-sm">
-                {currentView === 'accountCreation' && "Step 1: Create Your Account."}
-                {currentView === 'dashboard' && "Step 2: Manage Enrollments & Payment."}
-                {currentView === 'addParticipant' && `Select a Program and Add Participant Details.`}
-             </CardDescription>
-          </CardHeader>
-
+          
           <CardContent className="min-h-[300px] sm:min-h-[350px] p-4 sm:p-6">
             {currentView === 'accountCreation' && renderAccountCreation()}
             {currentView === 'dashboard' && renderDashboard()}
