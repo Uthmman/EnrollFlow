@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, UserPlus, UserCheck, BookOpenText, Baby, GraduationCap, Briefcase } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, UserPlus, UserCheck, BookOpenText, Baby, GraduationCap, Briefcase, Edit3 } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ChildInfoData, AdultTraineeData, RegistrationData, EnrolledChildData } from '@/types';
-import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema } from '@/types'; // Renamed to avoid conflict
+import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -66,7 +66,7 @@ const ParentInfoFields: React.FC = () => {
           {(currentErrors as any)[nameField] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[nameField].message}</p>}
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <Label htmlFor={`${fieldPrefix}.${phone1Field}`}>Primary Phone Number</Label>
             <Input id={`${fieldPrefix}.${phone1Field}`} {...register(`${fieldPrefix}.${phone1Field}` as any)} type="tel" placeholder="e.g., 0911XXXXXX" />
@@ -132,7 +132,7 @@ const ChildParticipantFields: React.FC<{
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline">Add New Child for {selectedProgramLabel || "Program"}</CardTitle>
+        <CardTitle className="text-lg sm:text-xl font-headline">Add Child for {selectedProgramLabel || "Program"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <div>
@@ -140,7 +140,7 @@ const ChildParticipantFields: React.FC<{
           <Input id={`childInfo.childFirstName`} {...register(`childFirstName`)} placeholder="Child's First Name" />
           {childErrors.childFirstName && <p className="text-sm text-destructive mt-1">{childErrors.childFirstName.message}</p>}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
                 <Label htmlFor={`childInfo.gender`}>Gender</Label>
                 <Controller
@@ -202,9 +202,9 @@ const ChildParticipantFields: React.FC<{
           </div>
         ))}
       </CardContent>
-      <CardFooter className="flex justify-end gap-2 p-2 pt-1">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>Cancel</Button>
-          <Button type="button" onClick={handleChildSubmit(actualOnSave)} disabled={isLoading}>
+      <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 p-2 pt-1">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">Cancel</Button>
+          <Button type="button" onClick={handleChildSubmit(actualOnSave)} disabled={isLoading} className="w-full sm:w-auto">
               {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} Save Student
           </Button>
       </CardFooter>
@@ -435,7 +435,7 @@ const EnrollmentForm: React.FC = () => {
         <div>
           <h3 className="text-xl sm:text-2xl font-semibold mb-1 text-primary">Select a Program</h3>
           <p className="text-muted-foreground mb-4 text-sm">Choose a program to enroll a participant or yourself.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {HAFSA_PROGRAMS.map(prog => {
               let IconComponent;
               switch(prog.category) {
@@ -463,28 +463,28 @@ const EnrollmentForm: React.FC = () => {
                     setProgramForNewParticipant(prog);
                   }}
                 >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center space-x-3 mb-1">
-                        <IconComponent className="h-6 w-6 text-primary" />
-                        <CardTitle className="text-lg sm:text-xl text-primary">{prog.label}</CardTitle>
+                  <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
+                    <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
+                        <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                        <CardTitle className="text-base sm:text-lg text-primary">{prog.label}</CardTitle>
                     </div>
                     <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
                      {isEnrolledAsAdult && <span className="text-xs text-accent font-semibold mt-1 block">You are enrolled in this program.</span>}
                      {cantEnrollSelfAgain && <span className="text-xs text-destructive font-semibold mt-1 block">You are already in another adult program.</span>}
                   </CardHeader>
-                  <CardContent className="text-xs sm:text-sm flex-grow">
+                  <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
                     {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
                     {prog.duration && <p><strong>Duration:</strong> {prog.duration}</p>}
                     {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
                   </CardContent>
-                  <CardFooter className="pt-2">
-                    <p className="text-base sm:text-lg font-semibold text-accent">${prog.price.toFixed(2)}</p>
+                  <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
+                    <p className="text-sm sm:text-base font-semibold text-accent">${prog.price.toFixed(2)}</p>
                   </CardFooter>
                 </Card>
               );
             })}
           </div>
-          <Button type="button" variant="outline" onClick={() => { setCurrentView('dashboard'); setActiveDashboardTab('enrollments');}} className="w-full mt-6">
+           <Button type="button" variant="outline" onClick={() => { setCurrentView('dashboard'); setActiveDashboardTab('enrollments');}} className="w-full mt-4 sm:mt-6">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
           </Button>
         </div>
@@ -500,7 +500,7 @@ const EnrollmentForm: React.FC = () => {
             />
           ) : ( 
             <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
-                <CardHeader>
+                <CardHeader className="p-2 pb-1">
                     <CardTitle className="text-lg sm:text-xl font-headline">Enroll in {programForNewParticipant.label}</CardTitle>
                     <CardDescription>Please provide your date of birth for this program.</CardDescription>
                 </CardHeader>
@@ -524,9 +524,9 @@ const EnrollmentForm: React.FC = () => {
                          {!adultDOB && <p className="text-sm text-muted-foreground mt-1">Date of birth is required for this program.</p>}
                     </div>
                 </CardContent>
-                 <CardFooter className="flex justify-end gap-2 p-2 pt-1">
-                    <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null);}} disabled={isLoading}>Back to Program Selection</Button>
-                    <Button type="button" onClick={handleSaveAdultEnrollment} disabled={isLoading || !adultDOB}>
+                 <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 p-2 pt-1">
+                    <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null);}} disabled={isLoading} className="w-full sm:w-auto">Back to Program Selection</Button>
+                    <Button type="button" onClick={handleSaveAdultEnrollment} disabled={isLoading || !adultDOB} className="w-full sm:w-auto">
                         {isLoading ? <Loader2 className="animate-spin mr-2"/> : <UserPlus className="mr-2 h-4 w-4" />} Confirm My Enrollment
                     </Button>
                 </CardFooter>
@@ -544,27 +544,27 @@ const EnrollmentForm: React.FC = () => {
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
         {!isMobile && ( 
-            <TabsList className="grid w-full grid-cols-3 mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
-                <TabsTrigger value="enrollments" className="text-sm sm:text-base py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
-                    <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                    <span className="sr-only sm:not-sr-only">Manage Enrollments</span>
+            <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
+                <TabsTrigger value="enrollments" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
+                    <Users className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
+                    Manage Enrollments
                 </TabsTrigger>
-                <TabsTrigger value="account" className="text-sm sm:text-base py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
-                    <UserCog className="mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                    <span className="sr-only sm:not-sr-only">Account</span>
+                <TabsTrigger value="account" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
+                    <UserCog className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
+                    Account
                 </TabsTrigger>
-                <TabsTrigger value="payment" className="text-sm sm:text-base py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
-                    <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                    <span className="sr-only sm:not-sr-only">Payment</span>
+                <TabsTrigger value="payment" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
+                    <CreditCard className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
+                    Payment
                 </TabsTrigger>
             </TabsList>
         )}
 
-        <TabsContent value="enrollments" className="space-y-4 pt-2">
+        <TabsContent value="enrollments" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Manage Enrollments</h3>
             
             {watchedAdultTraineeInfo && watchedAdultTraineeInfo.programId && (
-                <Card className="p-3 mb-3 bg-primary/10 border-primary/30">
+                <Card className="p-3 mb-3 bg-primary/5 border-primary/20">
                      <div className="flex justify-between items-start">
                         <div>
                             <p className="font-semibold text-md text-primary">Your Enrollment (Primary Registrant)</p>
@@ -574,7 +574,7 @@ const EnrollmentForm: React.FC = () => {
                             </p>
                             <p className="text-xs text-muted-foreground">Date of Birth: {watchedAdultTraineeInfo.dateOfBirth ? format(new Date(watchedAdultTraineeInfo.dateOfBirth), "PPP") : 'N/A'}</p>
                         </div>
-                         <Button type="button" variant="ghost" size="sm" onClick={() => { setValue('adultTraineeInfo', undefined); toast({title: "Your Enrollment Removed"});}} className="text-destructive hover:text-destructive/80">
+                         <Button type="button" variant="ghost" size="sm" onClick={() => { setValue('adultTraineeInfo', undefined); toast({title: "Your Enrollment Removed"});}} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
@@ -585,13 +585,13 @@ const EnrollmentForm: React.FC = () => {
                 const enrolledChild = field as unknown as EnrolledChildData;
                 const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
                 return (
-                <Card key={field.id} className="p-3 mb-2">
+                <Card key={field.id} className="p-3 mb-2 bg-background">
                     <div className="flex justify-between items-start">
                     <div>
                         <p className="font-semibold text-md">{enrolledChild.childInfo.childFirstName}</p>
                         <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - ${program?.price.toFixed(2)}</p>
                     </div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(index)} className="text-destructive hover:text-destructive/80">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
                         <Trash2 className="h-4 w-4" />
                     </Button>
                     </div>
@@ -600,8 +600,8 @@ const EnrollmentForm: React.FC = () => {
             })}
             
             {(childFields.length === 0 && (!watchedAdultTraineeInfo || !watchedAdultTraineeInfo.programId)) && (
-                <div className="text-center py-6">
-                    <p className="text-muted-foreground mb-4">No participants added yet. Click below to add an enrollment.</p>
+                <div className="text-center py-4 sm:py-6">
+                    <p className="text-muted-foreground mb-3 sm:mb-4 text-sm">No participants added yet. Click below to add an enrollment.</p>
                 </div>
             )}
 
@@ -610,10 +610,10 @@ const EnrollmentForm: React.FC = () => {
             </Button>
         </TabsContent>
 
-        <TabsContent value="account" className="space-y-4 pt-2">
+        <TabsContent value="account" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Account Information</h3>
             {getValues('parentInfo') && (
-                <Card className="p-4 space-y-2">
+                <Card className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
                     <p><strong>Full Name:</strong> {getValues('parentInfo.parentFullName')}</p>
                     <p><strong>Primary Phone:</strong> {getValues('parentInfo.parentPhone1')}</p>
                     {getValues('parentInfo.parentPhone2') && <p><strong>Secondary Phone:</strong> {getValues('parentInfo.parentPhone2')}</p>}
@@ -622,11 +622,11 @@ const EnrollmentForm: React.FC = () => {
             )}
         </TabsContent>
 
-        <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-2">
+        <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Payment & Verification</h3>
             <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
-                <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
-                <p className="mt-2 sm:mt-4 text-xl sm:text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
+                <h3 className="text-base sm:text-lg font-semibold font-headline text-primary">Payment Summary</h3>
+                <p className="mt-1 sm:mt-2 text-lg sm:text-xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
             </div>
             <div>
                 <Label htmlFor="couponCode">Coupon Code (Optional)</Label>
@@ -636,7 +636,7 @@ const EnrollmentForm: React.FC = () => {
                 </div>
             </div>
             <div>
-                <Label htmlFor="paymentProof.paymentType" className="text-base sm:text-lg">Select Payment Method</Label>
+                <Label htmlFor="paymentProof.paymentType" className="text-sm sm:text-base">Select Payment Method</Label>
                 <Controller
                 name="paymentProof.paymentType"
                 control={control}
@@ -653,7 +653,7 @@ const EnrollmentForm: React.FC = () => {
             </div>
             { (HAFSA_PAYMENT_METHODS.some(pm => pm.value === watchedPaymentType && pm.value !== 'screenshot_ai_verification')) && (
             <div>
-                <Label htmlFor="paymentProof.transactionId" className="text-base sm:text-lg">Transaction ID / Reference</Label>
+                <Label htmlFor="paymentProof.transactionId" className="text-sm sm:text-base">Transaction ID / Reference</Label>
                 <Input id="paymentProof.transactionId" {...formRegister('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
                 {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
                 <p className="text-xs text-muted-foreground mt-1">
@@ -664,7 +664,7 @@ const EnrollmentForm: React.FC = () => {
             )}
              {watchedPaymentType === 'screenshot_ai_verification' && (
               <div>
-                <Label htmlFor="paymentProof.screenshot" className="text-base sm:text-lg">Upload Payment Screenshot</Label>
+                <Label htmlFor="paymentProof.screenshot" className="text-sm sm:text-base">Upload Payment Screenshot</Label>
                 <Input 
                     id="paymentProof.screenshot" 
                     type="file" 
@@ -683,9 +683,9 @@ const EnrollmentForm: React.FC = () => {
                     name="agreeToTerms"
                     control={control}
                     render={({ field }) => (
-                    <div className="flex items-center space-x-2 sm:space-x-3 mt-3">
+                    <div className="flex items-center space-x-2 sm:space-x-3 mt-3 sm:mt-4">
                         <Checkbox id="agreeToTermsDashboard" checked={field.value} onCheckedChange={field.onChange} />
-                        <Label htmlFor="agreeToTermsDashboard" className="text-sm font-normal">I agree to the <a href="/terms" target="_blank" className="text-primary hover:underline">terms and conditions</a> of Hafsa Madrassa.</Label>
+                        <Label htmlFor="agreeToTermsDashboard" className="text-xs sm:text-sm font-normal">I agree to the <a href="/terms" target="_blank" className="text-primary hover:underline">terms and conditions</a> of Hafsa Madrassa.</Label>
                     </div>
                     )}
                 />
@@ -694,41 +694,29 @@ const EnrollmentForm: React.FC = () => {
         </TabsContent>
 
         {isMobile && currentView === 'dashboard' && ( 
-            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-auto">
-                <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-2 rounded-full shadow-xl border border-primary-foreground/20">
-                    <button
-                        onClick={() => setActiveDashboardTab('enrollments')}
-                        className={cn(
-                            "p-3 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
-                            activeDashboardTab === 'enrollments' ? "bg-primary-foreground text-primary scale-110 shadow-md" : "hover:bg-white/20"
-                        )}
-                        aria-label="Manage Enrollments"
-                        type="button"
-                    >
-                        <Users className="h-5 w-5" />
-                    </button>
-                    <button
-                        onClick={() => setActiveDashboardTab('account')}
-                        className={cn(
-                            "p-3 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
-                            activeDashboardTab === 'account' ? "bg-primary-foreground text-primary scale-110 shadow-md" : "hover:bg-white/20"
-                        )}
-                        aria-label="Account Settings"
-                        type="button"
-                    >
-                        <UserCog className="h-5 w-5" />
-                    </button>
-                    <button
-                        onClick={() => setActiveDashboardTab('payment')}
-                        className={cn(
-                            "p-3 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
-                            activeDashboardTab === 'payment' ? "bg-primary-foreground text-primary scale-110 shadow-md" : "hover:bg-white/20"
-                        )}
-                        aria-label="Payment"
-                        type="button"
-                    >
-                        <CreditCard className="h-5 w-5" />
-                    </button>
+            <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 w-auto">
+                <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20">
+                    {[
+                        { value: 'enrollments', label: 'Enroll', icon: Users },
+                        { value: 'account', label: 'Account', icon: UserCog },
+                        { value: 'payment', label: 'Payment', icon: CreditCard },
+                    ].map(tab => (
+                        <button
+                            key={tab.value}
+                            onClick={() => setActiveDashboardTab(tab.value as any)}
+                            className={cn(
+                                "flex flex-col items-center justify-center p-2.5 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-20 h-14",
+                                activeDashboardTab === tab.value 
+                                    ? "bg-primary-foreground text-primary scale-105 shadow-md" 
+                                    : "hover:bg-white/20"
+                            )}
+                            aria-label={tab.label}
+                            type="button"
+                        >
+                            <tab.icon className="h-5 w-5 mb-0.5" />
+                            <span className="text-xs font-medium">{tab.label}</span>
+                        </button>
+                    ))}
                 </div>
             </div>
         )}
@@ -738,19 +726,20 @@ const EnrollmentForm: React.FC = () => {
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+        {/* The main header for the form is removed. The page title from src/app/page.tsx serves this purpose. */}
         <Card className="w-full max-w-2xl mx-auto shadow-xl">
           
-           <CardContent className={cn("min-h-[300px] sm:min-h-[350px] p-4 sm:p-6", isMobile && currentView === 'dashboard' && "pb-24")}>
+           <CardContent className={cn("min-h-[300px] sm:min-h-[350px] p-3 sm:p-6", isMobile && currentView === 'dashboard' && "pb-24")}>
             {currentView === 'accountCreation' && renderAccountCreation()}
             {currentView === 'dashboard' && renderDashboard()}
             {currentView === 'addParticipant' && renderAddParticipant()}
           </CardContent>
 
-          <CardFooter className="flex flex-col sm:flex-row justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
+          <CardFooter className="flex flex-col sm:flex-row justify-between pt-3 sm:pt-4 p-3 sm:p-6 space-y-2 sm:space-y-0">
             {currentView === 'dashboard' && (
                 <>
-                    <Button type="button" variant="outline" onClick={() => setCurrentView('accountCreation')} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-none mt-2 sm:mt-0">
+                    <Button type="button" variant="outline" onClick={() => setCurrentView('accountCreation')} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-first mt-2 sm:mt-0">
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account Details
                     </Button>
                     {activeDashboardTab !== 'payment' ? (
@@ -797,4 +786,3 @@ const EnrollmentForm: React.FC = () => {
 };
 
 export default EnrollmentForm;
-
