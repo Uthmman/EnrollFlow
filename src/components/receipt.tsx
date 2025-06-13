@@ -5,7 +5,7 @@ import React from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Printer, User, Users, BookHeart, Gift } from 'lucide-react';
+import { CheckCircle, Printer, User, Users, BookHeart, Gift, BookUser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RegistrationData } from '@/types';
 import { format } from 'date-fns';
@@ -50,30 +50,45 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
             <p><strong>Registration Date:</strong> {format(new Date(data.registrationDate), "MMMM d, yyyy HH:mm")}</p>
         </div>
 
-        {data.accountHolderType === 'parent' && data.parentInfo && (
+        {/* Primary Registrant Information */}
+        <Separator />
+        <div>
+            <div className="flex items-center mb-2">
+                <User className="h-5 w-5 mr-2 text-primary" />
+                <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Primary Registrant</h3>
+            </div>
+            <div className="pl-7">
+                <p><strong>Name:</strong> {data.parentInfo.parentFullName}</p>
+                <p><strong>Primary Phone:</strong> {data.parentInfo.parentPhone1}</p>
+                {data.parentInfo.parentPhone2 && <p><strong>Secondary Phone:</strong> {data.parentInfo.parentPhone2}</p>}
+                <p><strong>Telegram Phone:</strong> {data.parentInfo.telegramPhoneNumber}</p>
+            </div>
+        </div>
+
+        {/* Adult Trainee Program (if primary registrant enrolled themselves) */}
+        {data.adultTraineeInfo && data.adultTraineeInfo.programId && (
+        <>
+            <Separator />
+            <div>
+                <div className="flex items-center mb-2">
+                    <BookUser className="h-5 w-5 mr-2 text-primary" />
+                    <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Adult Program Enrollment (Self)</h3>
+                </div>
+                <div className="pl-7">
+                    <p><strong>Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === data.adultTraineeInfo!.programId)?.label || 'N/A'}</p>
+                    <p><strong>Date of Birth:</strong> {format(new Date(data.adultTraineeInfo.dateOfBirth), "MMMM d, yyyy")}</p>
+                </div>
+            </div>
+        </>
+        )}
+        
+        {/* Enrolled Children */}
+        {data.children && data.children.length > 0 && (
         <>
             <Separator />
             <div>
                 <div className="flex items-center mb-2">
                     <Users className="h-5 w-5 mr-2 text-primary" />
-                    <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Parent/Guardian Information</h3>
-                </div>
-                <div className="pl-7">
-                    <p><strong>Name:</strong> {data.parentInfo.parentFullName}</p>
-                    <p><strong>Primary Phone:</strong> {data.parentInfo.parentPhone1}</p>
-                    {data.parentInfo.parentPhone2 && <p><strong>Secondary Phone:</strong> {data.parentInfo.parentPhone2}</p>}
-                    <p><strong>Telegram Phone:</strong> {data.parentInfo.telegramPhoneNumber}</p>
-                </div>
-            </div>
-        </>
-        )}
-
-        {data.accountHolderType === 'parent' && data.children && data.children.length > 0 && (
-        <>
-            <Separator />
-            <div>
-                <div className="flex items-center mb-2">
-                    <User className="h-5 w-5 mr-2 text-primary" />
                     <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Enrolled Children</h3>
                 </div>
                 {data.children.map((enrolledChild, index) => {
@@ -95,26 +110,6 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
                         </div>
                     );
                 })}
-            </div>
-        </>
-        )}
-
-        {data.accountHolderType === 'adult_trainee' && data.adultTraineeInfo && (
-        <>
-            <Separator />
-            <div>
-                <div className="flex items-center mb-2">
-                    <User className="h-5 w-5 mr-2 text-primary" />
-                    <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Trainee Information</h3>
-                </div>
-                <div className="pl-7">
-                    <p><strong>Name:</strong> {data.adultTraineeInfo.traineeFullName}</p>
-                    <p><strong>Date of Birth:</strong> {format(new Date(data.adultTraineeInfo.dateOfBirth), "MMMM d, yyyy")}</p>
-                    <p><strong>Primary Phone:</strong> {data.adultTraineeInfo.phone1}</p>
-                    {data.adultTraineeInfo.phone2 && <p><strong>Secondary Phone:</strong> {data.adultTraineeInfo.phone2}</p>}
-                    <p><strong>Telegram Phone:</strong> {data.adultTraineeInfo.telegramPhoneNumber}</p>
-                    <p><strong>Registered Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === data.adultTraineeInfo!.programId)?.label || 'N/A'}</p>
-                </div>
             </div>
         </>
         )}
@@ -160,4 +155,3 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
 };
 
 export default Receipt;
-
