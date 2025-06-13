@@ -1,6 +1,5 @@
 
 import { z } from 'zod';
-import { HAFSA_PROGRAMS, SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
 
 const phoneRegex = /^[0-9]{9,15}$/;
 
@@ -30,30 +29,44 @@ export const EnrolledParticipantSchema = z.object({
 });
 export type EnrolledParticipantData = z.infer<typeof EnrolledParticipantSchema>;
 
-// AdultTraineeSchema is no longer used directly in EnrollmentFormSchema for self-enrollment
-// as that logic is now part of the unified ParticipantInfoSchema.
-// It might be useful if you had a very distinct adult-only registration path elsewhere,
-// but for now, it's not directly part of the main enrollment form's primary data structure.
-export const AdultTraineeSchema = z.object({
-  dateOfBirth: z.date({ required_error: "Trainee's date of birth is required." }),
-  programId: z.string().min(1, "Program selection is required for the trainee."),
-});
-export type AdultTraineeData = z.infer<typeof AdultTraineeSchema>;
-
-
 export const PaymentProofSchema = z.object({
-  paymentType: z.string().min(1, "Payment proof method is required."),
+  paymentType: z.string().min(1, "Payment method is required."), // This is the bank selected
+  proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
+    required_error: "Proof submission method is required.",
+  }),
   screenshot: z.custom<File>((val) => val instanceof File, "Screenshot file is required.").optional(),
   screenshotDataUri: z.string().optional(),
-  pdfLink: z.string().url("Invalid URL for PDF link.").optional(),
-  transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional(),
+  pdfLink: z.string().url("Invalid URL for PDF link.").optional().or(z.literal('')),
+  transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional().or(z.literal('')),
+}).superRefine((data, ctx) => {
+  if (data.proofSubmissionType === 'transactionId' && (!data.transactionId || data.transactionId.length < 3)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['transactionId'],
+      message: 'Transaction ID is required and must be at least 3 characters.',
+    });
+  }
+  if (data.proofSubmissionType === 'screenshot' && !data.screenshot) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['screenshot'],
+      message: 'Screenshot is required for this proof type.',
+    });
+  }
+  if (data.proofSubmissionType === 'pdfLink' && (!data.pdfLink || (!data.pdfLink.startsWith('http://') && !data.pdfLink.startsWith('https://')))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['pdfLink'],
+      message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.',
+    });
+  }
 });
 export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
   parentInfo: ParentInfoSchema,
-  participants: z.array(EnrolledParticipantSchema).optional().default([]),
+  participants: z.array(EnrolledParticipantSchema).min(1,"At least one participant must be enrolled.").optional().default([]),
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
@@ -68,20 +81,25 @@ export const EnrollmentFormSchema = z.object({
             message: 'Primary registrant information is required.',
         });
     }
-    // Validation if no participants are added before proceeding to payment can be handled in UI or onSubmit
+    if (data.participants.length > 0 && !data.paymentProof) {
+       ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['paymentProof.paymentType'], // Point to a field within paymentProof
+            message: 'Payment information is required when participants are enrolled.',
+        });
+    }
 });
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
 export type RegistrationData = {
   parentInfo: ParentInfoData;
-  participants?: EnrolledParticipantData[];
+  participants: EnrolledParticipantData[]; // Made non-optional as form validation ensures at least one
   agreeToTerms: boolean;
   couponCode?: string;
-  paymentProof: PaymentProofData;
+  paymentProof: PaymentProofData; // Made non-optional as form validation ensures it if participants exist
   calculatedPrice: number;
   paymentVerified: boolean;
   paymentVerificationDetails?: any;
   registrationDate: Date;
 };
-

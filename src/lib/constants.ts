@@ -13,7 +13,6 @@ export type HafsaProgram = {
   ageRange?: string;
   duration?: string;
   schedule?: string;
-  requiresParentInfo: boolean; 
   isChildProgram: boolean; 
   specificFields?: ProgramField[]; 
   termsLink?: string; 
@@ -30,7 +29,6 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     price: 100, 
     category: 'daycare',
     ageRange: '6 months+',
-    requiresParentInfo: true,
     isChildProgram: true,
     specificFields: [
       { type: 'text', name: 'specialAttention', label: 'Special Attention (e.g., allergies, headaches, specific needs)' }
@@ -45,7 +43,6 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     ageRange: '4-15 years',
     duration: '2 months',
     schedule: '5 days/week',
-    requiresParentInfo: true,
     isChildProgram: true,
     specificFields: [
       { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES },
@@ -60,7 +57,6 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     category: 'quran_kids',
     ageRange: '5-18 years',
     schedule: 'Daily, After Asr to Maghrib',
-    requiresParentInfo: true,
     isChildProgram: true,
     specificFields: [
       { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES }, 
@@ -75,8 +71,7 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     category: 'arabic_women',
     schedule: '5 days/week, After Asr to Maghrib',
     duration: '2 months',
-    requiresParentInfo: false, 
-    isChildProgram: false,
+    isChildProgram: false, // Adult program
   },
   { 
     id: 'arabic_adult_women', 
@@ -87,8 +82,7 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     ageRange: '15+',
     schedule: '5 days/week, Dhuhr to Asr',
     duration: '2 months',
-    requiresParentInfo: false, 
-    isChildProgram: false,
+    isChildProgram: false, // Adult program
   },
 ];
 
@@ -147,10 +141,6 @@ export const HAFSA_PAYMENT_METHODS: HafsaPaymentMethod[] = [
         accountName: 'Hafsa Madrassa',
         accountNumber: '5550001112223',
         additionalInstructions: 'You can use their mobile app or visit a branch.'
-    },
-    {
-        value: 'screenshot_ai_verification',
-        label: 'Screenshot (AI Verification)'
     }
 ];
 

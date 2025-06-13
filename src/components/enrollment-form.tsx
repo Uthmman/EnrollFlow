@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format } from "date-fns";
@@ -26,7 +27,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS, HafsaPaymentMethod } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
-import { EnrollmentFormSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types'; // Renamed to avoid conflict
+import { EnrollmentFormSchema, ParticipantInfoSchema as RHFParticipantInfoSchema, ParentInfoSchema as RHFParentInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -51,17 +52,32 @@ const defaultParticipantValues: ParticipantInfoData = {
 
 
 const ParentInfoFields: React.FC = () => {
-  const { control, register, formState: { errors }, watch, setValue } = useFormContext<EnrollmentFormData>();
-  const fieldPrefix = 'parentInfo';
-  const currentErrors = errors.parentInfo || {};
+  const { control, register, formState: { errors }, watch, setValue } = useForm<ParentInfoData>({
+    resolver: zodResolver(RHFParentInfoSchema),
+    defaultValues: defaultParentValues
+  });
   
-  const phone1 = watch(`${fieldPrefix}.parentPhone1`);
-  const phone2 = watch(`${fieldPrefix}.parentPhone2`);
+  const fieldPrefix = ''; 
+  const currentErrors = errors || {};
+  
+  const phone1 = watch(`parentPhone1`);
+  const phone2 = watch(`parentPhone2`);
   const title = "Primary Registrant Information";
   const nameLabel = "Full Name";
   const nameField = "parentFullName";
   const phone1Field = "parentPhone1";
   const phone2Field = "parentPhone2";
+
+  const mainFormSetValue = useFormContext<EnrollmentFormData>().setValue;
+  useEffect(() => {
+    const subscription = watch((value, { name }) => {
+      if (name) {
+        mainFormSetValue(`parentInfo.${name as keyof ParentInfoData}` as any, value[name as keyof ParentInfoData] as any);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, mainFormSetValue]);
+
 
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-primary/20 border">
@@ -73,47 +89,47 @@ const ParentInfoFields: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <div>
-          <Label htmlFor={`${fieldPrefix}.${nameField}`}>{nameLabel}</Label>
-          <Input id={`${fieldPrefix}.${nameField}`} {...register(`${fieldPrefix}.${nameField}` as any)} placeholder={nameLabel} />
+          <Label htmlFor={nameField}>{nameLabel}</Label>
+          <Input id={nameField} {...register(nameField as any)} placeholder={nameLabel} />
           {(currentErrors as any)[nameField] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[nameField].message}</p>}
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <Label htmlFor={`${fieldPrefix}.${phone1Field}`}>Primary Phone Number</Label>
-            <Input id={`${fieldPrefix}.${phone1Field}`} {...register(`${fieldPrefix}.${phone1Field}` as any)} type="tel" placeholder="e.g., 0911XXXXXX" />
+            <Label htmlFor={phone1Field}>Primary Phone Number</Label>
+            <Input id={phone1Field} {...register(phone1Field as any)} type="tel" placeholder="e.g., 0911XXXXXX" />
             {(currentErrors as any)[phone1Field] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[phone1Field].message}</p>}
           </div>
           <div>
-            <Label htmlFor={`${fieldPrefix}.${phone2Field}`}>Secondary Phone Number (Optional)</Label>
-            <Input id={`${fieldPrefix}.${phone2Field}`} {...register(`${fieldPrefix}.${phone2Field}` as any)} type="tel" placeholder="e.g., 0912XXXXXX" />
+            <Label htmlFor={phone2Field}>Secondary Phone Number (Optional)</Label>
+            <Input id={phone2Field} {...register(phone2Field as any)} type="tel" placeholder="e.g., 0912XXXXXX" />
             {(currentErrors as any)[phone2Field] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[phone2Field].message}</p>}
           </div>
         </div>
         <div>
-          <Label htmlFor={`${fieldPrefix}.telegramPhoneNumber`}>Telegram Phone Number</Label>
-          <Input id={`${fieldPrefix}.telegramPhoneNumber`} {...register(`${fieldPrefix}.telegramPhoneNumber` as any)} type="tel" placeholder="For Telegram updates" />
+          <Label htmlFor={'telegramPhoneNumber'}>Telegram Phone Number</Label>
+          <Input id={'telegramPhoneNumber'} {...register('telegramPhoneNumber' as any)} type="tel" placeholder="For Telegram updates" />
           {(currentErrors as any).telegramPhoneNumber && <p className="text-sm text-destructive mt-1">{(currentErrors as any).telegramPhoneNumber.message}</p>}
           <div className="mt-2 space-y-1 text-sm">
-            <Controller name={`${fieldPrefix}.usePhone1ForTelegram` as any} control={control} render={({field}) => (
+            <Controller name={`usePhone1ForTelegram` as any} control={control} render={({field}) => (
                 <div className="flex items-center gap-2">
-                    <Checkbox id={`${fieldPrefix}UsePhone1`} checked={field.value} onCheckedChange={(checked) => {
+                    <Checkbox id={`usePhone1ForTelegram`} checked={field.value} onCheckedChange={(checked) => {
                         field.onChange(checked);
-                        if (checked && phone1) setValue(`${fieldPrefix}.telegramPhoneNumber` as any, phone1);
-                        if (checked) setValue(`${fieldPrefix}.usePhone2ForTelegram` as any, false);
+                        if (checked && phone1) setValue(`telegramPhoneNumber` as any, phone1);
+                        if (checked) setValue(`usePhone2ForTelegram` as any, false);
                     }} disabled={!phone1}/>
-                    <Label htmlFor={`${fieldPrefix}UsePhone1`} className="font-normal">Use Primary Phone for Telegram</Label>
+                    <Label htmlFor={`usePhone1ForTelegram`} className="font-normal">Use Primary Phone for Telegram</Label>
                 </div>
             )}/>
             {phone2 && 
-            <Controller name={`${fieldPrefix}.usePhone2ForTelegram` as any} control={control} render={({field}) => (
+            <Controller name={`usePhone2ForTelegram` as any} control={control} render={({field}) => (
                  <div className="flex items-center gap-2">
-                    <Checkbox id={`${fieldPrefix}UsePhone2`} checked={field.value} onCheckedChange={(checked) => {
+                    <Checkbox id={`usePhone2ForTelegram`} checked={field.value} onCheckedChange={(checked) => {
                         field.onChange(checked);
-                        if (checked && phone2) setValue(`${fieldPrefix}.telegramPhoneNumber` as any, phone2);
-                        if (checked) setValue(`${fieldPrefix}.usePhone1ForTelegram` as any, false);
+                        if (checked && phone2) setValue(`telegramPhoneNumber` as any, phone2);
+                        if (checked) setValue(`usePhone1ForTelegram` as any, false);
                     }} disabled={!phone2}/>
-                    <Label htmlFor={`${fieldPrefix}UsePhone2`} className="font-normal">Use Secondary Phone for Telegram</Label>
+                    <Label htmlFor={`usePhone2ForTelegram`} className="font-normal">Use Secondary Phone for Telegram</Label>
                 </div>
             )}/>}
           </div>
@@ -144,7 +160,7 @@ const ParticipantDetailFields: React.FC<{
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline">Add Participant for {selectedProgramLabel || "Program"}</CardTitle>
+        <CardTitle className="text-lg sm:text-xl font-headline">Add Details for {selectedProgramLabel || "Program"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <div>
@@ -250,12 +266,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       participants: [],
       agreeToTerms: false,
       couponCode: '',
-      paymentProof: { paymentType: HAFSA_PAYMENT_METHODS[0]?.value || '' },
+      paymentProof: { paymentType: HAFSA_PAYMENT_METHODS[0]?.value || '', proofSubmissionType: 'transactionId' },
     },
   });
 
   const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register } = methods;
-
 
   const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
     control,
@@ -264,9 +279,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   
   const watchedParticipants = watch('participants');
   const watchedPaymentType = watch('paymentProof.paymentType');
+  const watchedProofSubmissionType = watch('paymentProof.proofSubmissionType');
 
-
- useEffect(() => {
+  useEffect(() => {
     let total = 0;
     if (watchedParticipants) {
       watchedParticipants.forEach(enrolledParticipant => {
@@ -279,17 +294,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setCalculatedPrice(total);
   }, [watchedParticipants]);
 
-
   const handleAccountCreation = async () => {
     const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentPhone1', 'telegramPhoneNumber'];
-    
-    const isValid = await trigger(fieldsToValidate.map(f => `parentInfo.${f}` as const));
+    const mainFormTrigger = methods.trigger;
+    const isValid = await mainFormTrigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
+
     if (isValid) {
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
         onStageChange('accountCreated'); 
     } else {
-      toast({ title: "Validation Error", description: "Please check your entries and try again.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Please check your entries in Primary Registrant Information and try again.", variant: "destructive" });
     }
   };
 
@@ -316,8 +331,23 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const onSubmit = async (data: EnrollmentFormData) => {
     setIsLoading(true);
     try {
+      if (data.participants && data.participants.length > 0 && !data.paymentProof) {
+        toast({ title: "Payment Information Missing", description: "Please provide payment details.", variant: "destructive" });
+        setIsLoading(false);
+        setActiveDashboardTab('payment'); 
+        return;
+      }
+      
+      if (data.paymentProof && !data.paymentProof.proofSubmissionType) {
+        toast({ title: "Proof Submission Missing", description: "Please select how you will provide payment proof.", variant: "destructive" });
+        setIsLoading(false);
+        setActiveDashboardTab('payment');
+        await trigger('paymentProof.proofSubmissionType');
+        return;
+      }
+
       let screenshotDataUri: string | undefined;
-      if (data.paymentProof?.paymentType === 'screenshot_ai_verification' && data.paymentProof?.screenshot) {
+      if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshot) {
         screenshotDataUri = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
@@ -329,12 +359,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       }
       
       const verificationInput = {
-        paymentProof: {
-          paymentType: data.paymentProof!.paymentType,
-          screenshotDataUri: data.paymentProof!.screenshotDataUri,
-          pdfLink: data.paymentProof!.pdfLink,
-          transactionId: data.paymentProof!.transactionId,
-        },
+        paymentProof: data.paymentProof!, 
         expectedAmount: calculatedPrice,
       };
 
@@ -350,7 +375,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         
         const finalRegistrationData: RegistrationData = {
           parentInfo: data.parentInfo,
-          participants: data.participants,
+          participants: data.participants || [],
           agreeToTerms: data.agreeToTerms,
           couponCode: data.couponCode,
           paymentProof: data.paymentProof!,
@@ -368,11 +393,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Submission error:", error);
+      const errorMessage = error.message || "An unexpected error occurred. Please try again.";
+      if (error.issues) { 
+        errorMessage.concat(error.issues.map((issue: any) => issue.message).join(' '));
+      }
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -562,7 +591,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                  {errors.couponCode && <p className="text-sm text-destructive mt-1">{errors.couponCode.message}</p>}
             </div>
             <div>
-                <Label htmlFor="paymentProof.paymentType" className="text-sm sm:text-base">Select Payment Method</Label>
+                <Label htmlFor="paymentProof.paymentType" className="text-sm sm:text-base">Select Payment Method (Bank)</Label>
                 <Controller
                 name="paymentProof.paymentType"
                 control={control}
@@ -586,20 +615,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             <Image 
                                 src={selectedMethodDetails.logoPlaceholder} 
                                 alt={`${selectedMethodDetails.label} logo`} 
-                                width={40} 
-                                height={40} 
+                                width={24} 
+                                height={24} 
                                 data-ai-hint={selectedMethodDetails.dataAiHint || 'bank logo'} 
-                                className="rounded h-8 w-8 sm:h-10 sm:w-10 object-contain"
+                                className="rounded h-6 w-6 object-contain"
                             />
                         )}
-                        <CardTitle className="text-md sm:text-lg text-primary">{selectedMethodDetails.label} Details</CardTitle>
+                        <CardTitle className="text-md text-primary">{selectedMethodDetails.label}</CardTitle>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-1 sm:space-y-1.5 p-0 text-xs sm:text-sm">
-                        {selectedMethodDetails.accountName && <p><strong>Account Name:</strong> {selectedMethodDetails.accountName}</p>}
+                    <CardContent className="space-y-1.5 p-0 text-xs sm:text-sm">
+                        {selectedMethodDetails.accountName && <p><span className="font-medium">Account Name:</span> {selectedMethodDetails.accountName}</p>}
                         {selectedMethodDetails.accountNumber && (
                         <div className="flex items-center justify-between">
-                            <p><strong>Account Number:</strong> <span className="font-mono">{selectedMethodDetails.accountNumber}</span></p>
+                            <p><span className="font-medium">Account Number:</span> <span className="font-bold font-mono">{selectedMethodDetails.accountNumber}</span></p>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -612,41 +641,79 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                     toast({ title: "Failed to copy", description: "Could not copy account number.", variant: "destructive" });
                                     }
                                 }}
-                                className="p-1.5 h-auto text-xs"
+                                className="p-1 h-auto text-xs"
                             >
-                                <Copy className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" /> Copy
+                                <Copy className="mr-1 h-3 w-3" /> Copy
                             </Button>
                         </div>
                         )}
-                        {selectedMethodDetails.additionalInstructions && <p className="text-muted-foreground italic mt-1">{selectedMethodDetails.additionalInstructions}</p>}
+                        {selectedMethodDetails.additionalInstructions && <p className="text-muted-foreground italic mt-1 text-xs">{selectedMethodDetails.additionalInstructions}</p>}
                     </CardContent>
                  </Card>
             )}
             
-            { selectedMethodDetails && selectedMethodDetails.accountNumber && (
-            <div>
-                <Label htmlFor="paymentProof.transactionId" className="text-sm sm:text-base">Transaction ID / Reference</Label>
-                <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
-                {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
-            </div>
-            )}
-
-             {watchedPaymentType === 'screenshot_ai_verification' && (
-              <div>
-                <Label htmlFor="paymentProof.screenshot" className="text-sm sm:text-base">Upload Payment Screenshot</Label>
-                <Input 
-                    id="paymentProof.screenshot" 
-                    type="file" 
-                    accept="image/*" 
-                    className="mt-1"
-                    {...register('paymentProof.screenshot')}
+            {watchedPaymentType && (
+              <div className="mt-4 space-y-3">
+                <Label className="text-sm sm:text-base">Proof Submission Method</Label>
+                <Controller
+                  name="paymentProof.proofSubmissionType"
+                  control={control}
+                  render={({ field }) => (
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="flex flex-col sm:flex-row gap-2 sm:gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="transactionId" id="proofTransactionId" />
+                        <Label htmlFor="proofTransactionId" className="font-normal">Transaction ID / Reference</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="screenshot" id="proofScreenshot" />
+                        <Label htmlFor="proofScreenshot" className="font-normal">Upload Screenshot</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="pdfLink" id="proofPdfLink" />
+                        <Label htmlFor="proofPdfLink" className="font-normal">Provide PDF Link</Label>
+                      </div>
+                    </RadioGroup>
+                  )}
                 />
-                {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{(errors.paymentProof.screenshot as any).message}</p>}
-                 <p className="text-xs text-muted-foreground mt-1">
-                    Upload a clear screenshot of your payment receipt for AI verification.
-                </p>
+                {errors.paymentProof?.proofSubmissionType && <p className="text-sm text-destructive mt-1">{errors.paymentProof.proofSubmissionType.message}</p>}
+
+                {watchedProofSubmissionType === 'transactionId' && (
+                  <div>
+                    <Label htmlFor="paymentProof.transactionId" className="text-sm">Enter Transaction ID / Reference</Label>
+                    <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="e.g., TRN123456789"/>
+                    {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
+                  </div>
+                )}
+                {watchedProofSubmissionType === 'screenshot' && (
+                  <div>
+                    <Label htmlFor="paymentProof.screenshot" className="text-sm">Upload Payment Screenshot</Label>
+                    <Input 
+                        id="paymentProof.screenshot" 
+                        type="file" 
+                        accept="image/*" 
+                        className="mt-1"
+                        {...register('paymentProof.screenshot')}
+                    />
+                    {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{(errors.paymentProof.screenshot as any).message}</p>}
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Upload a clear screenshot of your payment receipt for AI verification.
+                    </p>
+                  </div>
+                )}
+                {watchedProofSubmissionType === 'pdfLink' && (
+                  <div>
+                    <Label htmlFor="paymentProof.pdfLink" className="text-sm">Enter PDF Link to Receipt</Label>
+                    <Input id="paymentProof.pdfLink" {...register('paymentProof.pdfLink')} className="mt-1 text-xs sm:text-sm" placeholder="https://example.com/receipt.pdf"/>
+                    {errors.paymentProof?.pdfLink && <p className="text-sm text-destructive mt-1">{errors.paymentProof.pdfLink.message}</p>}
+                  </div>
+                )}
               </div>
             )}
+
              <div>
                 <Controller
                     name="agreeToTerms"
@@ -663,7 +730,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         </TabsContent>
 
         {isMobile && currentView === 'dashboard' && ( 
-            <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 w-auto">
+             <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 w-auto">
                 <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20">
                     {[
                         { value: 'enrollments', label: 'Enroll', icon: Users },
@@ -674,7 +741,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             key={tab.value}
                             onClick={() => setActiveDashboardTab(tab.value as DashboardTab)}
                             className={cn(
-                                "flex flex-col items-center justify-center p-2.5 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-20", 
+                                "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-auto", 
                                 activeDashboardTab === tab.value 
                                     ? "bg-primary-foreground text-primary scale-105 shadow-md" 
                                     : "hover:bg-white/20"
@@ -705,38 +772,31 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             {currentView === 'addParticipant' && renderAddParticipant()}
           </CardContent>
 
-          {currentView !== 'accountCreation' && currentView !== 'addParticipant' && (
-            <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-3 sm:pt-4 p-3 sm:p-6 gap-y-2 sm:gap-y-0">
-                {currentView === 'dashboard' && (
-                    <>
-                        <Button type="button" variant="outline" onClick={() => { setCurrentView('accountCreation'); onStageChange('initial');}} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-first mt-2 sm:mt-0">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account Details
-                        </Button>
-                        {activeDashboardTab !== 'payment' ? (
-                            <Button 
-                                type="button" 
-                                onClick={() => {
-                                    if (participantFields.length === 0 ) {
-                                        toast({title: "No Enrollments", description: "Please add at least one participant before proceeding to payment.", variant: "destructive"});
-                                        return;
-                                    }
-                                    setActiveDashboardTab('payment')
-                                }} 
-                                disabled={isLoading || (participantFields.length === 0)} 
-                                className="w-full sm:ml-auto sm:w-auto"
-                            >
-                                Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
-                            </Button>
-                        ) : (
-                            <Button type="submit" 
-                                disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0} 
-                                className="w-full sm:ml-auto sm:w-auto"
-                            >
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                                Submit Registration (${calculatedPrice.toFixed(2)})
-                            </Button>
-                        )}
-                    </>
+          {currentView === 'dashboard' && (
+            <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-3 sm:pt-4 p-3 sm:p-6 gap-y-2 sm:gap-y-0">
+                {activeDashboardTab !== 'payment' ? (
+                    <Button 
+                        type="button" 
+                        onClick={() => {
+                            if (participantFields.length === 0 ) {
+                                toast({title: "No Enrollments", description: "Please add at least one participant before proceeding to payment.", variant: "destructive"});
+                                return;
+                            }
+                            setActiveDashboardTab('payment')
+                        }} 
+                        disabled={isLoading || (participantFields.length === 0)} 
+                        className="w-full sm:ml-auto sm:w-auto"
+                    >
+                        Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                ) : (
+                    <Button type="submit" 
+                        disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType')} 
+                        className="w-full sm:ml-auto sm:w-auto"
+                    >
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                        Submit Registration (${calculatedPrice.toFixed(2)})
+                    </Button>
                 )}
             </CardFooter>
           )}
@@ -766,3 +826,5 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+
+    
