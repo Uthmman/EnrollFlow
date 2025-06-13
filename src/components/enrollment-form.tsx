@@ -23,11 +23,11 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
-import AppHeader from '@/components/app-header';
+// AppHeader is no longer imported or used here
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
-import { EnrollmentFormSchema } from '@/types'; // ParticipantInfoSchema is used internally by RHF
+import { EnrollmentFormSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types'; // Renamed to avoid conflict
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -44,7 +44,7 @@ const defaultParentValues: ParentInfoData = {
 const defaultParticipantValues: ParticipantInfoData = {
   firstName: '',
   gender: 'male' as 'male' | 'female',
-  dateOfBirth: undefined as any,
+  dateOfBirth: undefined as any, 
   specialAttention: '',
   schoolGrade: '',
   quranLevel: '',
@@ -133,7 +133,7 @@ const ParticipantDetailFields: React.FC<{
 }> = ({ programSpecificFields, onSave, onCancel, isLoading, selectedProgramLabel }) => {
   
   const { control, register, handleSubmit: handleParticipantSubmit, formState: { errors: participantErrors }, reset: resetParticipantForm } = useForm<ParticipantInfoData>({
-    resolver: zodResolver(ParticipantInfoSchema), 
+    resolver: zodResolver(RHFParticipantInfoSchema), 
     defaultValues: defaultParticipantValues, 
   });
 
@@ -225,8 +225,13 @@ const ParticipantDetailFields: React.FC<{
   );
 };
 
+interface EnrollmentFormProps {
+  onStageChange: (stage: 'initial' | 'accountCreated') => void;
+  showAccountDialogFromParent: boolean;
+  onCloseAccountDialog: () => void;
+}
 
-const EnrollmentForm: React.FC = () => {
+const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAccountDialogFromParent, onCloseAccountDialog }) => {
   const [currentView, setCurrentView] = useState<'accountCreation' | 'dashboard' | 'addParticipant' | 'confirmation'>('accountCreation');
   const [activeDashboardTab, setActiveDashboardTab] = useState<'enrollments' | 'payment'>('enrollments');
   const [isLoading, setIsLoading] = useState(false);
@@ -235,9 +240,7 @@ const EnrollmentForm: React.FC = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
-  const [showAccountDialog, setShowAccountDialog] = useState(false);
-
-
+  
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
     defaultValues: {
@@ -282,6 +285,7 @@ const EnrollmentForm: React.FC = () => {
     if (isValid) {
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
+        onStageChange('accountCreated'); // Notify parent component
     } else {
       toast({ title: "Validation Error", description: "Please check your entries and try again.", variant: "destructive" });
     }
@@ -575,6 +579,7 @@ const EnrollmentForm: React.FC = () => {
                 <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20">
                     {[
                         { value: 'enrollments', label: 'Enroll', icon: Users },
+                        // { value: 'account', label: 'Account', icon: UserCog }, // Account tab removed for mobile
                         { value: 'payment', label: 'Payment', icon: CreditCard },
                     ].map(tab => (
                         <button
@@ -603,7 +608,7 @@ const EnrollmentForm: React.FC = () => {
 
   return (
     <FormProvider {...methods}>
-      <AppHeader onAccountClick={() => setShowAccountDialog(true)} />
+      {/* AppHeader is no longer rendered here */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl border-none sm:border sm:rounded-lg">
           
@@ -617,7 +622,7 @@ const EnrollmentForm: React.FC = () => {
             <CardFooter className="flex flex-col sm:flex-row justify-between pt-3 sm:pt-4 p-3 sm:p-6 space-y-2 sm:space-y-0">
                 {currentView === 'dashboard' && (
                     <>
-                        <Button type="button" variant="outline" onClick={() => setCurrentView('accountCreation')} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-first mt-2 sm:mt-0">
+                        <Button type="button" variant="outline" onClick={() => { setCurrentView('accountCreation'); onStageChange('initial');}} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-first mt-2 sm:mt-0">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account Details
                         </Button>
                         {activeDashboardTab !== 'payment' ? (
@@ -650,7 +655,7 @@ const EnrollmentForm: React.FC = () => {
           )}
         </Card>
       </form>
-       <Dialog open={showAccountDialog} onOpenChange={setShowAccountDialog}>
+       <Dialog open={showAccountDialogFromParent} onOpenChange={onCloseAccountDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>Account Information</DialogTitle>
@@ -666,7 +671,7 @@ const EnrollmentForm: React.FC = () => {
               <p><strong>Telegram Phone:</strong> {parentInfoForDialog.telegramPhoneNumber}</p>
             </div>
           )}
-          <Button onClick={() => setShowAccountDialog(false)} className="mt-2 w-full">Close</Button>
+          <Button onClick={onCloseAccountDialog} className="mt-2 w-full">Close</Button>
         </DialogContent>
       </Dialog>
     </FormProvider>

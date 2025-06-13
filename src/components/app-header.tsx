@@ -13,10 +13,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface AppHeaderProps {
+  showAccountIcon: boolean;
   onAccountClick?: () => void;
 }
 
-const AppHeader: FC<AppHeaderProps> = ({ onAccountClick }) => {
+const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick }) => {
   return (
     <header className="flex items-center justify-between p-3 sm:p-4 border-b bg-card sticky top-0 z-40 w-full">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -52,9 +53,11 @@ const AppHeader: FC<AppHeaderProps> = ({ onAccountClick }) => {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="icon" onClick={onAccountClick} aria-label="Account settings">
-          <UserCog className="h-5 w-5" />
-        </Button>
+        {showAccountIcon && (
+          <Button variant="ghost" size="icon" onClick={onAccountClick} aria-label="Account settings">
+            <UserCog className="h-5 w-5" />
+          </Button>
+        )}
       </div>
     </header>
   );
