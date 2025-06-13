@@ -163,82 +163,83 @@ const ChildParticipantFields: React.FC<{
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
         <CardTitle className="text-lg sm:text-xl font-headline">Add New Child</CardTitle>
       </CardHeader>
-      <form onSubmit={handleChildSubmit(actualOnSave)}>
-        <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
-          <div>
-            <Label htmlFor={`childInfo.childFirstName`}>First Name</Label>
-            <Input id={`childInfo.childFirstName`} {...register(`childFirstName`)} placeholder="Child's First Name" />
-            {childErrors.childFirstName && <p className="text-sm text-destructive mt-1">{childErrors.childFirstName.message}</p>}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                  <Label htmlFor={`childInfo.gender`}>Gender</Label>
-                  <Controller
-                      name={`gender`}
-                      control={control}
-                      render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                          <SelectTrigger id={`childInfo.gender`}><SelectValue placeholder="Select gender" /></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="male">Male</SelectItem>
-                              <SelectItem value="female">Female</SelectItem>
-                          </SelectContent>
-                      </Select>
-                      )}
-                  />
-                  {childErrors.gender && <p className="text-sm text-destructive mt-1">{childErrors.gender.message}</p>}
-              </div>
-              <div>
-                  <Label htmlFor={`childInfo.dateOfBirth`}>Date of Birth</Label>
-                  <Controller
-                      name={`dateOfBirth`}
-                      control={control}
-                      render={({ field }) => (
-                      <Popover>
-                          <PopoverTrigger asChild>
-                          <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
-                          </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" selected={field.value ? new Date(field.value): undefined} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("2000-01-01")} />
-                          </PopoverContent>
-                      </Popover>
-                      )}
-                  />
-                  {childErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{childErrors.dateOfBirth.message}</p>}
-              </div>
-          </div>
-          {programSpecificFields?.map(fieldInfo => (
-            <div key={fieldInfo.name}>
-              <Label htmlFor={`childInfo.${fieldInfo.name}`}>{fieldInfo.label}</Label>
-              {fieldInfo.type === 'text' && (
-                <Textarea id={`childInfo.${fieldInfo.name}`} {...register(fieldInfo.name as any)} placeholder={fieldInfo.label} />
-              )}
-              {fieldInfo.type === 'select' && (
+      {/* Removed nested <form> tag here */}
+      <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
+        <div>
+          <Label htmlFor={`childInfo.childFirstName`}>First Name</Label>
+          <Input id={`childInfo.childFirstName`} {...register(`childFirstName`)} placeholder="Child's First Name" />
+          {childErrors.childFirstName && <p className="text-sm text-destructive mt-1">{childErrors.childFirstName.message}</p>}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <Label htmlFor={`childInfo.gender`}>Gender</Label>
                 <Controller
-                  name={fieldInfo.name as any}
-                  control={control}
-                  render={({ field }) => (
+                    name={`gender`}
+                    control={control}
+                    render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger id={`childInfo.${fieldInfo.name}`}><SelectValue placeholder={`Select ${fieldInfo.label.toLowerCase()}`} /></SelectTrigger>
-                      <SelectContent>{fieldInfo.options?.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                        <SelectTrigger id={`childInfo.gender`}><SelectValue placeholder="Select gender" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
                     </Select>
-                  )}
+                    )}
                 />
-              )}
-              {(childErrors as any)[fieldInfo.name] && <p className="text-sm text-destructive mt-1">{(childErrors as any)[fieldInfo.name].message}</p>}
+                {childErrors.gender && <p className="text-sm text-destructive mt-1">{childErrors.gender.message}</p>}
             </div>
-          ))}
-        </CardContent>
-        <CardFooter className="flex justify-end gap-2 p-2 pt-1">
-            <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>Cancel</Button>
-            <Button type="submit" disabled={isLoading}>
-                {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} Save Student
-            </Button>
-        </CardFooter>
-      </form>
+            <div>
+                <Label htmlFor={`childInfo.dateOfBirth`}>Date of Birth</Label>
+                <Controller
+                    name={`dateOfBirth`}
+                    control={control}
+                    render={({ field }) => (
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar mode="single" selected={field.value ? new Date(field.value): undefined} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("2000-01-01")} />
+                        </PopoverContent>
+                    </Popover>
+                    )}
+                />
+                {childErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{childErrors.dateOfBirth.message}</p>}
+            </div>
+        </div>
+        {programSpecificFields?.map(fieldInfo => (
+          <div key={fieldInfo.name}>
+            <Label htmlFor={`childInfo.${fieldInfo.name}`}>{fieldInfo.label}</Label>
+            {fieldInfo.type === 'text' && (
+              <Textarea id={`childInfo.${fieldInfo.name}`} {...register(fieldInfo.name as any)} placeholder={fieldInfo.label} />
+            )}
+            {fieldInfo.type === 'select' && (
+              <Controller
+                name={fieldInfo.name as any}
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger id={`childInfo.${fieldInfo.name}`}><SelectValue placeholder={`Select ${fieldInfo.label.toLowerCase()}`} /></SelectTrigger>
+                    <SelectContent>{fieldInfo.options?.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                  </Select>
+                )}
+              />
+            )}
+            {(childErrors as any)[fieldInfo.name] && <p className="text-sm text-destructive mt-1">{(childErrors as any)[fieldInfo.name].message}</p>}
+          </div>
+        ))}
+      </CardContent>
+      <CardFooter className="flex justify-end gap-2 p-2 pt-1">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>Cancel</Button>
+          {/* Changed button type to "button" and onClick to trigger local form submission */}
+          <Button type="button" onClick={handleChildSubmit(actualOnSave)} disabled={isLoading}>
+              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} Save Student
+          </Button>
+      </CardFooter>
+      {/* Removed closing </form> tag */}
     </Card>
   );
 };
@@ -705,5 +706,7 @@ const EnrollmentForm: React.FC = () => {
 };
 
 export default EnrollmentForm;
+
+    
 
     
