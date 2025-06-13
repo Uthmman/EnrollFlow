@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2, Settings, Building } from 'lucide-react';
+import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2, Settings, Building, FileImage, LinkIcon, FingerprintIcon } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -28,13 +28,9 @@ import { EnrollmentFormSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
-const accountCreationSteps = [
-  { id: 'parent', title: 'Create Parent Account' },
-];
-
-const dashboardStepsConfig = [
-  { id: 'enrollmentDetails', title: "Enrollment Details", icon: <Users className="h-5 w-5" /> },
-  { id: 'payment', title: 'Payment & Verification', icon: <CreditCard className="h-5 w-5" /> },
+const overallStages = [
+  { id: 'accountCreation', title: 'Create Parent Account', icon: <User className="h-5 w-5" /> },
+  { id: 'enrollmentDashboard', title: "Enrollment Dashboard", icon: <Users className="h-5 w-5" /> },
   { id: 'confirmation', title: 'Confirmation', icon: <CheckCircle className="h-5 w-5" /> },
 ];
 
@@ -182,8 +178,8 @@ const ChildEnrollmentFields: React.FC<{ childIndex: number; removeChild: (index:
 
 
 const EnrollmentForm: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'createAccount' | 'enrollmentDashboard'>('createAccount');
-  const [currentDashboardStep, setCurrentDashboardStep] = useState(0);
+  const [currentOverallStep, setCurrentOverallStep] = useState(0);
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'childrenRegistration' | 'accountSettings' | 'payment'>('childrenRegistration');
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
@@ -210,7 +206,8 @@ const EnrollmentForm: React.FC = () => {
     control,
     name: "children",
   });
-
+  
+  const parentInfoValues = watch('parentInfo'); // To re-render account settings tab if parent info changes (though it shouldn't after step 0)
   const watchedChildren = watch('children'); 
   const watchedPaymentType = watch('paymentProof.paymentType');
 
@@ -239,31 +236,22 @@ const EnrollmentForm: React.FC = () => {
   const handleCreateAccountAndProceed = async () => {
     const isValid = await trigger(['parentInfo.parentFullName', 'parentInfo.parentEmail', 'parentInfo.parentPhone']);
     if (isValid) {
-      setCurrentView('enrollmentDashboard');
-      setCurrentDashboardStep(0); // Reset to the first step of the dashboard
+      setCurrentOverallStep(1);
+      setActiveDashboardTab('childrenRegistration');
     } else {
       toast({ title: "Validation Error", description: "Please check your parent information.", variant: "destructive" });
     }
   };
   
-  const handleDashboardNext = async () => {
-    let fieldsToValidate: (keyof EnrollmentFormData | `children.${number}.${keyof ChildEnrollmentData}` | `children`)[] = [];
-    
-    if (currentDashboardStep === 0) { // Enrollment Details (Children + Settings Tabs)
-      fieldsToValidate.push('children'); // Validate all children data
-    }
-    // Payment step validation handled during final submission by Zod schema
-
-    const isValid = fieldsToValidate.length > 0 ? await trigger(fieldsToValidate) : true;
-    
+  const handleProceedToPaymentTab = async () => {
+    // Validate children details before moving to payment
+    const isValid = await trigger('children');
     if (isValid) {
-      setCurrentDashboardStep(prev => prev + 1);
+      setActiveDashboardTab('payment');
     } else {
-       toast({ title: "Validation Error", description: "Please check the children's enrollment details.", variant: "destructive" });
+       toast({ title: "Validation Error", description: "Please ensure all children's details are correctly filled.", variant: "destructive" });
     }
   };
-
-  const handleDashboardPrevious = () => setCurrentDashboardStep(prev => prev - 1);
 
   const onSubmit = async (data: EnrollmentFormData) => {
     setIsLoading(true);
@@ -276,8 +264,8 @@ const EnrollmentForm: React.FC = () => {
           reader.onerror = reject;
           reader.readAsDataURL(data.paymentProof.screenshot as File);
         });
-        setValue('paymentProof.screenshotDataUri', screenshotDataUri); // Set it in form state
-        data.paymentProof.screenshotDataUri = screenshotDataUri; // Also update data object
+        setValue('paymentProof.screenshotDataUri', screenshotDataUri); 
+        data.paymentProof.screenshotDataUri = screenshotDataUri; 
       }
       
       const verificationInput = {
@@ -314,7 +302,7 @@ const EnrollmentForm: React.FC = () => {
           registrationDate: new Date(),
         };
         setRegistrationData(finalRegistrationData);
-        setCurrentDashboardStep(prev => prev + 1); 
+        setCurrentOverallStep(2); // Move to confirmation stage
       } else {
         toast({
           title: "Payment Verification Failed",
@@ -334,30 +322,22 @@ const EnrollmentForm: React.FC = () => {
     }
   };
   
-  if (currentView === 'enrollmentDashboard' && registrationData && currentDashboardStep === dashboardStepsConfig.length - 1) {
+  if (currentOverallStep === 2 && registrationData) {
     return <Receipt data={registrationData} />;
   }
 
-  const getCurrentStepTitle = () => {
-    if (currentView === 'createAccount') {
-      return accountCreationSteps[0].title;
-    }
-    if (currentView === 'enrollmentDashboard' && dashboardStepsConfig[currentDashboardStep]) {
-      return dashboardStepsConfig[currentDashboardStep].title;
-    }
-    return "Enrollment";
+  const getCurrentStageTitle = () => {
+    return overallStages[currentOverallStep]?.title || "Enrollment";
   };
-
-  const getCurrentProgressSteps = () => {
-    if (currentView === 'createAccount') return 0; // No progress dots for single step
-    return dashboardStepsConfig.length -1; // Exclude confirmation for dots
-  };
-
-  const currentActiveProgressStep = () => {
-    if (currentView === 'createAccount') return 0;
-    return currentDashboardStep;
+  
+  const getDashboardTabTitle = () => {
+    if (currentOverallStep === 1) {
+        if(activeDashboardTab === 'childrenRegistration') return "Register Children";
+        if(activeDashboardTab === 'accountSettings') return "Account Settings";
+        if(activeDashboardTab === 'payment') return "Payment & Verification";
+    }
+    return "";
   }
-
 
   return (
     <FormProvider {...methods}>
@@ -369,24 +349,25 @@ const EnrollmentForm: React.FC = () => {
               <CardTitle className="text-2xl sm:text-3xl font-headline">EnrollFlow Registration</CardTitle>
             </div>
             <div className="flex flex-col sm:flex-row justify-between sm:items-center space-y-1 sm:space-y-0">
-               <CardDescription className="text-sm">{getCurrentStepTitle()}</CardDescription>
-                {currentView === 'enrollmentDashboard' && (
-                  <div className="flex space-x-1">
-                  {dashboardStepsConfig.slice(0, -1).map((step, index) => ( // Exclude confirmation from dots
-                      <div
-                      key={step.id}
-                      className={cn(
-                          "h-2 w-6 sm:w-8 rounded-full",
-                          currentDashboardStep >= index ? "bg-primary" : "bg-muted"
-                      )}
-                      />
-                  ))}
-                  </div>
-                )}
+               <CardDescription className="text-sm">
+                {getCurrentStageTitle()}
+                {currentOverallStep === 1 && getDashboardTabTitle() && ` - ${getDashboardTabTitle()}`}
+               </CardDescription>
+                <div className="flex space-x-1">
+                {overallStages.map((stage, index) => (
+                    <div
+                    key={stage.id}
+                    className={cn(
+                        "h-2 w-6 sm:w-8 rounded-full",
+                        currentOverallStep >= index ? "bg-primary" : "bg-muted"
+                    )}
+                    />
+                ))}
+                </div>
             </div>
           </CardHeader>
-          <CardContent className="min-h-[250px] sm:min-h-[300px] p-4 sm:p-6">
-            {currentView === 'createAccount' && (
+          <CardContent className="min-h-[300px] sm:min-h-[350px] p-4 sm:p-6">
+            {currentOverallStep === 0 && ( // Account Creation Stage
               <div className="space-y-3 sm:space-y-4">
                 <div>
                   <Label htmlFor="parentInfo.parentFullName" className="text-base sm:text-lg">Parent's Full Name</Label>
@@ -406,50 +387,64 @@ const EnrollmentForm: React.FC = () => {
               </div>
             )}
 
-            {currentView === 'enrollmentDashboard' && (
-              <>
-                {currentDashboardStep === 0 && ( // Enrollment Details (Tabs)
-                  <Tabs defaultValue="childrenRegistration" className="w-full">
-                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto sm:h-10">
-                      <TabsTrigger value="childrenRegistration" className="py-2 sm:py-1.5 text-xs sm:text-sm">
-                        <Users className="mr-2 h-4 w-4" /> Register Children
-                      </TabsTrigger>
-                      <TabsTrigger value="accountSettings" className="py-2 sm:py-1.5 text-xs sm:text-sm">
-                        <Settings className="mr-2 h-4 w-4" /> Account Settings
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="childrenRegistration" className="mt-4 space-y-4 sm:space-y-6">
-                      {fields.map((field, index) => (
-                        <ChildEnrollmentFields key={field.id} childIndex={index} removeChild={remove} />
-                      ))}
-                      {errors.children && typeof errors.children === 'object' && !Array.isArray(errors.children) && (errors.children as any).message && (
-                          <p className="text-sm text-destructive mt-1">{(errors.children as any).message}</p>
-                      )}
-                      <Button type="button" variant="outline" onClick={() => append(defaultChildValues)} className="w-full sm:w-auto">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Another Child
-                      </Button>
-                      <Separator className="my-4 sm:my-6"/>
-                      <div className="text-right space-y-1">
-                        <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="accountSettings" className="mt-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Account Settings</CardTitle>
-                          <CardDescription>Manage your parent account details here.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-muted-foreground">Account settings functionality is not yet implemented. This is a placeholder.</p>
-                          {/* Future: Add fields to edit parentInfo, change password, etc. */}
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  </Tabs>
-                )}
+            {currentOverallStep === 1 && ( // Enrollment Dashboard Stage
+              <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 h-auto sm:h-12">
+                  <TabsTrigger value="childrenRegistration" className="py-2 sm:py-1.5 text-xs sm:text-sm">
+                    <Users className="mr-1 sm:mr-2 h-4 w-4" /> Register Children
+                  </TabsTrigger>
+                  <TabsTrigger value="accountSettings" className="py-2 sm:py-1.5 text-xs sm:text-sm">
+                    <Settings className="mr-1 sm:mr-2 h-4 w-4" /> Account
+                  </TabsTrigger>
+                  <TabsTrigger value="payment" className="py-2 sm:py-1.5 text-xs sm:text-sm">
+                    <CreditCard className="mr-1 sm:mr-2 h-4 w-4" /> Payment
+                  </TabsTrigger>
+                </TabsList>
                 
-                {currentDashboardStep === 1 && ( // Payment Step
-                  <div className="space-y-4 sm:space-y-6">
+                <TabsContent value="childrenRegistration" className="mt-4 space-y-4 sm:space-y-6">
+                  {fields.map((field, index) => (
+                    <ChildEnrollmentFields key={field.id} childIndex={index} removeChild={remove} />
+                  ))}
+                  {errors.children && typeof errors.children === 'object' && !Array.isArray(errors.children) && (errors.children as any).message && (
+                      <p className="text-sm text-destructive mt-1">{(errors.children as any).message}</p>
+                  )}
+                  <Button type="button" variant="outline" onClick={() => append(defaultChildValues)} className="w-full sm:w-auto">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Another Child
+                  </Button>
+                  <Separator className="my-4 sm:my-6"/>
+                  <div className="text-right space-y-1">
+                    <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="accountSettings" className="mt-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Parent Account Information</CardTitle>
+                      <CardDescription>Details provided during account creation.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <Label className="text-muted-foreground">Full Name</Label>
+                        <p className="text-lg">{parentInfoValues.parentFullName || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">Email Address</Label>
+                        <p className="text-lg">{parentInfoValues.parentEmail || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">Phone Number</Label>
+                        <p className="text-lg">{parentInfoValues.parentPhone || 'Not provided'}</p>
+                      </div>
+                       {/* Placeholder for future edit functionality */}
+                       <Button variant="outline" size="sm" disabled className="mt-4">
+                          <Settings className="mr-2 h-4 w-4"/> Edit Account (Coming Soon)
+                        </Button>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="payment" className="mt-4 space-y-4 sm:space-y-6">
                     <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
                       <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
                         {getValues("children").map((child, index) => {
@@ -477,7 +472,12 @@ const EnrollmentForm: React.FC = () => {
                           className="w-full">
                       <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
                         {PAYMENT_TYPES.map(type => (
-                          <TabsTrigger key={type.value} value={type.value} className="py-2 sm:py-1.5 text-xs sm:text-sm">{type.label}</TabsTrigger>
+                          <TabsTrigger key={type.value} value={type.value} className="py-2 sm:py-1.5 text-xs sm:text-sm">
+                            {type.value === 'screenshot' && <FileImage className="mr-1 h-4 w-4" />}
+                            {type.value === 'link' && <LinkIcon className="mr-1 h-4 w-4" />}
+                            {type.value === 'transaction_id' && <FingerprintIcon className="mr-1 h-4 w-4" />}
+                            {type.label}
+                          </TabsTrigger>
                         ))}
                       </TabsList>
                       <TabsContent value="screenshot" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
@@ -516,33 +516,43 @@ const EnrollmentForm: React.FC = () => {
                             <p>Total amount is $0.00. Please ensure selections are correct. Payment verification might be skipped for $0 amount if all registrations are free.</p>
                         </div>
                     )}
-                  </div>
-                )}
-              </>
+                </TabsContent>
+              </Tabs>
             )}
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row sm:justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
-            {currentView === 'createAccount' ? (
-              <Button type="button" onClick={handleCreateAccountAndProceed} disabled={isLoading} className="w-full sm:w-auto">
+            {currentOverallStep === 0 ? ( // Account Creation Footer
+              <Button type="button" onClick={handleCreateAccountAndProceed} disabled={isLoading} className="w-full sm:ml-auto">
                 Create Account & Proceed <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            ) : ( // enrollmentDashboard view
+            ) : currentOverallStep === 1 ? ( // Enrollment Dashboard Footer
               <>
-                <Button type="button" variant="outline" onClick={handleDashboardPrevious} disabled={currentDashboardStep === 0 || isLoading} className="w-full sm:w-auto">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    if (activeDashboardTab === 'payment') setActiveDashboardTab('childrenRegistration');
+                    else if (activeDashboardTab === 'accountSettings') setActiveDashboardTab('childrenRegistration');
+                    else setCurrentOverallStep(0);
+                  }} 
+                  disabled={isLoading}
+                  className="w-full sm:w-auto"
+                >
                   <ArrowLeft className="mr-2 h-4 w-4" /> Previous
                 </Button>
-                {currentDashboardStep < dashboardStepsConfig.length - 2 ? ( // Before payment step
-                  <Button type="button" onClick={handleDashboardNext} disabled={isLoading} className="w-full sm:w-auto">
-                    {currentDashboardStep === 0 ? "Proceed to Payment" : "Next"} <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                ) : ( // Payment step
-                  <Button type="submit" disabled={isLoading || (calculatedPrice < 0)} className="w-full sm:w-auto">
+
+                {activeDashboardTab === 'payment' ? (
+                  <Button type="submit" disabled={isLoading || calculatedPrice < 0} className="w-full sm:w-auto">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                     Verify & Register
                   </Button>
+                ) : (
+                  <Button type="button" onClick={handleProceedToPaymentTab} disabled={isLoading} className="w-full sm:w-auto">
+                    Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
                 )}
               </>
-            )}
+            ) : null}
           </CardFooter>
         </Card>
       </form>
@@ -551,3 +561,5 @@ const EnrollmentForm: React.FC = () => {
 };
 
 export default EnrollmentForm;
+
+    
