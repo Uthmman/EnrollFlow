@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2, Settings, Building, FileImage, LinkIcon, FingerprintIcon, UserCheck, Info, Percent, Phone, UserCog, LogOut, Edit3, BookUser } from 'lucide-react';
+import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2, Settings, Building, FileImage, LinkIcon, FingerprintIcon, UserCheck, Info, Percent, Phone, UserCog, LogOut, Edit3, BookUser, UserPlus } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -38,10 +38,10 @@ const defaultChildValues: ChildInfoData = {
   quranLevel: '',
 };
 
-const defaultAdultTraineeValues: AdultTraineeData = {
+const defaultAdultEnrollmentValues = {
   dateOfBirth: undefined as any,
-  programId: '',
 };
+
 
 const ParentInfoFields: React.FC = () => {
   const { control, register, formState: { errors }, watch, setValue } = useFormContext<EnrollmentFormData>();
@@ -122,7 +122,8 @@ const ChildParticipantFields: React.FC<{
     onSave: (data: ChildInfoData) => void; 
     onCancel: () => void;
     isLoading: boolean;
-}> = ({ programSpecificFields, onSave, onCancel, isLoading }) => {
+    selectedProgramLabel?: string;
+}> = ({ programSpecificFields, onSave, onCancel, isLoading, selectedProgramLabel }) => {
   
   const { control, register, handleSubmit: handleChildSubmit, formState: { errors: childErrors }, reset: resetChildForm } = useForm<ChildInfoData>({
     resolver: zodResolver(EnrolledChildInfoSchema), 
@@ -137,7 +138,7 @@ const ChildParticipantFields: React.FC<{
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline">Add New Child</CardTitle>
+        <CardTitle className="text-lg sm:text-xl font-headline">Add New Child for {selectedProgramLabel || "Program"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <div>
@@ -219,20 +220,22 @@ const ChildParticipantFields: React.FC<{
 
 
 const EnrollmentForm: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'accountCreation' | 'dashboard' | 'addStudent' | 'confirmation'>('accountCreation');
-  const [activeDashboardTab, setActiveDashboardTab] = useState<'students' | 'adultProgram' | 'settings' | 'payment'>('students');
+  const [currentView, setCurrentView] = useState<'accountCreation' | 'dashboard' | 'addParticipant' | 'confirmation'>('accountCreation');
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'enrollments' | 'account' | 'payment'>('enrollments');
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
   
-  const [programForNewStudent, setProgramForNewStudent] = useState<HafsaProgram | null>(null);
+  const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
+  const [adultDOB, setAdultDOB] = useState<Date | undefined>(undefined);
+
 
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
     defaultValues: {
       parentInfo: { parentFullName: '', parentPhone1: '', telegramPhoneNumber: '' },
-      adultTraineeInfo: undefined, // Initially undefined
+      adultTraineeInfo: undefined, 
       children: [],
       agreeToTerms: false,
       couponCode: '',
@@ -249,7 +252,7 @@ const EnrollmentForm: React.FC = () => {
   
   const watchedChildren = watch('children');
   const watchedPaymentType = watch('paymentProof.paymentType');
-  const watchedAdultProgramId = watch('adultTraineeInfo.programId');
+  const watchedAdultTraineeInfo = watch('adultTraineeInfo');
 
 
  useEffect(() => {
@@ -272,7 +275,7 @@ const EnrollmentForm: React.FC = () => {
       }
     }
     setCalculatedPrice(total);
-  }, [watchedChildren, getValues, watchedAdultProgramId]);
+  }, [watchedChildren, getValues, watchedAdultTraineeInfo]);
 
 
   const handleAccountCreation = async () => {
@@ -280,7 +283,7 @@ const EnrollmentForm: React.FC = () => {
     
     const isValid = await trigger(fieldsToValidate.map(f => `parentInfo.${f}` as const));
     if (isValid) {
-        setActiveDashboardTab('students');
+        setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
     } else {
       toast({ title: "Validation Error", description: "Please check your entries and try again.", variant: "destructive" });
@@ -288,24 +291,44 @@ const EnrollmentForm: React.FC = () => {
     }
   };
 
-  const handleAddStudentClick = () => {
-    setProgramForNewStudent(null); 
-    setCurrentView('addStudent');
+  const handleAddParticipantClick = () => {
+    setProgramForNewParticipant(null); 
+    setAdultDOB(undefined);
+    setCurrentView('addParticipant');
   };
 
-  const handleSaveStudent = (childData: ChildInfoData) => {
-    if (!programForNewStudent) {
-        toast({ title: "Error", description: "No program selected for the child.", variant: "destructive" });
+  const handleSaveChild = (childData: ChildInfoData) => {
+    if (!programForNewParticipant) {
+        toast({ title: "Error", description: "No program selected.", variant: "destructive" });
         return;
     }
     const newEnrolledChild: EnrolledChildData = {
-        programId: programForNewStudent.id,
+        programId: programForNewParticipant.id,
         childInfo: childData,
     };
     appendChild(newEnrolledChild);
     setCurrentView('dashboard');
-    setActiveDashboardTab('students');
-    toast({title: "Student Added", description: `${childData.childFirstName} has been added for ${programForNewStudent.label}.`})
+    setActiveDashboardTab('enrollments');
+    toast({title: "Child Added", description: `${childData.childFirstName} has been added for ${programForNewParticipant.label}.`})
+  };
+
+  const handleSaveAdultEnrollment = () => {
+    if (!programForNewParticipant || programForNewParticipant.isChildProgram) {
+      toast({ title: "Error", description: "Invalid program selection for adult.", variant: "destructive" });
+      return;
+    }
+    if (!adultDOB) {
+      toast({ title: "Date of Birth Required", description: "Please provide your date of birth for this program.", variant: "destructive" });
+      return;
+    }
+
+    setValue('adultTraineeInfo', {
+      programId: programForNewParticipant.id,
+      dateOfBirth: adultDOB,
+    });
+    setCurrentView('dashboard');
+    setActiveDashboardTab('enrollments');
+    toast({ title: "Adult Program Enrolled", description: `You have been enrolled in ${programForNewParticipant.label}.` });
   };
   
   const onSubmit = async (data: EnrollmentFormData) => {
@@ -391,32 +414,68 @@ const EnrollmentForm: React.FC = () => {
     </div>
   );
 
-  const renderAddStudent = () => (
+  const renderAddParticipant = () => (
     <div className="space-y-4 sm:space-y-6">
         <div>
-            <Label htmlFor="programForNewStudent" className="text-base sm:text-lg">Select Program for Child</Label>
+            <Label htmlFor="programForNewParticipant" className="text-base sm:text-lg">Select Program</Label>
             <Select 
-                onValueChange={(programId) => setProgramForNewStudent(HAFSA_PROGRAMS.find(p => p.id === programId && p.isChildProgram) || null)} 
-                value={programForNewStudent?.id || ''}
+                onValueChange={(programId) => {
+                    setProgramForNewParticipant(HAFSA_PROGRAMS.find(p => p.id === programId) || null);
+                    setAdultDOB(undefined); // Reset adult DOB if program changes
+                }}
+                value={programForNewParticipant?.id || ''}
             >
-                <SelectTrigger id="programForNewStudent" className="mt-1"><SelectValue placeholder="Choose a child program" /></SelectTrigger>
+                <SelectTrigger id="programForNewParticipant" className="mt-1"><SelectValue placeholder="Choose a program" /></SelectTrigger>
                 <SelectContent>
-                {HAFSA_PROGRAMS.filter(p => p.isChildProgram).map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description} (${prog.price})</SelectItem>)}
+                {HAFSA_PROGRAMS.map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description} (${prog.price})</SelectItem>)}
                 </SelectContent>
             </Select>
-            {!programForNewStudent && getValues('children').length > 0 && <p className="text-sm text-muted-foreground mt-1">Select a program to add another student.</p>}
-            {!programForNewStudent && getValues('children').length === 0 && <p className="text-sm text-destructive mt-1">Please select a program for the first child.</p>}
-
+            {!programForNewParticipant && <p className="text-sm text-muted-foreground mt-1">Select a program to enroll a participant.</p>}
         </div>
-        {programForNewStudent && (
+
+        {programForNewParticipant && programForNewParticipant.isChildProgram && (
              <ChildParticipantFields 
-                programSpecificFields={programForNewStudent.specificFields}
-                onSave={handleSaveStudent}
+                programSpecificFields={programForNewParticipant.specificFields}
+                onSave={handleSaveChild}
                 onCancel={() => setCurrentView('dashboard')}
                 isLoading={isLoading}
+                selectedProgramLabel={programForNewParticipant.label}
             />
         )}
-         {!programForNewStudent && (
+
+        {programForNewParticipant && !programForNewParticipant.isChildProgram && (
+            <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
+                <CardHeader>
+                    <CardTitle className="text-lg sm:text-xl font-headline">Enroll in {programForNewParticipant.label}</CardTitle>
+                    <CardDescription>Please provide your date of birth for this adult program.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
+                     <div>
+                        <Label htmlFor="adultDOB">Your Date of Birth</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !adultDOB && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {adultDOB ? format(adultDOB, "PPP") : <span>Pick your date of birth</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={adultDOB} onSelect={setAdultDOB} initialFocus disabled={(date) => date > new Date() || date < new Date("1940-01-01")} />
+                            </PopoverContent>
+                        </Popover>
+                        {!adultDOB && <p className="text-sm text-destructive mt-1">Date of birth is required.</p>}
+                    </div>
+                </CardContent>
+                 <CardFooter className="flex justify-end gap-2 p-2 pt-1">
+                    <Button type="button" variant="outline" onClick={() => setCurrentView('dashboard')} disabled={isLoading}>Cancel</Button>
+                    <Button type="button" onClick={handleSaveAdultEnrollment} disabled={isLoading || !adultDOB}>
+                        {isLoading ? <Loader2 className="animate-spin mr-2"/> : <UserPlus className="mr-2 h-4 w-4" />} Confirm My Enrollment
+                    </Button>
+                </CardFooter>
+            </Card>
+        )}
+
+         {!programForNewParticipant && (
             <Button type="button" variant="outline" onClick={() => setCurrentView('dashboard')} className="w-full">
                 Cancel
             </Button>
@@ -426,113 +485,65 @@ const EnrollmentForm: React.FC = () => {
 
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-            <TabsTrigger value="students"><Users className="mr-1 sm:mr-2 h-4 w-4"/>My Students</TabsTrigger>
-            <TabsTrigger value="adultProgram"><BookUser className="mr-1 sm:mr-2 h-4 w-4"/>My Adult Program</TabsTrigger>
-            <TabsTrigger value="settings"><UserCog className="mr-1 sm:mr-2 h-4 w-4"/>Account</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3"> {/* Adjusted to 3 cols */}
+            <TabsTrigger value="enrollments"><Users className="mr-1 sm:mr-2 h-4 w-4"/>Manage Enrollments</TabsTrigger>
+            <TabsTrigger value="account"><UserCog className="mr-1 sm:mr-2 h-4 w-4"/>Account</TabsTrigger>
             <TabsTrigger value="payment"><CreditCard className="mr-1 sm:mr-2 h-4 w-4"/>Payment</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="students" className="space-y-4 pt-4">
-            <h3 className="text-xl font-semibold text-primary">Registered Students</h3>
-            {childFields.length === 0 && (
-                <div className="text-center py-6">
-                    <p className="text-muted-foreground mb-4">No students added yet. Click below to add your first student.</p>
-                     <Button type="button" variant="default" onClick={handleAddStudentClick} className="w-full sm:w-auto">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Student
-                    </Button>
-                </div>
-            )}
-            {childFields.length > 0 && (
-                <>
-                    <div className="space-y-3">
-                    {childFields.map((field, index) => {
-                        const enrolledChild = field as unknown as EnrolledChildData;
-                        const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
-                        return (
-                        <Card key={field.id} className="p-3">
-                            <div className="flex justify-between items-start">
-                            <div>
-                                <p className="font-semibold text-md">{enrolledChild.childInfo.childFirstName}</p>
-                                <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - ${program?.price.toFixed(2)}</p>
-                            </div>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(index)} className="text-destructive hover:text-destructive/80">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                            </div>
-                        </Card>
-                        );
-                    })}
+        <TabsContent value="enrollments" className="space-y-4 pt-4">
+            <h3 className="text-xl font-semibold text-primary">Current Enrollments</h3>
+            
+            {/* Adult's Own Enrollment Display */}
+            {watchedAdultTraineeInfo && watchedAdultTraineeInfo.programId && (
+                <Card className="p-3 mb-3 bg-blue-50 border-blue-200">
+                     <div className="flex justify-between items-start">
+                        <div>
+                            <p className="font-semibold text-md text-blue-700">Your Enrollment (Primary Registrant)</p>
+                            <p className="text-sm text-blue-600">
+                                {HAFSA_PROGRAMS.find(p => p.id === watchedAdultTraineeInfo.programId)?.label || 'Unknown Program'}
+                                {' - $'}{(HAFSA_PROGRAMS.find(p => p.id === watchedAdultTraineeInfo.programId)?.price || 0).toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Date of Birth: {watchedAdultTraineeInfo.dateOfBirth ? format(new Date(watchedAdultTraineeInfo.dateOfBirth), "PPP") : 'N/A'}</p>
+                        </div>
+                         <Button type="button" variant="ghost" size="sm" onClick={() => setValue('adultTraineeInfo', undefined)} className="text-destructive hover:text-destructive/80">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
                     </div>
-                    <Button type="button" variant="outline" onClick={handleAddStudentClick} className="w-full sm:w-auto">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Another Student
-                    </Button>
-                </>
+                </Card>
             )}
-        </TabsContent>
 
-        <TabsContent value="adultProgram" className="space-y-4 pt-4">
-            <h3 className="text-xl font-semibold text-primary">My Adult Program Enrollment</h3>
-             <div>
-                <Label htmlFor="adultProgramSelection">Select Program</Label>
-                <Controller
-                    name="adultTraineeInfo.programId"
-                    control={control}
-                    render={({ field }) => (
-                    <Select 
-                        onValueChange={(value) => {
-                            field.onChange(value);
-                            if (value) { // If a program is selected, ensure adultTraineeInfo object exists
-                                if (!getValues('adultTraineeInfo')) {
-                                     setValue('adultTraineeInfo', { ...defaultAdultTraineeValues, programId: value });
-                                } else {
-                                     setValue('adultTraineeInfo.programId', value);
-                                }
-                            } else { // If program is deselected, clear DOB as well or entire object
-                                setValue('adultTraineeInfo.dateOfBirth', undefined as any);
-                                // Optionally: setValue('adultTraineeInfo', undefined); if you want to clear the whole object
-                            }
-                        }} 
-                        value={field.value || ''}
-                    >
-                        <SelectTrigger id="adultProgramSelection" className="mt-1"><SelectValue placeholder="Choose an adult program" /></SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="">None</SelectItem>
-                        {HAFSA_PROGRAMS.filter(p => !p.isChildProgram).map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description} (${prog.price})</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    )}
-                />
-                {errors.adultTraineeInfo?.programId && <p className="text-sm text-destructive mt-1">{errors.adultTraineeInfo.programId.message}</p>}
-            </div>
-
-            {watchedAdultProgramId && (
-                 <div>
-                    <Label htmlFor="adultTraineeInfo.dateOfBirth">Your Date of Birth</Label>
-                    <Controller
-                        name="adultTraineeInfo.dateOfBirth"
-                        control={control}
-                        render={({ field }) => (
-                        <Popover>
-                            <PopoverTrigger asChild>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {field.value ? format(new Date(field.value), "PPP") : <span>Pick your date of birth</span>}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar mode="single" selected={field.value ? new Date(field.value): undefined} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("1940-01-01")} />
-                            </PopoverContent>
-                        </Popover>
-                        )}
-                    />
-                    {errors.adultTraineeInfo?.dateOfBirth && <p className="text-sm text-destructive mt-1">{errors.adultTraineeInfo.dateOfBirth.message}</p>}
+            {/* Children's Enrollments Display */}
+            {childFields.map((field, index) => {
+                const enrolledChild = field as unknown as EnrolledChildData;
+                const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
+                return (
+                <Card key={field.id} className="p-3 mb-2">
+                    <div className="flex justify-between items-start">
+                    <div>
+                        <p className="font-semibold text-md">{enrolledChild.childInfo.childFirstName}</p>
+                        <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - ${program?.price.toFixed(2)}</p>
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(index)} className="text-destructive hover:text-destructive/80">
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                    </div>
+                </Card>
+                );
+            })}
+            
+            {(childFields.length === 0 && (!watchedAdultTraineeInfo || !watchedAdultTraineeInfo.programId)) && (
+                <div className="text-center py-6">
+                    <p className="text-muted-foreground mb-4">No participants added yet. Click below to add an enrollment.</p>
                 </div>
             )}
-            {!watchedAdultProgramId && <p className="text-muted-foreground mt-2">Select a program above to enroll yourself.</p>}
+
+            <Button type="button" variant="default" onClick={handleAddParticipantClick} className="w-full sm:w-auto">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Participant / Enrollment
+            </Button>
         </TabsContent>
 
-        <TabsContent value="settings" className="space-y-4 pt-4">
+        <TabsContent value="account" className="space-y-4 pt-4">
             <h3 className="text-xl font-semibold text-primary">Account Information</h3>
             {getValues('parentInfo') && (
                 <Card className="p-4 space-y-2">
@@ -613,14 +624,14 @@ const EnrollmentForm: React.FC = () => {
              <CardDescription className="text-sm">
                 {currentView === 'accountCreation' && "Step 1: Create Your Account."}
                 {currentView === 'dashboard' && "Step 2: Manage Enrollments & Payment."}
-                {currentView === 'addStudent' && `Add New Student for ${programForNewStudent?.label || 'Selected Program'}.`}
+                {currentView === 'addParticipant' && `Add New Participant for ${programForNewParticipant?.label || 'Selected Program'}.`}
              </CardDescription>
           </CardHeader>
 
           <CardContent className="min-h-[300px] sm:min-h-[350px] p-4 sm:p-6">
             {currentView === 'accountCreation' && renderAccountCreation()}
             {currentView === 'dashboard' && renderDashboard()}
-            {currentView === 'addStudent' && renderAddStudent()}
+            {currentView === 'addParticipant' && renderAddParticipant()}
           </CardContent>
 
           <CardFooter className="flex flex-col sm:flex-row justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
@@ -634,12 +645,12 @@ const EnrollmentForm: React.FC = () => {
                             type="button" 
                             onClick={() => {
                                 if (childFields.length === 0 && !getValues('adultTraineeInfo.programId')) {
-                                    toast({title: "No Enrollments", description: "Please add at least one student or select an adult program before proceeding to payment.", variant: "destructive"});
+                                    toast({title: "No Enrollments", description: "Please add at least one participant or select an adult program for yourself before proceeding to payment.", variant: "destructive"});
                                     return;
                                 }
                                 setActiveDashboardTab('payment')
                             }} 
-                            disabled={isLoading || (childFields.length === 0 && !getValues('adultTraineeInfo.programId') && (activeDashboardTab === 'students' || activeDashboardTab === 'adultProgram'))} 
+                            disabled={isLoading || (childFields.length === 0 && !getValues('adultTraineeInfo.programId') && (activeDashboardTab === 'enrollments' || activeDashboardTab === 'account'))} 
                             className="w-full sm:ml-auto"
                         >
                             Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
@@ -655,7 +666,7 @@ const EnrollmentForm: React.FC = () => {
                     )}
                 </>
             )}
-            { (currentView === 'addStudent') &&
+            { (currentView === 'addParticipant') &&
                  <Button type="button" variant="outline" onClick={() => setCurrentView('dashboard')} disabled={isLoading} className="w-full sm:w-auto order-first sm:order-none">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
                 </Button>

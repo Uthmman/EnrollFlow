@@ -32,7 +32,6 @@ export type EnrolledChildData = z.infer<typeof EnrolledChildSchema>;
 
 
 export const AdultTraineeSchema = z.object({
-  // traineeFullName, phone1, etc., are now part of ParentInfoSchema (for the primary registrant)
   dateOfBirth: z.date({ required_error: "Trainee's date of birth is required." }),
   programId: z.string().min(1, "Program selection is required for the trainee."),
 });
@@ -50,11 +49,9 @@ export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: ParentInfoSchema, // Information for the primary registrant (parent or adult trainee themselves)
-  adultTraineeInfo: AdultTraineeSchema.optional(), // Only if the primary registrant is also enrolling in an adult program
-  
+  parentInfo: ParentInfoSchema, 
+  adultTraineeInfo: AdultTraineeSchema.optional(), 
   children: z.array(EnrolledChildSchema).optional().default([]),
-  
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
@@ -62,7 +59,6 @@ export const EnrollmentFormSchema = z.object({
   paymentProof: PaymentProofSchema.optional(),
 })
 .superRefine((data, ctx) => {
-    // Basic validation for parentInfo (primary registrant)
     if (!data.parentInfo || !data.parentInfo.parentFullName) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -71,7 +67,6 @@ export const EnrollmentFormSchema = z.object({
         });
     }
 
-    // If adultTraineeInfo is partially filled, ensure all its required parts are there
     if (data.adultTraineeInfo) {
         if (!data.adultTraineeInfo.programId) {
             ctx.addIssue({
@@ -88,16 +83,13 @@ export const EnrollmentFormSchema = z.object({
             });
         }
     }
-    // Further validation: e.g., ensure at least one child OR an adult program is selected before payment
-    // This is partially handled by disabling submit if price is 0.
 });
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
 export type RegistrationData = {
-  // accountHolderType removed
-  parentInfo: ParentInfoData; // Primary registrant
-  adultTraineeInfo?: AdultTraineeData; // If primary registrant enrolled themselves
+  parentInfo: ParentInfoData; 
+  adultTraineeInfo?: AdultTraineeData; 
   children?: EnrolledChildData[];
   agreeToTerms: boolean;
   couponCode?: string;

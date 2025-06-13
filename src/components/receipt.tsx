@@ -23,6 +23,9 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
   };
 
   const paymentMethodLabel = HAFSA_PAYMENT_METHODS.find(pm => pm.value === data.paymentProof.paymentType)?.label || data.paymentProof.paymentType;
+  const primaryRegistrant = data.parentInfo;
+  const adultEnrollment = data.adultTraineeInfo;
+  const childrenEnrollments = data.children || [];
 
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl my-6 sm:my-8 print:shadow-none">
@@ -58,15 +61,15 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
                 <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Primary Registrant</h3>
             </div>
             <div className="pl-7">
-                <p><strong>Name:</strong> {data.parentInfo.parentFullName}</p>
-                <p><strong>Primary Phone:</strong> {data.parentInfo.parentPhone1}</p>
-                {data.parentInfo.parentPhone2 && <p><strong>Secondary Phone:</strong> {data.parentInfo.parentPhone2}</p>}
-                <p><strong>Telegram Phone:</strong> {data.parentInfo.telegramPhoneNumber}</p>
+                <p><strong>Name:</strong> {primaryRegistrant.parentFullName}</p>
+                <p><strong>Primary Phone:</strong> {primaryRegistrant.parentPhone1}</p>
+                {primaryRegistrant.parentPhone2 && <p><strong>Secondary Phone:</strong> {primaryRegistrant.parentPhone2}</p>}
+                <p><strong>Telegram Phone:</strong> {primaryRegistrant.telegramPhoneNumber}</p>
             </div>
         </div>
 
         {/* Adult Trainee Program (if primary registrant enrolled themselves) */}
-        {data.adultTraineeInfo && data.adultTraineeInfo.programId && (
+        {adultEnrollment && adultEnrollment.programId && (
         <>
             <Separator />
             <div>
@@ -75,15 +78,15 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
                     <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Adult Program Enrollment (Self)</h3>
                 </div>
                 <div className="pl-7">
-                    <p><strong>Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === data.adultTraineeInfo!.programId)?.label || 'N/A'}</p>
-                    <p><strong>Date of Birth:</strong> {format(new Date(data.adultTraineeInfo.dateOfBirth), "MMMM d, yyyy")}</p>
+                    <p><strong>Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === adultEnrollment.programId)?.label || 'N/A'}</p>
+                    <p><strong>Date of Birth:</strong> {format(new Date(adultEnrollment.dateOfBirth), "MMMM d, yyyy")}</p>
                 </div>
             </div>
         </>
         )}
         
         {/* Enrolled Children */}
-        {data.children && data.children.length > 0 && (
+        {childrenEnrollments.length > 0 && (
         <>
             <Separator />
             <div>
@@ -91,7 +94,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
                     <Users className="h-5 w-5 mr-2 text-primary" />
                     <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Enrolled Children</h3>
                 </div>
-                {data.children.map((enrolledChild, index) => {
+                {childrenEnrollments.map((enrolledChild, index) => {
                     const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
                     const child = enrolledChild.childInfo;
                     return (
@@ -106,7 +109,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
                             {child.schoolGrade && <p><strong>School Grade:</strong> {child.schoolGrade}</p>}
                             {child.quranLevel && <p><strong>Quran Level:</strong> {child.quranLevel}</p>}
                             {child.specialAttention && <p><strong>Special Attention:</strong> {child.specialAttention}</p>}
-                            {index < data.children!.length -1 && <Separator className="my-3"/>}
+                            {index < childrenEnrollments.length -1 && <Separator className="my-3"/>}
                         </div>
                     );
                 })}
