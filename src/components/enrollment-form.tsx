@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, UserPlus, UserCheck, BookOpenText, Baby, GraduationCap, Briefcase, Edit3 } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, UserCheck, BookOpenText, Baby, GraduationCap, Briefcase } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -24,13 +24,14 @@ import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
-import type { EnrollmentFormData, ParentInfoData, ChildInfoData, AdultTraineeData, RegistrationData, EnrolledChildData } from '@/types';
-import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema } from '@/types';
+import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
+import { EnrollmentFormSchema, ParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
-const defaultChildValues: ChildInfoData = {
-  childFirstName: '',
+// Changed from ChildInfoData to ParticipantInfoData and childFirstName to firstName
+const defaultParticipantValues: ParticipantInfoData = {
+  firstName: '',
   gender: 'male' as 'male' | 'female',
   dateOfBirth: undefined as any,
   specialAttention: '',
@@ -111,44 +112,44 @@ const ParentInfoFields: React.FC = () => {
   );
 };
 
-const ChildParticipantFields: React.FC<{ 
+const ParticipantDetailFields: React.FC<{ 
     programSpecificFields?: ProgramField[];
-    onSave: (data: ChildInfoData) => void; 
+    onSave: (data: ParticipantInfoData) => void; 
     onCancel: () => void;
     isLoading: boolean;
     selectedProgramLabel?: string;
 }> = ({ programSpecificFields, onSave, onCancel, isLoading, selectedProgramLabel }) => {
   
-  const { control, register, handleSubmit: handleChildSubmit, formState: { errors: childErrors }, reset: resetChildForm } = useForm<ChildInfoData>({
-    resolver: zodResolver(EnrolledChildInfoSchema), 
-    defaultValues: defaultChildValues, 
+  const { control, register, handleSubmit: handleParticipantSubmit, formState: { errors: participantErrors }, reset: resetParticipantForm } = useForm<ParticipantInfoData>({
+    resolver: zodResolver(ParticipantInfoSchema), 
+    defaultValues: defaultParticipantValues, 
   });
 
-  const actualOnSave = (data: ChildInfoData) => {
+  const actualOnSave = (data: ParticipantInfoData) => {
     onSave(data);
-    resetChildForm(defaultChildValues); 
+    resetParticipantForm(defaultParticipantValues); 
   };
 
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline">Add Child for {selectedProgramLabel || "Program"}</CardTitle>
+        <CardTitle className="text-lg sm:text-xl font-headline">Add Participant for {selectedProgramLabel || "Program"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <div>
-          <Label htmlFor={`childInfo.childFirstName`}>First Name</Label>
-          <Input id={`childInfo.childFirstName`} {...register(`childFirstName`)} placeholder="Child's First Name" />
-          {childErrors.childFirstName && <p className="text-sm text-destructive mt-1">{childErrors.childFirstName.message}</p>}
+          <Label htmlFor="firstName">First Name</Label>
+          <Input id="firstName" {...register("firstName")} placeholder="Participant's First Name" />
+          {participantErrors.firstName && <p className="text-sm text-destructive mt-1">{participantErrors.firstName.message}</p>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-                <Label htmlFor={`childInfo.gender`}>Gender</Label>
+                <Label htmlFor="gender">Gender</Label>
                 <Controller
-                    name={`gender`}
+                    name="gender"
                     control={control}
                     render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger id={`childInfo.gender`}><SelectValue placeholder="Select gender" /></SelectTrigger>
+                        <SelectTrigger id="gender"><SelectValue placeholder="Select gender" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="male">Male</SelectItem>
                             <SelectItem value="female">Female</SelectItem>
@@ -156,12 +157,12 @@ const ChildParticipantFields: React.FC<{
                     </Select>
                     )}
                 />
-                {childErrors.gender && <p className="text-sm text-destructive mt-1">{childErrors.gender.message}</p>}
+                {participantErrors.gender && <p className="text-sm text-destructive mt-1">{participantErrors.gender.message}</p>}
             </div>
             <div>
-                <Label htmlFor={`childInfo.dateOfBirth`}>Date of Birth</Label>
+                <Label htmlFor="dateOfBirth">Date of Birth</Label>
                 <Controller
-                    name={`dateOfBirth`}
+                    name="dateOfBirth"
                     control={control}
                     render={({ field }) => (
                     <Popover>
@@ -177,14 +178,14 @@ const ChildParticipantFields: React.FC<{
                     </Popover>
                     )}
                 />
-                {childErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{childErrors.dateOfBirth.message}</p>}
+                {participantErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{participantErrors.dateOfBirth.message}</p>}
             </div>
         </div>
         {programSpecificFields?.map(fieldInfo => (
           <div key={fieldInfo.name}>
-            <Label htmlFor={`childInfo.${fieldInfo.name}`}>{fieldInfo.label}</Label>
+            <Label htmlFor={fieldInfo.name as string}>{fieldInfo.label}</Label>
             {fieldInfo.type === 'text' && (
-              <Textarea id={`childInfo.${fieldInfo.name}`} {...register(fieldInfo.name as any)} placeholder={fieldInfo.label} />
+              <Textarea id={fieldInfo.name as string} {...register(fieldInfo.name as any)} placeholder={fieldInfo.label} />
             )}
             {fieldInfo.type === 'select' && (
               <Controller
@@ -192,20 +193,20 @@ const ChildParticipantFields: React.FC<{
                 control={control}
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger id={`childInfo.${fieldInfo.name}`}><SelectValue placeholder={`Select ${fieldInfo.label.toLowerCase()}`} /></SelectTrigger>
+                    <SelectTrigger id={fieldInfo.name as string}><SelectValue placeholder={`Select ${fieldInfo.label.toLowerCase()}`} /></SelectTrigger>
                     <SelectContent>{fieldInfo.options?.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
                   </Select>
                 )}
               />
             )}
-            {(childErrors as any)[fieldInfo.name] && <p className="text-sm text-destructive mt-1">{(childErrors as any)[fieldInfo.name].message}</p>}
+            {(participantErrors as any)[fieldInfo.name] && <p className="text-sm text-destructive mt-1">{(participantErrors as any)[fieldInfo.name].message}</p>}
           </div>
         ))}
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 p-2 pt-1">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">Cancel</Button>
-          <Button type="button" onClick={handleChildSubmit(actualOnSave)} disabled={isLoading} className="w-full sm:w-auto">
-              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} Save Student
+          <Button type="button" onClick={handleParticipantSubmit(actualOnSave)} disabled={isLoading} className="w-full sm:w-auto">
+              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} Save Participant
           </Button>
       </CardFooter>
     </Card>
@@ -223,15 +224,13 @@ const EnrollmentForm: React.FC = () => {
   const isMobile = useIsMobile();
   
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
-  const [adultDOB, setAdultDOB] = useState<Date | undefined>(undefined);
 
 
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
     defaultValues: {
       parentInfo: { parentFullName: '', parentPhone1: '', telegramPhoneNumber: '' },
-      adultTraineeInfo: undefined, 
-      children: [],
+      participants: [],
       agreeToTerms: false,
       couponCode: '',
       paymentProof: { paymentType: HAFSA_PAYMENT_METHODS[0]?.value || '' },
@@ -241,37 +240,28 @@ const EnrollmentForm: React.FC = () => {
   const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register: formRegister } = methods;
 
 
-  const { fields: childFields, append: appendChild, remove: removeChild } = useFieldArray({
+  const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
     control,
-    name: "children",
+    name: "participants",
   });
   
-  const watchedChildren = watch('children');
+  const watchedParticipants = watch('participants');
   const watchedPaymentType = watch('paymentProof.paymentType');
-  const watchedAdultTraineeInfo = watch('adultTraineeInfo');
 
 
  useEffect(() => {
     let total = 0;
     
-    if (watchedChildren) {
-      watchedChildren.forEach(enrolledChild => {
-        const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
+    if (watchedParticipants) {
+      watchedParticipants.forEach(enrolledParticipant => {
+        const program = HAFSA_PROGRAMS.find(p => p.id === enrolledParticipant.programId);
         if (program) {
           total += program.price;
         }
       });
     }
-    
-    const adultProgramId = getValues('adultTraineeInfo.programId');
-    if (adultProgramId) {
-      const program = HAFSA_PROGRAMS.find(p => p.id === adultProgramId);
-      if (program) {
-        total += program.price;
-      }
-    }
     setCalculatedPrice(total);
-  }, [watchedChildren, getValues, watchedAdultTraineeInfo]);
+  }, [watchedParticipants]);
 
 
   const handleAccountCreation = async () => {
@@ -288,62 +278,22 @@ const EnrollmentForm: React.FC = () => {
 
   const handleAddParticipantClick = () => {
     setProgramForNewParticipant(null); 
-    setAdultDOB(undefined);
     setCurrentView('addParticipant');
   };
 
-  const handleSaveChild = (childData: ChildInfoData) => {
+  const handleSaveParticipant = (participantData: ParticipantInfoData) => {
     if (!programForNewParticipant) {
         toast({ title: "Error", description: "No program selected.", variant: "destructive" });
         return;
     }
-    const newEnrolledChild: EnrolledChildData = {
+    const newEnrolledParticipant: EnrolledParticipantData = {
         programId: programForNewParticipant.id,
-        childInfo: childData,
+        participantInfo: participantData,
     };
-    appendChild(newEnrolledChild);
+    appendParticipant(newEnrolledParticipant);
     setCurrentView('dashboard');
     setActiveDashboardTab('enrollments');
-    toast({title: "Child Added", description: `${childData.childFirstName} has been added for ${programForNewParticipant.label}.`})
-  };
-
-  const handleSaveAdultEnrollment = () => {
-    if (!programForNewParticipant || programForNewParticipant.isChildProgram) {
-      toast({ title: "Error", description: "Invalid program selection for adult.", variant: "destructive" });
-      return;
-    }
-    if (!adultDOB) {
-      toast({ title: "Date of Birth Required", description: "Please provide your date of birth for this program.", variant: "destructive" });
-      return;
-    }
-
-    const existingAdultEnrollment = getValues('adultTraineeInfo');
-    if (existingAdultEnrollment && existingAdultEnrollment.programId && existingAdultEnrollment.programId !== programForNewParticipant.id) {
-        toast({
-            title: "Enrollment Updated",
-            description: `Your enrollment has been updated to ${programForNewParticipant.label}. You can only be enrolled in one adult program at a time.`,
-            variant: "default",
-            duration: 7000,
-        });
-    } else if (existingAdultEnrollment && existingAdultEnrollment.programId === programForNewParticipant.id) {
-         toast({
-            title: "Already Enrolled",
-            description: `You are already enrolled in ${programForNewParticipant.label}.`,
-            variant: "default",
-        });
-        setCurrentView('dashboard');
-        setActiveDashboardTab('enrollments');
-        return;
-    }
-
-
-    setValue('adultTraineeInfo', {
-      programId: programForNewParticipant.id,
-      dateOfBirth: adultDOB,
-    });
-    setCurrentView('dashboard');
-    setActiveDashboardTab('enrollments');
-    toast({ title: "Adult Program Enrolled", description: `You have been enrolled in ${programForNewParticipant.label}.` });
+    toast({title: "Participant Added", description: `${participantData.firstName} has been added for ${programForNewParticipant.label}.`})
   };
   
   const onSubmit = async (data: EnrollmentFormData) => {
@@ -383,8 +333,7 @@ const EnrollmentForm: React.FC = () => {
         
         const finalRegistrationData: RegistrationData = {
           parentInfo: data.parentInfo,
-          adultTraineeInfo: data.adultTraineeInfo,
-          children: data.children,
+          participants: data.participants,
           agreeToTerms: data.agreeToTerms,
           couponCode: data.couponCode,
           paymentProof: data.paymentProof!,
@@ -434,7 +383,7 @@ const EnrollmentForm: React.FC = () => {
       {!programForNewParticipant ? (
         <div>
           <h3 className="text-xl sm:text-2xl font-semibold mb-1 text-primary">Select a Program</h3>
-          <p className="text-muted-foreground mb-4 text-sm">Choose a program to enroll a participant or yourself.</p>
+          <p className="text-muted-foreground mb-4 text-sm">Choose a program to enroll a participant.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {HAFSA_PROGRAMS.map(prog => {
               let IconComponent;
@@ -444,24 +393,12 @@ const EnrollmentForm: React.FC = () => {
                 case 'arabic_women': IconComponent = Briefcase; break; 
                 default: IconComponent = BookOpenText;
               }
-              const isEnrolledAsAdult = watchedAdultTraineeInfo?.programId === prog.id;
-              const cantEnrollSelfAgain = !prog.isChildProgram && watchedAdultTraineeInfo?.programId && watchedAdultTraineeInfo?.programId !== prog.id;
-
+              
               return (
                 <Card 
                   key={prog.id} 
-                  className={cn(
-                    "hover:shadow-lg transition-shadow cursor-pointer flex flex-col",
-                    isEnrolledAsAdult && "ring-2 ring-accent",
-                    cantEnrollSelfAgain && "opacity-60 cursor-not-allowed"
-                  )}
-                  onClick={() => {
-                    if (cantEnrollSelfAgain) {
-                        toast({title: "Limit Reached", description: "You can only enroll yourself in one adult program at a time.", variant:"destructive"});
-                        return;
-                    }
-                    setProgramForNewParticipant(prog);
-                  }}
+                  className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
+                  onClick={() => setProgramForNewParticipant(prog)}
                 >
                   <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
                     <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
@@ -469,8 +406,6 @@ const EnrollmentForm: React.FC = () => {
                         <CardTitle className="text-base sm:text-lg text-primary">{prog.label}</CardTitle>
                     </div>
                     <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
-                     {isEnrolledAsAdult && <span className="text-xs text-accent font-semibold mt-1 block">You are enrolled in this program.</span>}
-                     {cantEnrollSelfAgain && <span className="text-xs text-destructive font-semibold mt-1 block">You are already in another adult program.</span>}
                   </CardHeader>
                   <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
                     {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
@@ -490,48 +425,13 @@ const EnrollmentForm: React.FC = () => {
         </div>
       ) : (
         <>
-          {programForNewParticipant.isChildProgram ? (
-             <ChildParticipantFields 
+            <ParticipantDetailFields 
                 programSpecificFields={programForNewParticipant.specificFields}
-                onSave={handleSaveChild}
+                onSave={handleSaveParticipant}
                 onCancel={() => { setProgramForNewParticipant(null);}}
                 isLoading={isLoading}
                 selectedProgramLabel={programForNewParticipant.label}
             />
-          ) : ( 
-            <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
-                <CardHeader className="p-2 pb-1">
-                    <CardTitle className="text-lg sm:text-xl font-headline">Enroll in {programForNewParticipant.label}</CardTitle>
-                    <CardDescription>Please provide your date of birth for this program.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
-                     <div>
-                        <Label htmlFor="adultDOB">Your Date of Birth</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !adultDOB && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {adultDOB ? format(adultDOB, "PPP") : <span>Pick your date of birth</span>}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" selected={adultDOB} onSelect={setAdultDOB} initialFocus disabled={(date) => date > new Date() || date < new Date("1940-01-01")} />
-                            </PopoverContent>
-                        </Popover>
-                        {!adultDOB && getValues('adultTraineeInfo.programId') === programForNewParticipant.id && errors.adultTraineeInfo?.dateOfBirth && (
-                           <p className="text-sm text-destructive mt-1">{errors.adultTraineeInfo.dateOfBirth.message}</p>
-                        )}
-                         {!adultDOB && <p className="text-sm text-muted-foreground mt-1">Date of birth is required for this program.</p>}
-                    </div>
-                </CardContent>
-                 <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 p-2 pt-1">
-                    <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null);}} disabled={isLoading} className="w-full sm:w-auto">Back to Program Selection</Button>
-                    <Button type="button" onClick={handleSaveAdultEnrollment} disabled={isLoading || !adultDOB} className="w-full sm:w-auto">
-                        {isLoading ? <Loader2 className="animate-spin mr-2"/> : <UserPlus className="mr-2 h-4 w-4" />} Confirm My Enrollment
-                    </Button>
-                </CardFooter>
-            </Card>
-          )}
            <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null);}} className="w-full mt-2 sm:hidden">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Program Selection
             </Button>
@@ -563,35 +463,17 @@ const EnrollmentForm: React.FC = () => {
         <TabsContent value="enrollments" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Manage Enrollments</h3>
             
-            {watchedAdultTraineeInfo && watchedAdultTraineeInfo.programId && (
-                <Card className="p-3 mb-3 bg-primary/5 border-primary/20">
-                     <div className="flex justify-between items-start">
-                        <div>
-                            <p className="font-semibold text-md text-primary">Your Enrollment (Primary Registrant)</p>
-                            <p className="text-sm text-foreground/90">
-                                {HAFSA_PROGRAMS.find(p => p.id === watchedAdultTraineeInfo.programId)?.label || 'Unknown Program'}
-                                {' - $'}{(HAFSA_PROGRAMS.find(p => p.id === watchedAdultTraineeInfo.programId)?.price || 0).toFixed(2)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">Date of Birth: {watchedAdultTraineeInfo.dateOfBirth ? format(new Date(watchedAdultTraineeInfo.dateOfBirth), "PPP") : 'N/A'}</p>
-                        </div>
-                         <Button type="button" variant="ghost" size="sm" onClick={() => { setValue('adultTraineeInfo', undefined); toast({title: "Your Enrollment Removed"});}} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </Card>
-            )}
-
-            {childFields.map((field, index) => {
-                const enrolledChild = field as unknown as EnrolledChildData;
-                const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
+            {participantFields.map((field, index) => {
+                const enrolledParticipant = field as unknown as EnrolledParticipantData;
+                const program = HAFSA_PROGRAMS.find(p => p.id === enrolledParticipant.programId);
                 return (
                 <Card key={field.id} className="p-3 mb-2 bg-background">
                     <div className="flex justify-between items-start">
                     <div>
-                        <p className="font-semibold text-md">{enrolledChild.childInfo.childFirstName}</p>
+                        <p className="font-semibold text-md">{enrolledParticipant.participantInfo.firstName}</p>
                         <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - ${program?.price.toFixed(2)}</p>
                     </div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeParticipant(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
                         <Trash2 className="h-4 w-4" />
                     </Button>
                     </div>
@@ -599,7 +481,7 @@ const EnrollmentForm: React.FC = () => {
                 );
             })}
             
-            {(childFields.length === 0 && (!watchedAdultTraineeInfo || !watchedAdultTraineeInfo.programId)) && (
+            {(participantFields.length === 0) && (
                 <div className="text-center py-4 sm:py-6">
                     <p className="text-muted-foreground mb-3 sm:mb-4 text-sm">No participants added yet. Click below to add an enrollment.</p>
                 </div>
@@ -726,8 +608,7 @@ const EnrollmentForm: React.FC = () => {
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
-        {/* The main header for the form is removed. The page title from src/app/page.tsx serves this purpose. */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl">
           
            <CardContent className={cn("min-h-[300px] sm:min-h-[350px] p-3 sm:p-6", isMobile && currentView === 'dashboard' && "pb-24")}>
@@ -746,13 +627,13 @@ const EnrollmentForm: React.FC = () => {
                         <Button 
                             type="button" 
                             onClick={() => {
-                                if (childFields.length === 0 && !getValues('adultTraineeInfo.programId')) {
-                                    toast({title: "No Enrollments", description: "Please add at least one participant or enroll yourself in an adult program before proceeding to payment.", variant: "destructive"});
+                                if (participantFields.length === 0 ) {
+                                    toast({title: "No Enrollments", description: "Please add at least one participant before proceeding to payment.", variant: "destructive"});
                                     return;
                                 }
                                 setActiveDashboardTab('payment')
                             }} 
-                            disabled={isLoading || (childFields.length === 0 && !getValues('adultTraineeInfo.programId'))} 
+                            disabled={isLoading || (participantFields.length === 0)} 
                             className="w-full sm:ml-auto"
                         >
                             Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
@@ -786,3 +667,6 @@ const EnrollmentForm: React.FC = () => {
 };
 
 export default EnrollmentForm;
+
+
+    

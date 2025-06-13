@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { HAFSA_PROGRAMS, SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
 
-const phoneRegex = /^[0-9]{9,15}$/; 
+const phoneRegex = /^[0-9]{9,15}$/;
 
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters."),
@@ -14,23 +14,26 @@ export const ParentInfoSchema = z.object({
 });
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
-export const ChildInfoSchema = z.object({
-  childFirstName: z.string().min(2, "Child's first name must be at least 2 characters."),
+export const ParticipantInfoSchema = z.object({
+  firstName: z.string().min(2, "Participant's first name must be at least 2 characters."),
   gender: z.enum(["male", "female"], { required_error: "Gender is required." }),
-  dateOfBirth: z.date({ required_error: "Child's date of birth is required." }),
-  specialAttention: z.string().optional(), 
-  schoolGrade: z.string().optional(), 
-  quranLevel: z.string().optional(), 
+  dateOfBirth: z.date({ required_error: "Participant's date of birth is required." }),
+  specialAttention: z.string().optional(),
+  schoolGrade: z.string().optional(),
+  quranLevel: z.string().optional(),
 });
-export type ChildInfoData = z.infer<typeof ChildInfoSchema>;
+export type ParticipantInfoData = z.infer<typeof ParticipantInfoSchema>;
 
-export const EnrolledChildSchema = z.object({
-  programId: z.string().min(1, "Program selection is required for each child."),
-  childInfo: ChildInfoSchema,
+export const EnrolledParticipantSchema = z.object({
+  programId: z.string().min(1, "Program selection is required for each participant."),
+  participantInfo: ParticipantInfoSchema,
 });
-export type EnrolledChildData = z.infer<typeof EnrolledChildSchema>;
+export type EnrolledParticipantData = z.infer<typeof EnrolledParticipantSchema>;
 
-
+// AdultTraineeSchema is no longer used directly in EnrollmentFormSchema for self-enrollment
+// as that logic is now part of the unified ParticipantInfoSchema.
+// It might be useful if you had a very distinct adult-only registration path elsewhere,
+// but for now, it's not directly part of the main enrollment form's primary data structure.
 export const AdultTraineeSchema = z.object({
   dateOfBirth: z.date({ required_error: "Trainee's date of birth is required." }),
   programId: z.string().min(1, "Program selection is required for the trainee."),
@@ -49,9 +52,8 @@ export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: ParentInfoSchema, 
-  adultTraineeInfo: AdultTraineeSchema.optional(), 
-  children: z.array(EnrolledChildSchema).optional().default([]),
+  parentInfo: ParentInfoSchema,
+  participants: z.array(EnrolledParticipantSchema).optional().default([]),
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
@@ -66,36 +68,20 @@ export const EnrollmentFormSchema = z.object({
             message: 'Primary registrant information is required.',
         });
     }
-
-    if (data.adultTraineeInfo) {
-        if (!data.adultTraineeInfo.programId) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['adultTraineeInfo', 'programId'],
-                message: 'Program selection is required for adult trainee.',
-            });
-        }
-        if (!data.adultTraineeInfo.dateOfBirth) {
-             ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['adultTraineeInfo', 'dateOfBirth'],
-                message: 'Date of birth is required for adult trainee.',
-            });
-        }
-    }
+    // Validation if no participants are added before proceeding to payment can be handled in UI or onSubmit
 });
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
 export type RegistrationData = {
-  parentInfo: ParentInfoData; 
-  adultTraineeInfo?: AdultTraineeData; 
-  children?: EnrolledChildData[];
+  parentInfo: ParentInfoData;
+  participants?: EnrolledParticipantData[];
   agreeToTerms: boolean;
   couponCode?: string;
   paymentProof: PaymentProofData;
   calculatedPrice: number;
   paymentVerified: boolean;
-  paymentVerificationDetails?: any; 
+  paymentVerificationDetails?: any;
   registrationDate: Date;
 };
+
