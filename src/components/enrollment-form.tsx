@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useForm, FormProvider, Controller, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2 } from 'lucide-react';
@@ -298,6 +298,8 @@ const EnrollmentForm: React.FC = () => {
           screenshotDataUri: data.paymentProof.screenshotDataUri,
           pdfLink: data.paymentProof.pdfLink,
           transactionId: data.paymentProof.transactionId,
+          // Ensure the 'screenshot' File object itself is not sent if screenshotDataUri is used by AI
+          // screenshot: undefined // or omit if not needed by handlePaymentVerification directly
         },
         expectedAmount: calculatedPrice,
       };
@@ -314,7 +316,12 @@ const EnrollmentForm: React.FC = () => {
         const finalRegistrationData: RegistrationData = {
           parentInfo: data.parentInfo,
           children: data.children,
-          paymentProof: data.paymentProof,
+          paymentProof: { // ensure we are sending the correct structure
+             paymentType: data.paymentProof.paymentType,
+             screenshotDataUri: data.paymentProof.screenshotDataUri, // AI might populate this
+             pdfLink: data.paymentProof.pdfLink,
+             transactionId: result.transactionNumber || data.paymentProof.transactionId, // Use AI extracted if available
+          },
           calculatedPrice,
           paymentVerified: true,
           paymentVerificationDetails: result,
@@ -501,3 +508,6 @@ const EnrollmentForm: React.FC = () => {
 };
 
 export default EnrollmentForm;
+
+
+    
