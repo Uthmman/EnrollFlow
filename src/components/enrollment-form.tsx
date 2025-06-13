@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2, Settings, Building, FileImage, LinkIcon, FingerprintIcon, UserCheck, Info, Percent, Phone } from 'lucide-react';
+import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2, Settings, Building, FileImage, LinkIcon, FingerprintIcon, UserCheck, Info, Percent, Phone, UserCog, LogOut, Edit3 } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -24,21 +24,14 @@ import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 
 import { HAFSA_PROGRAMS, HAFSA_PAYMENT_METHODS, HafsaProgram, ProgramField, SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
-import type { EnrollmentFormData, ParentInfoData, ChildInfoData, AdultTraineeData, RegistrationData } from '@/types';
-import { EnrollmentFormSchema } from '@/types';
-import { handlePaymentVerification } from '@/app/actions'; // This action will need updates for new payment methods/logic
+import type { EnrollmentFormData, ParentInfoData, ChildInfoData, AdultTraineeData, RegistrationData, EnrolledChildData } from '@/types';
+import { EnrollmentFormSchema, EnrolledChildSchema } from '@/types'; // Ensure EnrolledChildSchema is imported
+import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
-
-const overallStages = [
-  { id: 'programSelection', title: 'Select Program', icon: <BookOpen className="h-5 w-5" /> },
-  { id: 'participantInfo', title: 'Participant Information', icon: <Users className="h-5 w-5" /> },
-  { id: 'payment', title: 'Payment & Confirmation', icon: <CreditCard className="h-5 w-5" /> },
-  { id: 'receipt', title: 'Registration Complete', icon: <CheckCircle className="h-5 w-5" /> },
-];
 
 const defaultChildValues: ChildInfoData = {
   childFirstName: '',
-  gender: 'male' as 'male' | 'female', // default, but should be selected
+  gender: 'male' as 'male' | 'female',
   dateOfBirth: undefined as any,
   specialAttention: '',
   schoolGrade: '',
@@ -50,62 +43,95 @@ const defaultAdultTraineeValues: AdultTraineeData = {
   dateOfBirth: undefined as any,
   phone1: '',
   telegramPhoneNumber: '',
+  programId: '',
 };
 
-const ParentInfoFields: React.FC = () => {
+const ParentInfoFields: React.FC<{ isAdultTrainee?: boolean }> = ({ isAdultTrainee = false }) => {
   const { control, register, formState: { errors }, watch, setValue } = useFormContext<EnrollmentFormData>();
-  const parentInfoErrors = errors.parentInfo || {};
+  const fieldPrefix = isAdultTrainee ? 'adultTraineeInfo' : 'parentInfo';
+  const currentErrors = isAdultTrainee ? errors.adultTraineeInfo || {} : errors.parentInfo || {};
+  
+  const phone1 = watch(`${fieldPrefix}.phone1` as any) || watch(`${fieldPrefix}.parentPhone1` as any);
+  const phone2 = watch(`${fieldPrefix}.phone2` as any) || watch(`${fieldPrefix}.parentPhone2` as any);
+  const title = isAdultTrainee ? "Trainee Information" : "Parent/Guardian Information";
+  const nameLabel = isAdultTrainee ? "Trainee's Full Name" : "Parent's Full Name";
+  const nameField = isAdultTrainee ? "traineeFullName" : "parentFullName";
+  const phone1Field = isAdultTrainee ? "phone1" : "parentPhone1";
+  const phone2Field = isAdultTrainee ? "phone2" : "parentPhone2";
 
-  const phone1 = watch('parentInfo.parentPhone1');
-  const phone2 = watch('parentInfo.parentPhone2');
 
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-primary/20 border">
       <CardHeader className="p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center"><UserCheck className="mr-2 h-5 w-5"/> Parent/Guardian Information</CardTitle>
+        <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center">
+          {isAdultTrainee ? <User className="mr-2 h-5 w-5"/> : <UserCheck className="mr-2 h-5 w-5"/>} {title}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <div>
-          <Label htmlFor="parentInfo.parentFullName">Full Name</Label>
-          <Input id="parentInfo.parentFullName" {...register('parentInfo.parentFullName')} placeholder="Parent's Full Name" />
-          {parentInfoErrors.parentFullName && <p className="text-sm text-destructive mt-1">{parentInfoErrors.parentFullName.message}</p>}
+          <Label htmlFor={`${fieldPrefix}.${nameField}`}>{nameLabel}</Label>
+          <Input id={`${fieldPrefix}.${nameField}`} {...register(`${fieldPrefix}.${nameField}` as any)} placeholder={nameLabel} />
+          {(currentErrors as any)[nameField] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[nameField].message}</p>}
         </div>
+        
+        {isAdultTrainee && (
+           <div>
+            <Label htmlFor={`${fieldPrefix}.dateOfBirth`}>Date of Birth</Label>
+            <Controller
+                name={`${fieldPrefix}.dateOfBirth` as any}
+                control={control}
+                render={({ field }) => (
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value ? new Date(field.value) : undefined} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("1940-01-01")} /></PopoverContent>
+                </Popover>
+                )}
+            />
+            {(currentErrors as any).dateOfBirth && <p className="text-sm text-destructive mt-1">{(currentErrors as any).dateOfBirth.message}</p>}
+            </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="parentInfo.parentPhone1">Primary Phone Number</Label>
-            <Input id="parentInfo.parentPhone1" {...register('parentInfo.parentPhone1')} type="tel" placeholder="e.g., 0911XXXXXX" />
-            {parentInfoErrors.parentPhone1 && <p className="text-sm text-destructive mt-1">{parentInfoErrors.parentPhone1.message}</p>}
+            <Label htmlFor={`${fieldPrefix}.${phone1Field}`}>Primary Phone Number</Label>
+            <Input id={`${fieldPrefix}.${phone1Field}`} {...register(`${fieldPrefix}.${phone1Field}` as any)} type="tel" placeholder="e.g., 0911XXXXXX" />
+            {(currentErrors as any)[phone1Field] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[phone1Field].message}</p>}
           </div>
           <div>
-            <Label htmlFor="parentInfo.parentPhone2">Secondary Phone Number (Optional)</Label>
-            <Input id="parentInfo.parentPhone2" {...register('parentInfo.parentPhone2')} type="tel" placeholder="e.g., 0912XXXXXX" />
-            {parentInfoErrors.parentPhone2 && <p className="text-sm text-destructive mt-1">{parentInfoErrors.parentPhone2.message}</p>}
+            <Label htmlFor={`${fieldPrefix}.${phone2Field}`}>Secondary Phone Number (Optional)</Label>
+            <Input id={`${fieldPrefix}.${phone2Field}`} {...register(`${fieldPrefix}.${phone2Field}` as any)} type="tel" placeholder="e.g., 0912XXXXXX" />
+            {(currentErrors as any)[phone2Field] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[phone2Field].message}</p>}
           </div>
         </div>
         <div>
-          <Label htmlFor="parentInfo.telegramPhoneNumber">Telegram Phone Number</Label>
-          <Input id="parentInfo.telegramPhoneNumber" {...register('parentInfo.telegramPhoneNumber')} type="tel" placeholder="For Telegram updates" />
-          {parentInfoErrors.telegramPhoneNumber && <p className="text-sm text-destructive mt-1">{parentInfoErrors.telegramPhoneNumber.message}</p>}
+          <Label htmlFor={`${fieldPrefix}.telegramPhoneNumber`}>Telegram Phone Number</Label>
+          <Input id={`${fieldPrefix}.telegramPhoneNumber`} {...register(`${fieldPrefix}.telegramPhoneNumber` as any)} type="tel" placeholder="For Telegram updates" />
+          {(currentErrors as any).telegramPhoneNumber && <p className="text-sm text-destructive mt-1">{(currentErrors as any).telegramPhoneNumber.message}</p>}
           <div className="mt-2 space-y-1 text-sm">
-            <Controller name="parentInfo.usePhone1ForTelegram" control={control} render={({field}) => (
+            <Controller name={`${fieldPrefix}.usePhone1ForTelegram` as any} control={control} render={({field}) => (
                 <div className="flex items-center gap-2">
-                    <Checkbox id="usePhone1ForTelegram" checked={field.value} onCheckedChange={(checked) => {
+                    <Checkbox id={`${fieldPrefix}UsePhone1`} checked={field.value} onCheckedChange={(checked) => {
                         field.onChange(checked);
-                        if (checked && phone1) setValue('parentInfo.telegramPhoneNumber', phone1);
-                        setValue('parentInfo.usePhone2ForTelegram', false);
+                        if (checked && phone1) setValue(`${fieldPrefix}.telegramPhoneNumber` as any, phone1);
+                        setValue(`${fieldPrefix}.usePhone2ForTelegram` as any, false);
                     }} disabled={!phone1}/>
-                    <Label htmlFor="usePhone1ForTelegram" className="font-normal">Use Primary Phone for Telegram</Label>
+                    <Label htmlFor={`${fieldPrefix}UsePhone1`} className="font-normal">Use Primary Phone for Telegram</Label>
                 </div>
             )}/>
             {phone2 && 
-            <Controller name="parentInfo.usePhone2ForTelegram" control={control} render={({field}) => (
+            <Controller name={`${fieldPrefix}.usePhone2ForTelegram` as any} control={control} render={({field}) => (
                  <div className="flex items-center gap-2">
-                    <Checkbox id="usePhone2ForTelegram" checked={field.value} onCheckedChange={(checked) => {
+                    <Checkbox id={`${fieldPrefix}UsePhone2`} checked={field.value} onCheckedChange={(checked) => {
                         field.onChange(checked);
-                        if (checked && phone2) setValue('parentInfo.telegramPhoneNumber', phone2);
-                        setValue('parentInfo.usePhone1ForTelegram', false);
+                        if (checked && phone2) setValue(`${fieldPrefix}.telegramPhoneNumber` as any, phone2);
+                        setValue(`${fieldPrefix}.usePhone1ForTelegram` as any, false);
                     }} disabled={!phone2}/>
-                    <Label htmlFor="usePhone2ForTelegram" className="font-normal">Use Secondary Phone for Telegram</Label>
+                    <Label htmlFor={`${fieldPrefix}UsePhone2`} className="font-normal">Use Secondary Phone for Telegram</Label>
                 </div>
             )}/>}
           </div>
@@ -115,328 +141,274 @@ const ParentInfoFields: React.FC = () => {
   );
 };
 
-const ChildParticipantFields: React.FC<{ childIndex: number; removeChild: (index: number) => void; programSpecificFields?: ProgramField[] }> = ({ childIndex, removeChild, programSpecificFields }) => {
-  const { control, register, formState: { errors } } = useFormContext<EnrollmentFormData>();
-  const pathPrefix = `children.${childIndex}` as const;
-  const childErrors = errors.children?.[childIndex] || {};
+const ChildParticipantFields: React.FC<{ 
+    childIndex: number; 
+    programSpecificFields?: ProgramField[];
+    onSave: (data: ChildInfoData) => void; 
+    onCancel: () => void;
+    isLoading: boolean;
+}> = ({ childIndex, programSpecificFields, onSave, onCancel, isLoading }) => {
+  
+  // Use a local form for this sub-component to avoid conflicts if needed, or ensure paths are unique
+  const { control, register, handleSubmit: handleChildSubmit, formState: { errors: childErrors }, reset: resetChildForm } = useForm<ChildInfoData>({
+    resolver: zodResolver(ChildInfoSchema), // Use ChildInfoSchema for validation
+    defaultValues: defaultChildValues,
+  });
+
+  const actualOnSave = (data: ChildInfoData) => {
+    onSave(data);
+    resetChildForm(defaultChildValues); // Reset after saving
+  };
 
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline">Child {childIndex + 1}</CardTitle>
-        <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(childIndex)} className="text-destructive hover:text-destructive/80">
-          <Trash2 className="h-4 w-4 mr-1" /> Remove
-        </Button>
+        <CardTitle className="text-lg sm:text-xl font-headline">Add New Child</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
-        <div>
-          <Label htmlFor={`${pathPrefix}.childFirstName`}>First Name</Label>
-          <Input id={`${pathPrefix}.childFirstName`} {...register(`${pathPrefix}.childFirstName`)} placeholder="Child's First Name" />
-          {childErrors.childFirstName && <p className="text-sm text-destructive mt-1">{childErrors.childFirstName.message}</p>}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-                <Label htmlFor={`${pathPrefix}.gender`}>Gender</Label>
+      <form onSubmit={handleChildSubmit(actualOnSave)}>
+        <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
+          <div>
+            <Label htmlFor={`childInfo.childFirstName`}>First Name</Label>
+            <Input id={`childInfo.childFirstName`} {...register(`childFirstName`)} placeholder="Child's First Name" />
+            {childErrors.childFirstName && <p className="text-sm text-destructive mt-1">{childErrors.childFirstName.message}</p>}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                  <Label htmlFor={`childInfo.gender`}>Gender</Label>
+                  <Controller
+                      name={`gender`}
+                      control={control}
+                      render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger id={`childInfo.gender`}><SelectValue placeholder="Select gender" /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                          </SelectContent>
+                      </Select>
+                      )}
+                  />
+                  {childErrors.gender && <p className="text-sm text-destructive mt-1">{childErrors.gender.message}</p>}
+              </div>
+              <div>
+                  <Label htmlFor={`childInfo.dateOfBirth`}>Date of Birth</Label>
+                  <Controller
+                      name={`dateOfBirth`}
+                      control={control}
+                      render={({ field }) => (
+                      <Popover>
+                          <PopoverTrigger asChild>
+                          <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
+                          </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={field.value ? new Date(field.value): undefined} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("2000-01-01")} />
+                          </PopoverContent>
+                      </Popover>
+                      )}
+                  />
+                  {childErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{childErrors.dateOfBirth.message}</p>}
+              </div>
+          </div>
+          {programSpecificFields?.map(fieldInfo => (
+            <div key={fieldInfo.name}>
+              <Label htmlFor={`childInfo.${fieldInfo.name}`}>{fieldInfo.label}</Label>
+              {fieldInfo.type === 'text' && (
+                <Textarea id={`childInfo.${fieldInfo.name}`} {...register(fieldInfo.name as any)} placeholder={fieldInfo.label} />
+              )}
+              {fieldInfo.type === 'select' && (
                 <Controller
-                    name={`${pathPrefix}.gender`}
-                    control={control}
-                    render={({ field }) => (
+                  name={fieldInfo.name as any}
+                  control={control}
+                  render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger id={`${pathPrefix}.gender`}><SelectValue placeholder="Select gender" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                        </SelectContent>
+                      <SelectTrigger id={`childInfo.${fieldInfo.name}`}><SelectValue placeholder={`Select ${fieldInfo.label.toLowerCase()}`} /></SelectTrigger>
+                      <SelectContent>{fieldInfo.options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
                     </Select>
-                    )}
+                  )}
                 />
-                {childErrors.gender && <p className="text-sm text-destructive mt-1">{childErrors.gender.message}</p>}
+              )}
+              {(childErrors as any)[fieldInfo.name] && <p className="text-sm text-destructive mt-1">{(childErrors as any)[fieldInfo.name].message}</p>}
             </div>
-            <div>
-                <Label htmlFor={`${pathPrefix}.dateOfBirth`}>Date of Birth</Label>
-                <Controller
-                    name={`${pathPrefix}.dateOfBirth`}
-                    control={control}
-                    render={({ field }) => (
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("2000-01-01")} /></PopoverContent>
-                    </Popover>
-                    )}
-                />
-                {childErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{childErrors.dateOfBirth.message}</p>}
-            </div>
-        </div>
-        {programSpecificFields?.map(fieldInfo => (
-          <div key={fieldInfo.name}>
-            <Label htmlFor={`${pathPrefix}.${fieldInfo.name}`}>{fieldInfo.label}</Label>
-            {fieldInfo.type === 'text' && (
-              <Textarea id={`${pathPrefix}.${fieldInfo.name}`} {...register(`${pathPrefix}.${fieldInfo.name}` as any)} placeholder={fieldInfo.label} />
-            )}
-            {fieldInfo.type === 'select' && (
-              <Controller
-                name={`${pathPrefix}.${fieldInfo.name}` as any}
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger id={`${pathPrefix}.${fieldInfo.name}`}><SelectValue placeholder={`Select ${fieldInfo.label.toLowerCase()}`} /></SelectTrigger>
-                    <SelectContent>{fieldInfo.options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
-                  </Select>
-                )}
-              />
-            )}
-             {(childErrors as any)[fieldInfo.name] && <p className="text-sm text-destructive mt-1">{(childErrors as any)[fieldInfo.name].message}</p>}
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-};
-
-const AdultTraineeFields: React.FC = () => {
-  const { control, register, formState: { errors }, watch, setValue } = useFormContext<EnrollmentFormData>();
-  const adultErrors = errors.adultTraineeInfo || {};
-  const phone1 = watch('adultTraineeInfo.phone1');
-  const phone2 = watch('adultTraineeInfo.phone2');
-
-  return (
-    <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-primary/20 border">
-      <CardHeader className="p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center"><User className="mr-2 h-5 w-5"/> Trainee Information</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
-        <div>
-          <Label htmlFor="adultTraineeInfo.traineeFullName">Full Name</Label>
-          <Input id="adultTraineeInfo.traineeFullName" {...register('adultTraineeInfo.traineeFullName')} placeholder="Trainee's Full Name" />
-          {adultErrors.traineeFullName && <p className="text-sm text-destructive mt-1">{adultErrors.traineeFullName.message}</p>}
-        </div>
-        <div>
-          <Label htmlFor="adultTraineeInfo.dateOfBirth">Date of Birth</Label>
-          <Controller
-            name="adultTraineeInfo.dateOfBirth"
-            control={control}
-            render={({ field }) => (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("1940-01-01")} /></PopoverContent>
-              </Popover>
-            )}
-          />
-          {adultErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{adultErrors.dateOfBirth.message}</p>}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="adultTraineeInfo.phone1">Primary Phone Number</Label>
-            <Input id="adultTraineeInfo.phone1" {...register('adultTraineeInfo.phone1')} type="tel" placeholder="e.g., 0911XXXXXX" />
-            {adultErrors.phone1 && <p className="text-sm text-destructive mt-1">{adultErrors.phone1.message}</p>}
-          </div>
-          <div>
-            <Label htmlFor="adultTraineeInfo.phone2">Secondary Phone Number (Optional)</Label>
-            <Input id="adultTraineeInfo.phone2" {...register('adultTraineeInfo.phone2')} type="tel" placeholder="e.g., 0912XXXXXX" />
-            {adultErrors.phone2 && <p className="text-sm text-destructive mt-1">{adultErrors.phone2.message}</p>}
-          </div>
-        </div>
-        <div>
-          <Label htmlFor="adultTraineeInfo.telegramPhoneNumber">Telegram Phone Number</Label>
-          <Input id="adultTraineeInfo.telegramPhoneNumber" {...register('adultTraineeInfo.telegramPhoneNumber')} type="tel" placeholder="For Telegram updates" />
-          {adultErrors.telegramPhoneNumber && <p className="text-sm text-destructive mt-1">{adultErrors.telegramPhoneNumber.message}</p>}
-          <div className="mt-2 space-y-1 text-sm">
-             <Controller name="adultTraineeInfo.usePhone1ForTelegram" control={control} render={({field}) => (
-                <div className="flex items-center gap-2">
-                    <Checkbox id="adultUsePhone1ForTelegram" checked={field.value} onCheckedChange={(checked) => {
-                        field.onChange(checked);
-                        if (checked && phone1) setValue('adultTraineeInfo.telegramPhoneNumber', phone1);
-                        setValue('adultTraineeInfo.usePhone2ForTelegram', false);
-                    }} disabled={!phone1}/>
-                    <Label htmlFor="adultUsePhone1ForTelegram" className="font-normal">Use Primary Phone for Telegram</Label>
-                </div>
-            )}/>
-            {phone2 &&
-            <Controller name="adultTraineeInfo.usePhone2ForTelegram" control={control} render={({field}) => (
-                 <div className="flex items-center gap-2">
-                    <Checkbox id="adultUsePhone2ForTelegram" checked={field.value} onCheckedChange={(checked) => {
-                        field.onChange(checked);
-                        if (checked && phone2) setValue('adultTraineeInfo.telegramPhoneNumber', phone2);
-                        setValue('adultTraineeInfo.usePhone1ForTelegram', false);
-                    }} disabled={!phone2}/>
-                    <Label htmlFor="adultUsePhone2ForTelegram" className="font-normal">Use Secondary Phone for Telegram</Label>
-                </div>
-            )}/>}
-          </div>
-        </div>
-      </CardContent>
+          ))}
+        </CardContent>
+        <CardFooter className="flex justify-end gap-2 p-2 pt-1">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>Cancel</Button>
+            <Button type="submit" disabled={isLoading}>
+                {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} Save Student
+            </Button>
+        </CardFooter>
+      </form>
     </Card>
   );
 };
 
 
 const EnrollmentForm: React.FC = () => {
-  const [currentStage, setCurrentStage] = useState(0); // 0: Program Selection, 1: Participant Info, 2: Payment, 3: Receipt
+  const [currentView, setCurrentView] = useState<'accountTypeSelection' | 'accountCreation' | 'dashboard' | 'addStudent' | 'payment' | 'confirmation'>('accountTypeSelection');
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'students' | 'settings' | 'payment'>('students');
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
+  
+  // For the "Add Student" flow
+  const [programForNewStudent, setProgramForNewStudent] = useState<HafsaProgram | null>(null);
 
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
     defaultValues: {
-      selectedProgramId: '',
+      accountHolderType: undefined,
       parentInfo: { parentFullName: '', parentPhone1: '', telegramPhoneNumber: '' },
-      children: [], // Start with no children, add dynamically
       adultTraineeInfo: defaultAdultTraineeValues,
+      children: [],
       agreeToTerms: false,
       couponCode: '',
       paymentProof: { paymentType: HAFSA_PAYMENT_METHODS[0]?.value || '' },
     },
   });
 
-  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, register } = methods;
+  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset } = methods;
 
-  const { fields: childFields, append: appendChild, remove: removeChild } = useFieldArray({
+  const { fields: childFields, append: appendChild, remove: removeChild, update: updateChild } = useFieldArray({
     control,
     name: "children",
   });
   
-  const selectedProgramId = watch('selectedProgramId');
-  const watchedChildren = watch('children'); // for price calculation
-  const watchedPaymentType = watch('paymentProof.paymentType'); // for AI logic if still used
+  const watchedChildren = watch('children');
+  const watchedPaymentType = watch('paymentProof.paymentType');
+  const watchedAccountHolderType = watch('accountHolderType');
+  const watchedAdultProgramId = watch('adultTraineeInfo.programId');
 
-  const selectedProgram = useMemo(() => {
-    return HAFSA_PROGRAMS.find(p => p.id === selectedProgramId);
-  }, [selectedProgramId]);
-
+  // Price Calculation
   useEffect(() => {
-    // Reset participant info when program changes
-    setValue('children', []);
-    setValue('parentInfo', { parentFullName: '', parentPhone1: '', telegramPhoneNumber: '' });
-    setValue('adultTraineeInfo', defaultAdultTraineeValues);
-    if (selectedProgram && selectedProgram.isChildProgram && getValues('children').length === 0) {
-        appendChild(defaultChildValues); // Add one child by default if it's a child program
-    }
-    // Recalculate price
     let total = 0;
-    if (selectedProgram) {
-      total = selectedProgram.price;
-      if (selectedProgram.isChildProgram) {
-        const numChildren = getValues('children')?.length || 0;
-        total = selectedProgram.price * Math.max(1, numChildren); // Price per child
+    const accountType = getValues('accountHolderType');
+    
+    if (accountType === 'parent' && watchedChildren) {
+      watchedChildren.forEach(enrolledChild => {
+        const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
+        if (program) {
+          total += program.price;
+        }
+      });
+    } else if (accountType === 'adult_trainee') {
+      const adultProgramId = getValues('adultTraineeInfo.programId');
+      const program = HAFSA_PROGRAMS.find(p => p.id === adultProgramId);
+      if (program) {
+        total += program.price;
       }
     }
     setCalculatedPrice(total);
-  }, [selectedProgram, setValue, getValues, appendChild]);
+  }, [watchedChildren, getValues, watchedAccountHolderType, watchedAdultProgramId]);
 
-  useEffect(() => { // Price calculation based on number of children for child programs
-    if (selectedProgram && selectedProgram.isChildProgram) {
-      const numChildren = watchedChildren?.length || 0;
-      setCalculatedPrice(selectedProgram.price * Math.max(1, numChildren));
-    } else if (selectedProgram) {
-      setCalculatedPrice(selectedProgram.price);
+
+  const handleAccountTypeSelection = (type: 'parent' | 'adult_trainee') => {
+    setValue('accountHolderType', type);
+    setCurrentView('accountCreation');
+  };
+
+  const handleAccountCreation = async () => {
+    const fieldsToValidate: (keyof EnrollmentFormData)[] = ['accountHolderType'];
+    if (getValues('accountHolderType') === 'parent') {
+        fieldsToValidate.push('parentInfo');
     } else {
-      setCalculatedPrice(0);
-    }
-  }, [watchedChildren, selectedProgram]);
-
-
-  const handleNextStage = async () => {
-    let isValid = false;
-    if (currentStage === 0) { // Program Selection -> Participant Info
-      isValid = await trigger(['selectedProgramId', 'agreeToTerms']);
-      if(isValid && !selectedProgram) isValid = false; // Ensure program is actually found
-    } else if (currentStage === 1) { // Participant Info -> Payment
-      const fieldsToValidate: (keyof EnrollmentFormData)[] = ['selectedProgramId', 'agreeToTerms'];
-      if (selectedProgram?.requiresParentInfo) fieldsToValidate.push('parentInfo');
-      if (selectedProgram?.isChildProgram) fieldsToValidate.push('children');
-      else fieldsToValidate.push('adultTraineeInfo');
-      isValid = await trigger(fieldsToValidate);
+        fieldsToValidate.push('adultTraineeInfo');
+        // Also validate adult's program choice if that's part of this step
+        const adultProgramIsValid = await trigger('adultTraineeInfo.programId');
+         if (!adultProgramIsValid) {
+            toast({ title: "Validation Error", description: "Please select a program for the trainee.", variant: "destructive" });
+            return;
+        }
     }
     
+    const isValid = await trigger(fieldsToValidate);
     if (isValid) {
-      setCurrentStage(s => s + 1);
+        if (getValues('accountHolderType') === 'adult_trainee') {
+             // For adult trainee, they might go directly to payment or confirmation if no further steps.
+             // Or if agreeToTerms is a separate step. For now, assume they go to payment tab.
+            setActiveDashboardTab('payment'); 
+        } else {
+            setActiveDashboardTab('students');
+        }
+        setCurrentView('dashboard');
     } else {
       toast({ title: "Validation Error", description: "Please check your entries and try again.", variant: "destructive" });
     }
   };
 
-  const handlePreviousStage = () => {
-    setCurrentStage(s => s - 1);
+  const handleAddStudentClick = () => {
+    setProgramForNewStudent(null); // Reset selected program for new student
+    setCurrentView('addStudent');
+  };
+
+  const handleSaveStudent = (childData: ChildInfoData) => {
+    if (!programForNewStudent) {
+        toast({ title: "Error", description: "No program selected for the child.", variant: "destructive" });
+        return;
+    }
+    const newEnrolledChild: EnrolledChildData = {
+        programId: programForNewStudent.id,
+        childInfo: childData,
+    };
+    appendChild(newEnrolledChild);
+    setCurrentView('dashboard');
+    setActiveDashboardTab('students');
+    toast({title: "Student Added", description: `${childData.childFirstName} has been added for ${programForNewStudent.label}.`})
   };
   
   const onSubmit = async (data: EnrollmentFormData) => {
-    if (!selectedProgram) {
-        toast({ title: "Error", description: "No program selected.", variant: "destructive" });
-        return;
-    }
     setIsLoading(true);
     try {
-      // AI verification for 'screenshot' type if still relevant
       let screenshotDataUri: string | undefined;
-      if (data.paymentProof.paymentType === 'screenshot_ai_verification' && data.paymentProof.screenshot) { // Assuming a specific value for AI
+      if (data.paymentProof?.paymentType === 'screenshot_ai_verification' && data.paymentProof?.screenshot) {
         screenshotDataUri = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
-          reader.readAsDataURL(data.paymentProof.screenshot as File);
+          reader.readAsDataURL(data.paymentProof!.screenshot as File);
         });
         setValue('paymentProof.screenshotDataUri', screenshotDataUri); 
-        data.paymentProof.screenshotDataUri = screenshotDataUri; 
+        if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri; 
       }
       
-      // For Hafsa payment methods, AI verification might not apply directly.
-      // The `handlePaymentVerification` action would need to be adapted or bypassed.
-      // For now, we'll assume basic submission or a modified AI flow.
       const verificationInput = {
         paymentProof: {
-          paymentType: data.paymentProof.paymentType, // This is now 'cbe', 'telebirr', etc.
-          screenshotDataUri: data.paymentProof.screenshotDataUri, // May be undefined
-          pdfLink: data.paymentProof.pdfLink, // May be undefined
-          transactionId: data.paymentProof.transactionId, // May be undefined
+          paymentType: data.paymentProof!.paymentType,
+          screenshotDataUri: data.paymentProof!.screenshotDataUri,
+          pdfLink: data.paymentProof!.pdfLink,
+          transactionId: data.paymentProof!.transactionId,
         },
-        expectedAmount: calculatedPrice, // Add coupon logic here if implemented
+        expectedAmount: calculatedPrice,
       };
 
-      // TODO: Coupon code discount logic before calling handlePaymentVerification
-      // let effectivePrice = calculatedPrice;
-      // if (data.couponCode === "DISCOUNT10") effectivePrice *= 0.9;
-      // verificationInput.expectedAmount = effectivePrice;
-
-
-      // The existing handlePaymentVerification might need significant changes
-      // For now, let's assume it's adapted or for some methods it's a direct pass
       const result = await handlePaymentVerification(verificationInput);
 
-
-      if (result.isPaymentValid) { // Or for manual methods, assume valid for now
+      if (result.isPaymentValid) {
         toast({
-          title: "Payment Submitted!", // Or "Verified" if AI was used
+          title: "Payment Submitted!",
           description: result.message || "Your payment information has been submitted for processing.",
           variant: "default",
           className: "bg-accent text-accent-foreground",
         });
+        
         const finalRegistrationData: RegistrationData = {
-          selectedProgramLabel: selectedProgram.label,
-          parentInfo: selectedProgram.requiresParentInfo ? data.parentInfo : undefined,
-          children: selectedProgram.isChildProgram ? data.children : undefined,
-          adultTraineeInfo: !selectedProgram.isChildProgram ? data.adultTraineeInfo : undefined,
+          accountHolderType: data.accountHolderType,
+          parentInfo: data.accountHolderType === 'parent' ? data.parentInfo : undefined,
+          adultTraineeInfo: data.accountHolderType === 'adult_trainee' ? data.adultTraineeInfo : undefined,
+          children: data.accountHolderType === 'parent' ? data.children : undefined,
           agreeToTerms: data.agreeToTerms,
           couponCode: data.couponCode,
-          paymentProof: data.paymentProof,
-          calculatedPrice: calculatedPrice, // Store original price before coupon
-          paymentVerified: result.isPaymentValid, // This flag's meaning might change
+          paymentProof: data.paymentProof!,
+          calculatedPrice: calculatedPrice,
+          paymentVerified: result.isPaymentValid,
           paymentVerificationDetails: result,
           registrationDate: new Date(),
         };
         setRegistrationData(finalRegistrationData);
-        setCurrentStage(3); // Move to receipt stage
+        setCurrentView('confirmation');
       } else {
         toast({
           title: "Payment Issue",
@@ -456,11 +428,191 @@ const EnrollmentForm: React.FC = () => {
     }
   };
   
-  if (currentStage === 3 && registrationData) {
+  if (currentView === 'confirmation' && registrationData) {
     return <Receipt data={registrationData} />;
   }
 
-  const getCurrentStageTitle = () => overallStages[currentStage]?.title || "Registration";
+  const renderAccountCreation = () => (
+    <div className="space-y-4 sm:space-y-6">
+        {getValues('accountHolderType') === 'parent' && <ParentInfoFields />}
+        {getValues('accountHolderType') === 'adult_trainee' && (
+            <>
+                <div className="mb-4">
+                    <Label htmlFor="adultProgramSelection" className="text-base sm:text-lg">Select Program for Trainee</Label>
+                    <Controller
+                        name="adultTraineeInfo.programId"
+                        control={control}
+                        render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger id="adultProgramSelection" className="mt-1"><SelectValue placeholder="Choose a program" /></SelectTrigger>
+                            <SelectContent>
+                            {HAFSA_PROGRAMS.filter(p => !p.isChildProgram).map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        )}
+                    />
+                    {errors.adultTraineeInfo?.programId && <p className="text-sm text-destructive mt-1">{errors.adultTraineeInfo.programId.message}</p>}
+                </div>
+                <ParentInfoFields isAdultTrainee={true} />
+            </>
+        )}
+        <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
+            Proceed <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+    </div>
+  );
+
+  const renderAddStudent = () => (
+    <div className="space-y-4 sm:space-y-6">
+        <div>
+            <Label htmlFor="programForNewStudent" className="text-base sm:text-lg">Select Program for Child</Label>
+            <Select 
+                onValueChange={(programId) => setProgramForNewStudent(HAFSA_PROGRAMS.find(p => p.id === programId && p.isChildProgram) || null)} 
+                value={programForNewStudent?.id || ''}
+            >
+                <SelectTrigger id="programForNewStudent" className="mt-1"><SelectValue placeholder="Choose a program" /></SelectTrigger>
+                <SelectContent>
+                {HAFSA_PROGRAMS.filter(p => p.isChildProgram).map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description}</SelectItem>)}
+                </SelectContent>
+            </Select>
+            {!programForNewStudent && <p className="text-sm text-destructive mt-1">Please select a program for the child.</p>}
+        </div>
+        {programForNewStudent && (
+             <ChildParticipantFields 
+                childIndex={-1} // Not tied to an array index directly here
+                programSpecificFields={programForNewStudent.specificFields}
+                onSave={handleSaveStudent}
+                onCancel={() => setCurrentView('dashboard')}
+                isLoading={isLoading}
+            />
+        )}
+         {!programForNewStudent && (
+            <Button type="button" variant="outline" onClick={() => setCurrentView('dashboard')} className="w-full">
+                Cancel
+            </Button>
+        )}
+    </div>
+  );
+
+  const renderDashboard = () => (
+    <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3">
+            {getValues('accountHolderType') === 'parent' && <TabsTrigger value="students"><Users className="mr-2"/>My Students</TabsTrigger>}
+            <TabsTrigger value="settings"><UserCog className="mr-2"/>Account Settings</TabsTrigger>
+            <TabsTrigger value="payment"><CreditCard className="mr-2"/>Payment</TabsTrigger>
+        </TabsList>
+
+        {getValues('accountHolderType') === 'parent' && (
+            <TabsContent value="students" className="space-y-4 pt-4">
+                <h3 className="text-xl font-semibold text-primary">Registered Students</h3>
+                {childFields.length === 0 && <p className="text-muted-foreground">No students added yet.</p>}
+                <div className="space-y-3">
+                {childFields.map((field, index) => {
+                    const program = HAFSA_PROGRAMS.find(p => p.id === (field as unknown as EnrolledChildData).programId);
+                    return (
+                    <Card key={field.id} className="p-3">
+                        <div className="flex justify-between items-start">
+                        <div>
+                            <p className="font-semibold text-md">{(field as unknown as EnrolledChildData).childInfo.childFirstName}</p>
+                            <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'}</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(index)} className="text-destructive hover:text-destructive/80">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        </div>
+                         {/* TODO: Option to edit child details - updateChild(index, newChildData) */}
+                    </Card>
+                    );
+                })}
+                </div>
+                <Button type="button" variant="outline" onClick={handleAddStudentClick} className="w-full sm:w-auto">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Another Student
+                </Button>
+                 <div className="mt-4 text-right space-y-1">
+                    <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
+                </div>
+            </TabsContent>
+        )}
+
+        <TabsContent value="settings" className="space-y-4 pt-4">
+            <h3 className="text-xl font-semibold text-primary">Account Information</h3>
+            {getValues('accountHolderType') === 'parent' && getValues('parentInfo') && (
+                <Card className="p-4 space-y-2">
+                    <p><strong>Full Name:</strong> {getValues('parentInfo.parentFullName')}</p>
+                    <p><strong>Primary Phone:</strong> {getValues('parentInfo.parentPhone1')}</p>
+                    {getValues('parentInfo.parentPhone2') && <p><strong>Secondary Phone:</strong> {getValues('parentInfo.parentPhone2')}</p>}
+                    <p><strong>Telegram Phone:</strong> {getValues('parentInfo.telegramPhoneNumber')}</p>
+                    {/* <Button variant="outline" size="sm" className="mt-2"><Edit3 className="mr-2 h-3 w-3"/> Edit (Not implemented)</Button> */}
+                </Card>
+            )}
+            {getValues('accountHolderType') === 'adult_trainee' && getValues('adultTraineeInfo') && (
+                 <Card className="p-4 space-y-2">
+                    <p><strong>Full Name:</strong> {getValues('adultTraineeInfo.traineeFullName')}</p>
+                    <p><strong>Date of Birth:</strong> {format(new Date(getValues('adultTraineeInfo.dateOfBirth')), "PPP")}</p>
+                    <p><strong>Primary Phone:</strong> {getValues('adultTraineeInfo.phone1')}</p>
+                    {getValues('adultTraineeInfo.phone2') && <p><strong>Secondary Phone:</strong> {getValues('adultTraineeInfo.phone2')}</p>}
+                    <p><strong>Telegram Phone:</strong> {getValues('adultTraineeInfo.telegramPhoneNumber')}</p>
+                    <p><strong>Selected Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === getValues('adultTraineeInfo.programId'))?.label || 'N/A'}</p>
+                </Card>
+            )}
+        </TabsContent>
+
+        <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-4">
+            <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
+                <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
+                <p className="mt-2 sm:mt-4 text-xl sm:text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
+            </div>
+            <div>
+                <Label htmlFor="couponCode">Coupon Code (Optional)</Label>
+                <div className="flex items-center gap-2 mt-1">
+                    <Input id="couponCode" {...register('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
+                    <Button type="button" variant="outline" size="sm" onClick={() => toast({title: "Coupon Applied!", description:"(Example: 10% off - not functional yet)"})}>Apply</Button>
+                </div>
+            </div>
+            <div>
+                <Label htmlFor="paymentProof.paymentType" className="text-base sm:text-lg">Select Payment Method</Label>
+                <Controller
+                name="paymentProof.paymentType"
+                control={control}
+                render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger id="paymentProof.paymentType" className="mt-1"><SelectValue placeholder="Choose payment method" /></SelectTrigger>
+                    <SelectContent>
+                        {HAFSA_PAYMENT_METHODS.map(method => <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>)}
+                    </SelectContent>
+                    </Select>
+                )}
+                />
+                {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{errors.paymentProof.paymentType.message}</p>}
+            </div>
+            { (HAFSA_PAYMENT_METHODS.map(pm => pm.value).includes(watchedPaymentType || '')) && (
+            <div>
+                <Label htmlFor="paymentProof.transactionId" className="text-base sm:text-lg">Transaction ID / Reference</Label>
+                <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
+                {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
+                <p className="text-xs text-muted-foreground mt-1">
+                    Please make your payment to the designated Hafsa Madrassa account for {HAFSA_PAYMENT_METHODS.find(pm => pm.value === watchedPaymentType)?.label}
+                    and enter the transaction reference number here. Payment instructions will be provided.
+                </p>
+            </div>
+            )}
+             <div>
+                <Controller
+                    name="agreeToTerms"
+                    control={control}
+                    render={({ field }) => (
+                    <div className="flex items-center space-x-2 sm:space-x-3 mt-3">
+                        <Checkbox id="agreeToTermsDashboard" checked={field.value} onCheckedChange={field.onChange} />
+                        <Label htmlFor="agreeToTermsDashboard" className="text-sm font-normal">I agree to the terms and conditions of Hafsa Madrassa.</Label>
+                    </div>
+                    )}
+                />
+                {errors.agreeToTerms && <p className="text-sm text-destructive mt-1">{errors.agreeToTerms.message}</p>}
+            </div>
+        </TabsContent>
+    </Tabs>
+  );
+  
 
   return (
     <FormProvider {...methods}>
@@ -471,188 +623,51 @@ const EnrollmentForm: React.FC = () => {
               <School className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
               <CardTitle className="text-2xl sm:text-3xl font-headline">Hafsa Madrassa Registration</CardTitle>
             </div>
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center space-y-1 sm:space-y-0">
-               <CardDescription className="text-sm">{getCurrentStageTitle()}</CardDescription>
-                <div className="flex space-x-1">
-                {overallStages.map((stage, index) => (
-                    <div key={stage.id} className={cn("h-2 w-6 sm:w-8 rounded-full", currentStage >= index ? "bg-primary" : "bg-muted")} />
-                ))}
-                </div>
-            </div>
+             <CardDescription className="text-sm">
+                {currentView === 'accountTypeSelection' && "Select your registration type."}
+                {currentView === 'accountCreation' && "Step 1: Create Your Account."}
+                {currentView === 'dashboard' && "Step 2: Manage Enrollments & Payment."}
+                {currentView === 'addStudent' && "Add New Student Details."}
+                {currentView === 'payment' && "Step 3: Finalize Payment."}
+             </CardDescription>
           </CardHeader>
 
           <CardContent className="min-h-[300px] sm:min-h-[350px] p-4 sm:p-6">
-            {/* STAGE 0: Program Selection */}
-            {currentStage === 0 && (
-              <div className="space-y-4 sm:space-y-6">
-                <div>
-                  <Label htmlFor="selectedProgramId" className="text-base sm:text-lg">Select Program</Label>
-                  <Controller
-                    name="selectedProgramId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger id="selectedProgramId" className="mt-1"><SelectValue placeholder="Choose a program" /></SelectTrigger>
-                        <SelectContent>
-                          {HAFSA_PROGRAMS.map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.selectedProgramId && <p className="text-sm text-destructive mt-1">{errors.selectedProgramId.message}</p>}
-                </div>
-                {selectedProgram && (
-                  <Card className="bg-primary/5 p-3 sm:p-4">
-                    <CardHeader className="p-0 pb-2">
-                      <CardTitle className="text-lg sm:text-xl text-primary">{selectedProgram.label}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0 text-sm space-y-1">
-                      <p>{selectedProgram.description}</p>
-                      {selectedProgram.ageRange && <p><strong>Age:</strong> {selectedProgram.ageRange}</p>}
-                      {selectedProgram.duration && <p><strong>Duration:</strong> {selectedProgram.duration}</p>}
-                      {selectedProgram.schedule && <p><strong>Schedule:</strong> {selectedProgram.schedule}</p>}
-                      <p className="font-semibold"><strong>Price:</strong> ${selectedProgram.price.toFixed(2)} {selectedProgram.isChildProgram ? "/participant" : ""}</p>
-                      {selectedProgram.termsLink && <a href={selectedProgram.termsLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">View Terms for this program</a>}
-                    </CardContent>
-                  </Card>
-                )}
-                <div>
-                  <Controller
-                    name="agreeToTerms"
-                    control={control}
-                    render={({ field }) => (
-                      <div className="flex items-center space-x-2 sm:space-x-3 mt-3">
-                        <Checkbox id="agreeToTerms" checked={field.value} onCheckedChange={field.onChange} />
-                        <Label htmlFor="agreeToTerms" className="text-sm font-normal">I agree to the terms and conditions of Hafsa Madrassa. (General T&C link can be added here)</Label>
-                      </div>
-                    )}
-                  />
-                  {errors.agreeToTerms && <p className="text-sm text-destructive mt-1">{errors.agreeToTerms.message}</p>}
-                </div>
-              </div>
-            )}
-
-            {/* STAGE 1: Participant Information */}
-            {currentStage === 1 && selectedProgram && (
-              <div className="space-y-4 sm:space-y-6">
-                {selectedProgram.requiresParentInfo && <ParentInfoFields />}
-                
-                {selectedProgram.isChildProgram && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-3 text-primary flex items-center"><Users className="mr-2 h-5 w-5" /> Child(ren) Information</h3>
-                    {childFields.map((field, index) => (
-                      <ChildParticipantFields key={field.id} childIndex={index} removeChild={removeChild} programSpecificFields={selectedProgram.specificFields}/>
-                    ))}
-                    {errors.children && typeof errors.children === 'object' && !Array.isArray(errors.children) && (errors.children as any).message && (
-                        <p className="text-sm text-destructive mt-1">{(errors.children as any).message}</p>
-                    )}
-                    <Button type="button" variant="outline" onClick={() => appendChild(defaultChildValues)} className="w-full sm:w-auto mt-2">
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Another Child
+            {currentView === 'accountTypeSelection' && (
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold text-center mb-6">How are you registering today?</h2>
+                    <Button onClick={() => handleAccountTypeSelection('parent')} className="w-full text-lg py-6" variant="outline">
+                        <Users className="mr-3 h-6 w-6"/> As a Parent/Guardian (for children)
                     </Button>
-                  </div>
-                )}
-
-                {!selectedProgram.isChildProgram && <AdultTraineeFields />}
-                
-                <Separator className="my-4 sm:my-6"/>
-                <div className="text-right space-y-1">
-                    <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
-                </div>
-              </div>
-            )}
-
-            {/* STAGE 2: Payment Information */}
-            {currentStage === 2 && selectedProgram && (
-                <div className="space-y-4 sm:space-y-6">
-                    <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
-                      <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
-                      <p><strong>Program:</strong> {selectedProgram.label}</p>
-                      {selectedProgram.isChildProgram && <p><strong>Number of Children:</strong> {getValues('children')?.length || 0}</p>}
-                      <p className="mt-2 sm:mt-4 text-xl sm:text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
-                    </div>
-                    
-                    <div>
-                        <Label htmlFor="couponCode">Coupon Code (Optional)</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                            <Input id="couponCode" {...register('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
-                            <Button type="button" variant="outline" size="sm" onClick={() => {/* TODO: Validate coupon */ toast({title: "Coupon Applied!", description:"(Example: 10% off - not functional yet)"})}}>Apply</Button>
-                        </div>
-                         {/* Placeholder for coupon validation message */}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="paymentProof.paymentType" className="text-base sm:text-lg">Select Payment Method</Label>
-                      <Controller
-                        name="paymentProof.paymentType"
-                        control={control}
-                        render={({ field }) => (
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger id="paymentProof.paymentType" className="mt-1"><SelectValue placeholder="Choose payment method" /></SelectTrigger>
-                            <SelectContent>
-                              {HAFSA_PAYMENT_METHODS.map(method => <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>)}
-                              {/* Option for AI verified screenshot if needed */}
-                              {/* <SelectItem value="screenshot_ai_verification">Upload Screenshot (AI Verified)</SelectItem> */}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{errors.paymentProof.paymentType.message}</p>}
-                    </div>
-
-                    {/* Conditional fields for specific payment types if needed, e.g., screenshot upload */}
-                    {/* For now, assuming these methods might require providing a transaction ID or a note */}
-                     {watchedPaymentType && !['cbe', 'telebirr', 'zamzam', 'hijra', 'abyssinia'].includes(watchedPaymentType) && ( // Example if we re-add screenshot
-                         <div>
-                            <Label htmlFor="paymentProof.screenshotFile" className="text-base sm:text-lg">Upload Payment Screenshot</Label>
-                            <Controller
-                                name="paymentProof.screenshot"
-                                control={control}
-                                render={({ field: { onChange, value, ...restField } }) => (
-                                    <Input id="paymentProof.screenshotFile" type="file" accept="image/*"
-                                        onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
-                                        {...restField} className="mt-1 text-xs sm:text-sm file:text-primary file:font-semibold" />
-                                )} />
-                            {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{errors.paymentProof.screenshot.message as string}</p>}
-                         </div>
-                     )}
-                     { (HAFSA_PAYMENT_METHODS.map(pm => pm.value).includes(watchedPaymentType)) && (
-                        <div>
-                            <Label htmlFor="paymentProof.transactionId" className="text-base sm:text-lg">Transaction ID / Reference</Label>
-                            <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
-                            {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Please make your payment to the designated Hafsa Madrassa account for {HAFSA_PAYMENT_METHODS.find(pm => pm.value === watchedPaymentType)?.label}
-                                and enter the transaction reference number here. Payment instructions will be provided.
-                            </p>
-                        </div>
-                     )}
-
-
-                    {calculatedPrice === 0 && selectedProgramId && (
-                        <div className="flex items-start sm:items-center p-2 sm:p-3 rounded-md bg-destructive/10 text-destructive text-xs sm:text-sm">
-                            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 shrink-0 mt-0.5 sm:mt-0" />
-                            <p>Total amount is $0.00. Please ensure selections are correct. Payment verification might be skipped if this is a free program.</p>
-                        </div>
-                    )}
+                    <Button onClick={() => handleAccountTypeSelection('adult_trainee')} className="w-full text-lg py-6" variant="outline">
+                        <User className="mr-3 h-6 w-6"/> As an Adult Trainee (for myself)
+                    </Button>
                 </div>
             )}
-
+            {currentView === 'accountCreation' && renderAccountCreation()}
+            {currentView === 'dashboard' && renderDashboard()}
+            {currentView === 'addStudent' && renderAddStudent()}
+            {/* Payment view is now a tab within dashboard */}
           </CardContent>
-          <CardFooter className="flex flex-col sm:flex-row sm:justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
-            {currentStage > 0 && currentStage < 3 && (
-                <Button type="button" variant="outline" onClick={handlePreviousStage} disabled={isLoading} className="w-full sm:w-auto">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Previous
+
+          <CardFooter className="flex flex-col sm:flex-row justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
+            {currentView === 'dashboard' && activeDashboardTab !== 'payment' && (
+                <Button type="button" onClick={() => setActiveDashboardTab('payment')} 
+                    disabled={isLoading || (getValues('accountHolderType') === 'parent' && childFields.length === 0)} 
+                    className="w-full sm:ml-auto"
+                >
+                    Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
             )}
-            {currentStage < 2 && (
-                 <Button type="button" onClick={handleNextStage} disabled={isLoading || !selectedProgramId} className="w-full sm:ml-auto">
-                    Next <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-            )}
-            {currentStage === 2 && (
-                <Button type="submit" disabled={isLoading || calculatedPrice < 0 || !selectedProgramId} className="w-full sm:ml-auto">
+             {currentView === 'dashboard' && activeDashboardTab === 'payment' && (
+                <Button type="submit" disabled={isLoading || !getValues('agreeToTerms')} className="w-full sm:ml-auto">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                     Submit Registration
+                </Button>
+            )}
+            {currentView === 'dashboard' && (
+                 <Button type="button" variant="outline" onClick={() => setCurrentView(getValues('accountHolderType') ? 'accountCreation' : 'accountTypeSelection')} disabled={isLoading} className="w-full sm:w-auto order-first sm:order-none">
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account
                 </Button>
             )}
           </CardFooter>
@@ -663,3 +678,4 @@ const EnrollmentForm: React.FC = () => {
 };
 
 export default EnrollmentForm;
+

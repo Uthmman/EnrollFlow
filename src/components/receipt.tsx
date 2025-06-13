@@ -9,7 +9,7 @@ import { CheckCircle, Printer, User, Users, BookHeart, Gift } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import type { RegistrationData } from '@/types';
 import { format } from 'date-fns';
-import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
+import { HAFSA_PAYMENT_METHODS, HAFSA_PROGRAMS } from '@/lib/constants';
 
 interface ReceiptProps {
   data: RegistrationData;
@@ -44,14 +44,13 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
         
         <div className="flex items-center mb-2">
             <BookHeart className="h-5 w-5 mr-2 text-primary" />
-            <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Program Details</h3>
+            <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Registration Summary</h3>
         </div>
         <div className="pl-7">
-            <p><strong>Program:</strong> {data.selectedProgramLabel}</p>
             <p><strong>Registration Date:</strong> {format(new Date(data.registrationDate), "MMMM d, yyyy HH:mm")}</p>
         </div>
 
-        {data.parentInfo && (
+        {data.accountHolderType === 'parent' && data.parentInfo && (
         <>
             <Separator />
             <div>
@@ -69,33 +68,38 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
         </>
         )}
 
-        {data.children && data.children.length > 0 && (
+        {data.accountHolderType === 'parent' && data.children && data.children.length > 0 && (
         <>
             <Separator />
             <div>
                 <div className="flex items-center mb-2">
                     <User className="h-5 w-5 mr-2 text-primary" />
-                    <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Children's Details</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Enrolled Children</h3>
                 </div>
-                {data.children.map((child, index) => (
-                    <div key={index} className="mb-4 sm:mb-6 pl-7 border-l-2 border-muted ml-2 pl-4 py-2 relative">
-                         <span className="absolute -left-[10px] top-1.5 bg-background p-0.5 rounded-full border border-muted">
-                            <User className="h-3 w-3 text-primary" />
-                        </span>
-                        <h4 className="text-md sm:text-lg font-semibold mb-1">Child {index + 1}: {child.childFirstName}</h4>
-                        <p><strong>Gender:</strong> {child.gender.charAt(0).toUpperCase() + child.gender.slice(1)}</p>
-                        <p><strong>Date of Birth:</strong> {format(new Date(child.dateOfBirth), "MMMM d, yyyy")}</p>
-                        {child.schoolGrade && <p><strong>School Grade:</strong> {child.schoolGrade}</p>}
-                        {child.quranLevel && <p><strong>Quran Level:</strong> {child.quranLevel}</p>}
-                        {child.specialAttention && <p><strong>Special Attention:</strong> {child.specialAttention}</p>}
-                        {index < data.children!.length -1 && <Separator className="my-3"/>}
-                    </div>
-                ))}
+                {data.children.map((enrolledChild, index) => {
+                    const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
+                    const child = enrolledChild.childInfo;
+                    return (
+                        <div key={index} className="mb-4 sm:mb-6 pl-7 border-l-2 border-muted ml-2 pl-4 py-2 relative">
+                            <span className="absolute -left-[10px] top-1.5 bg-background p-0.5 rounded-full border border-muted">
+                                <User className="h-3 w-3 text-primary" />
+                            </span>
+                            <h4 className="text-md sm:text-lg font-semibold mb-1">Child {index + 1}: {child.childFirstName}</h4>
+                            <p><strong>Program:</strong> {program?.label || 'N/A'}</p>
+                            <p><strong>Gender:</strong> {child.gender.charAt(0).toUpperCase() + child.gender.slice(1)}</p>
+                            <p><strong>Date of Birth:</strong> {format(new Date(child.dateOfBirth), "MMMM d, yyyy")}</p>
+                            {child.schoolGrade && <p><strong>School Grade:</strong> {child.schoolGrade}</p>}
+                            {child.quranLevel && <p><strong>Quran Level:</strong> {child.quranLevel}</p>}
+                            {child.specialAttention && <p><strong>Special Attention:</strong> {child.specialAttention}</p>}
+                            {index < data.children!.length -1 && <Separator className="my-3"/>}
+                        </div>
+                    );
+                })}
             </div>
         </>
         )}
 
-        {data.adultTraineeInfo && (
+        {data.accountHolderType === 'adult_trainee' && data.adultTraineeInfo && (
         <>
             <Separator />
             <div>
@@ -109,6 +113,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
                     <p><strong>Primary Phone:</strong> {data.adultTraineeInfo.phone1}</p>
                     {data.adultTraineeInfo.phone2 && <p><strong>Secondary Phone:</strong> {data.adultTraineeInfo.phone2}</p>}
                     <p><strong>Telegram Phone:</strong> {data.adultTraineeInfo.telegramPhoneNumber}</p>
+                    <p><strong>Registered Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === data.adultTraineeInfo!.programId)?.label || 'N/A'}</p>
                 </div>
             </div>
         </>
@@ -155,3 +160,4 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
 };
 
 export default Receipt;
+

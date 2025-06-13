@@ -2,8 +2,7 @@
 import { z } from 'zod';
 import { HAFSA_PROGRAMS, SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
 
-// Helper for phone number validation (example)
-const phoneRegex = /^[0-9]{9,15}$/; // Adjust regex as needed for Ethiopian numbers
+const phoneRegex = /^[0-9]{9,15}$/; 
 
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Parent's full name must be at least 3 characters."),
@@ -17,14 +16,21 @@ export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
 export const ChildInfoSchema = z.object({
   childFirstName: z.string().min(2, "Child's first name must be at least 2 characters."),
-  // childLastName: z.string().min(2, "Child's last name must be at least 2 characters."), // Removed as per "First Name" only
   gender: z.enum(["male", "female"], { required_error: "Gender is required." }),
   dateOfBirth: z.date({ required_error: "Child's date of birth is required." }),
-  specialAttention: z.string().optional(), // For Daycare
-  schoolGrade: z.string().optional(), // For Quran Bootcamps/After Asr
-  quranLevel: z.string().optional(), // For Quran Bootcamps/After Asr
+  specialAttention: z.string().optional(), 
+  schoolGrade: z.string().optional(), 
+  quranLevel: z.string().optional(), 
 });
 export type ChildInfoData = z.infer<typeof ChildInfoSchema>;
+
+// Represents a child enrolled in a specific program
+export const EnrolledChildSchema = z.object({
+  programId: z.string().min(1, "Program selection is required for each child."),
+  childInfo: ChildInfoSchema,
+});
+export type EnrolledChildData = z.infer<typeof EnrolledChildSchema>;
+
 
 export const AdultTraineeSchema = z.object({
   traineeFullName: z.string().min(3, "Trainee's full name must be at least 3 characters."),
@@ -34,70 +40,79 @@ export const AdultTraineeSchema = z.object({
   telegramPhoneNumber: z.string().regex(phoneRegex, "Invalid Telegram phone number format."),
   usePhone1ForTelegram: z.boolean().optional(),
   usePhone2ForTelegram: z.boolean().optional(),
+  // For adult programs, we also need to capture the program ID directly with the trainee
+  programId: z.string().min(1, "Program selection is required for the trainee.").optional(), // Optional because it might be set in a different step
 });
 export type AdultTraineeData = z.infer<typeof AdultTraineeSchema>;
 
+
 export const PaymentProofSchema = z.object({
-  paymentType: z.string().min(1, "Payment proof method is required."), // e.g. 'cbe', 'telebirr'
-  // Fields for screenshot/link/ID are kept if AI verification is still used for some methods.
-  // These might become optional or removed if all new methods have different proof requirements.
+  paymentType: z.string().min(1, "Payment proof method is required."),
   screenshot: z.custom<File>((val) => val instanceof File, "Screenshot file is required.").optional(),
-  screenshotDataUri: z.string().optional(), // For AI flow
+  screenshotDataUri: z.string().optional(),
   pdfLink: z.string().url("Invalid URL for PDF link.").optional(),
-  transactionId: z.string().min(5, "Transaction ID must be at least 5 characters.").optional(),
-  // Add fields specific to new payment methods if needed, e.g. confirmation codes
+  transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional(),
 });
 export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  selectedProgramId: z.string().min(1, "Please select a program."),
-  parentInfo: ParentInfoSchema.optional(), // Optional at top level, required based on program
-  children: z.array(ChildInfoSchema).optional(), // Optional, used if selectedProgram.isChildProgram
-  adultTraineeInfo: AdultTraineeSchema.optional(), // Optional, used if !selectedProgram.isChildProgram
+  // If the main registration is for an adult, this holds their info.
+  // If for children, this is the parent.
+  accountHolderType: z.enum(['parent', 'adult_trainee']).optional(), // To distinguish flow
+  parentInfo: ParentInfoSchema.optional(),
+  adultTraineeInfo: AdultTraineeSchema.optional(), 
+  
+  // For parent accounts, they can register multiple children.
+  // Each child is associated with a specific program.
+  children: z.array(EnrolledChildSchema).optional().default([]),
+  
+  // General fields
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
-  paymentProof: PaymentProofSchema,
+  paymentProof: PaymentProofSchema.optional(), // Optional until payment stage
+})
+.superRefine((data, ctx) => {
+    // Complex validation: if accountHolderType is 'parent', parentInfo is required.
+    // If 'adult_trainee', adultTraineeInfo is required.
+    // Program-specific validation for children's fields will be handled dynamically or in component logic.
+    if (data.accountHolderType === 'parent' && !data.parentInfo) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['parentInfo'],
+            message: 'Parent information is required.',
+        });
+    }
+    if (data.accountHolderType === 'adult_trainee' && !data.adultTraineeInfo) {
+         ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['adultTraineeInfo'],
+            message: 'Trainee information is required.',
+        });
+    }
+    if (data.accountHolderType === 'adult_trainee' && data.adultTraineeInfo && !data.adultTraineeInfo.programId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['adultTraineeInfo', 'programId'],
+            message: 'Program selection is required for adult trainee.',
+        });
+    }
 });
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
-// Data structure for the final receipt
 export type RegistrationData = {
-  selectedProgramLabel: string;
+  accountHolderType?: 'parent' | 'adult_trainee';
   parentInfo?: ParentInfoData;
-  children?: ChildInfoData[];
-  adultTraineeInfo?: AdultTraineeData;
+  adultTraineeInfo?: AdultTraineeData; // Program ID will be inside this
+  children?: EnrolledChildData[]; // Each child has their programId
   agreeToTerms: boolean;
   couponCode?: string;
-  paymentProof: PaymentProofData;
+  paymentProof: PaymentProofData; // Make non-optional for receipt
   calculatedPrice: number;
   paymentVerified: boolean;
   paymentVerificationDetails?: any; 
   registrationDate: Date;
 };
-
-
-// Legacy types from EnrollFlow - for reference during refactor, then remove
-export const LegacyParentInfoSchema = z.object({
-  parentFullName: z.string().min(3, "Parent's full name must be at least 3 characters."),
-  parentEmail: z.string().email("Invalid parent email address."),
-  parentPhone: z.string().min(10, "Parent's phone number must be at least 10 digits.").optional(),
-});
-export type LegacyParentInfoData = z.infer<typeof LegacyParentInfoSchema>;
-
-export const LegacyChildInfoSchema = z.object({
-  fullName: z.string().min(3, "Child's full name must be at least 3 characters."),
-  dateOfBirth: z.date({ required_error: "Child's date of birth is required." }),
-});
-
-export const LegacyChildProgramSelectionSchema = z.object({
-  schoolLevel: z.string().min(1, "School level is required."),
-  program: z.string().min(1, "Program is required."),
-  selectedCourses: z.array(z.string()).optional(),
-});
-
-export const LegacyChildEnrollmentSchema = LegacyChildInfoSchema.merge(LegacyChildProgramSelectionSchema);
-export type LegacyChildEnrollmentData = z.infer<typeof LegacyChildEnrollmentSchema>;
