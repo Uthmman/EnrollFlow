@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -23,11 +23,10 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
-import AppHeader from '@/components/app-header';
 
-import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
+import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS, HafsaPaymentMethod } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
-import { EnrollmentFormSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
+import { EnrollmentFormSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types'; // Renamed to avoid conflict
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -255,7 +254,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     },
   });
 
-  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset } = methods;
+  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register } = methods;
 
 
   const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
@@ -458,6 +457,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     </div>
   );
   
+  const selectedMethodDetails = HAFSA_PAYMENT_METHODS.find(m => m.value === watchedPaymentType);
 
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as DashboardTab)} className="w-full">
@@ -465,15 +465,18 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
                 <TabsTrigger value="enrollments" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
                     <Users className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                    Manage Enrollments
+                     <span className="hidden sm:inline">Manage Enrollments</span>
+                     <span className="sm:hidden">Enroll</span>
                 </TabsTrigger>
                  <TabsTrigger value="programs" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
                     <LayoutList className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                    View Programs
+                    <span className="hidden sm:inline">View Programs</span>
+                     <span className="sm:hidden">Programs</span>
                 </TabsTrigger>
                 <TabsTrigger value="payment" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
                     <CreditCard className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                    Payment
+                     <span className="hidden sm:inline">Payment</span>
+                     <span className="sm:hidden">Payment</span>
                 </TabsTrigger>
             </TabsList>
         )}
@@ -553,9 +556,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             <div>
                 <Label htmlFor="couponCode">Coupon Code (Optional)</Label>
                 <div className="flex items-center gap-2 mt-1">
-                    <Input id="couponCode" {...methods.register('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
+                    <Input id="couponCode" {...register('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
                     <Button type="button" variant="outline" size="sm" onClick={() => toast({title: "Coupon Applied!", description:"(Example: 10% off - not functional yet)"})}>Apply</Button>
                 </div>
+                 {errors.couponCode && <p className="text-sm text-destructive mt-1">{errors.couponCode.message}</p>}
             </div>
             <div>
                 <Label htmlFor="paymentProof.paymentType" className="text-sm sm:text-base">Select Payment Method</Label>
@@ -573,17 +577,60 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 />
                 {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{errors.paymentProof.paymentType.message}</p>}
             </div>
-            { (HAFSA_PAYMENT_METHODS.some(pm => pm.value === watchedPaymentType && pm.value !== 'screenshot_ai_verification')) && (
+
+            {selectedMethodDetails && selectedMethodDetails.accountNumber && (
+                 <Card className="mt-4 p-3 sm:p-4 border-primary/20">
+                    <CardHeader className="p-0 pb-2 sm:pb-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                        {selectedMethodDetails.logoPlaceholder && (
+                            <Image 
+                                src={selectedMethodDetails.logoPlaceholder} 
+                                alt={`${selectedMethodDetails.label} logo`} 
+                                width={40} 
+                                height={40} 
+                                data-ai-hint={selectedMethodDetails.dataAiHint || 'bank logo'} 
+                                className="rounded h-8 w-8 sm:h-10 sm:w-10 object-contain"
+                            />
+                        )}
+                        <CardTitle className="text-md sm:text-lg text-primary">{selectedMethodDetails.label} Details</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-1 sm:space-y-1.5 p-0 text-xs sm:text-sm">
+                        {selectedMethodDetails.accountName && <p><strong>Account Name:</strong> {selectedMethodDetails.accountName}</p>}
+                        {selectedMethodDetails.accountNumber && (
+                        <div className="flex items-center justify-between">
+                            <p><strong>Account Number:</strong> <span className="font-mono">{selectedMethodDetails.accountNumber}</span></p>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                    await navigator.clipboard.writeText(selectedMethodDetails.accountNumber!);
+                                    toast({ title: "Copied!", description: "Account number copied to clipboard." });
+                                    } catch (err) {
+                                    toast({ title: "Failed to copy", description: "Could not copy account number.", variant: "destructive" });
+                                    }
+                                }}
+                                className="p-1.5 h-auto text-xs"
+                            >
+                                <Copy className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" /> Copy
+                            </Button>
+                        </div>
+                        )}
+                        {selectedMethodDetails.additionalInstructions && <p className="text-muted-foreground italic mt-1">{selectedMethodDetails.additionalInstructions}</p>}
+                    </CardContent>
+                 </Card>
+            )}
+            
+            { selectedMethodDetails && selectedMethodDetails.accountNumber && (
             <div>
                 <Label htmlFor="paymentProof.transactionId" className="text-sm sm:text-base">Transaction ID / Reference</Label>
-                <Input id="paymentProof.transactionId" {...methods.register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
+                <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
                 {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
-                <p className="text-xs text-muted-foreground mt-1">
-                    Please make your payment to the designated Hafsa Madrassa account for {HAFSA_PAYMENT_METHODS.find(pm => pm.value === watchedPaymentType)?.label}
-                    and enter the transaction reference number here. Payment instructions will be provided.
-                </p>
             </div>
             )}
+
              {watchedPaymentType === 'screenshot_ai_verification' && (
               <div>
                 <Label htmlFor="paymentProof.screenshot" className="text-sm sm:text-base">Upload Payment Screenshot</Label>
@@ -592,7 +639,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     type="file" 
                     accept="image/*" 
                     className="mt-1"
-                    {...methods.register('paymentProof.screenshot')}
+                    {...register('paymentProof.screenshot')}
                 />
                 {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{(errors.paymentProof.screenshot as any).message}</p>}
                  <p className="text-xs text-muted-foreground mt-1">
@@ -627,7 +674,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             key={tab.value}
                             onClick={() => setActiveDashboardTab(tab.value as DashboardTab)}
                             className={cn(
-                                "flex flex-col items-center justify-center p-2.5 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-20", // Adjusted width
+                                "flex flex-col items-center justify-center p-2.5 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-20", 
                                 activeDashboardTab === tab.value 
                                     ? "bg-primary-foreground text-primary scale-105 shadow-md" 
                                     : "hover:bg-white/20"
@@ -659,7 +706,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           </CardContent>
 
           {currentView !== 'accountCreation' && currentView !== 'addParticipant' && (
-            <CardFooter className="flex flex-col sm:flex-row justify-between pt-3 sm:pt-4 p-3 sm:p-6 space-y-2 sm:space-y-0">
+            <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-3 sm:pt-4 p-3 sm:p-6 gap-y-2 sm:gap-y-0">
                 {currentView === 'dashboard' && (
                     <>
                         <Button type="button" variant="outline" onClick={() => { setCurrentView('accountCreation'); onStageChange('initial');}} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-first mt-2 sm:mt-0">
@@ -676,14 +723,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                     setActiveDashboardTab('payment')
                                 }} 
                                 disabled={isLoading || (participantFields.length === 0)} 
-                                className="w-full sm:ml-auto"
+                                className="w-full sm:ml-auto sm:w-auto"
                             >
                                 Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
                         ) : (
                             <Button type="submit" 
                                 disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0} 
-                                className="w-full sm:ml-auto"
+                                className="w-full sm:ml-auto sm:w-auto"
                             >
                                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                                 Submit Registration (${calculatedPrice.toFixed(2)})
@@ -719,4 +766,3 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
-

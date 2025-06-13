@@ -13,10 +13,10 @@ export type HafsaProgram = {
   ageRange?: string;
   duration?: string;
   schedule?: string;
-  requiresParentInfo: boolean; // True for daycare/quran_kids
-  isChildProgram: boolean; // True if this program is for children (requires child info)
-  specificFields?: ProgramField[]; // Specific fields for this program
-  termsLink?: string; // Optional: link to specific T&C
+  requiresParentInfo: boolean; 
+  isChildProgram: boolean; 
+  specificFields?: ProgramField[]; 
+  termsLink?: string; 
 };
 
 export const SCHOOL_GRADES = ["KG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
@@ -27,7 +27,7 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     id: 'daycare', 
     label: 'Daycare Service', 
     description: 'For babies starting from 6 months.',
-    price: 100, // Example price, adjust as needed
+    price: 100, 
     category: 'daycare',
     ageRange: '6 months+',
     requiresParentInfo: true,
@@ -63,7 +63,7 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     requiresParentInfo: true,
     isChildProgram: true,
     specificFields: [
-      { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES }, // Assuming grade is relevant here too
+      { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES }, 
       { type: 'select', name: 'quranLevel', label: 'Quran Level', options: QURAN_LEVELS }
     ]
   },
@@ -75,7 +75,7 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     category: 'arabic_women',
     schedule: '5 days/week, After Asr to Maghrib',
     duration: '2 months',
-    requiresParentInfo: false, // Direct trainee info
+    requiresParentInfo: false, 
     isChildProgram: false,
   },
   { 
@@ -87,28 +87,81 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     ageRange: '15+',
     schedule: '5 days/week, Dhuhr to Asr',
     duration: '2 months',
-    requiresParentInfo: false, // Direct trainee info
+    requiresParentInfo: false, 
     isChildProgram: false,
   },
 ];
 
+export type HafsaPaymentMethod = {
+  value: string;
+  label: string;
+  logoPlaceholder?: string; 
+  dataAiHint?: string;      
+  accountName?: string;
+  accountNumber?: string;
+  additionalInstructions?: string; 
+};
 
-export const LEGACY_PAYMENT_TYPES = [ // Kept for reference or if needed later by AI flow
+export const HAFSA_PAYMENT_METHODS: HafsaPaymentMethod[] = [
+    { 
+        value: 'cbe', 
+        label: 'CBE (Commercial Bank of Ethiopia)',
+        logoPlaceholder: 'https://placehold.co/40x40.png',
+        dataAiHint: 'cbe logo',
+        accountName: 'Hafsa Madrassa',
+        accountNumber: '1000123456789',
+        additionalInstructions: 'Ensure the name "Hafsa Madrassa" appears as the recipient.'
+    },
+    { 
+        value: 'telebirr', 
+        label: 'Telebirr',
+        logoPlaceholder: 'https://placehold.co/40x40.png',
+        dataAiHint: 'telebirr logo',
+        accountName: 'Hafsa Madrassa Telebirr',
+        accountNumber: '0911123456', 
+        additionalInstructions: 'Use the pay bill option if available, or send to this number.'
+    },
+    { 
+        value: 'zamzam', 
+        label: 'ZamZam Bank',
+        logoPlaceholder: 'https://placehold.co/40x40.png',
+        dataAiHint: 'zamzam bank logo',
+        accountName: 'Hafsa Madrassa',
+        accountNumber: '9876543210000',
+        additionalInstructions: 'Please include the participant\'s name in the payment reference.'
+    },
+    { 
+        value: 'hijra', 
+        label: 'Hijra Bank',
+        logoPlaceholder: 'https://placehold.co/40x40.png',
+        dataAiHint: 'hijra bank logo',
+        accountName: 'Hafsa Madrassa',
+        accountNumber: '1122334455667',
+        additionalInstructions: 'Verify recipient name before confirming payment.'
+    },
+    { 
+        value: 'abyssinia', 
+        label: 'Abyssinia Bank',
+        logoPlaceholder: 'https://placehold.co/40x40.png',
+        dataAiHint: 'abyssinia bank logo',
+        accountName: 'Hafsa Madrassa',
+        accountNumber: '5550001112223',
+        additionalInstructions: 'You can use their mobile app or visit a branch.'
+    },
+    {
+        value: 'screenshot_ai_verification',
+        label: 'Screenshot (AI Verification)'
+    }
+];
+
+
+export const LEGACY_PAYMENT_TYPES = [ 
   { value: "screenshot", label: "Screenshot" },
   { value: "link", label: "PDF Link" },
   { value: "transaction_id", label: "Transaction ID" },
 ];
 
-export const HAFSA_PAYMENT_METHODS = [
-    { value: 'cbe', label: 'CBE (Commercial Bank of Ethiopia)'},
-    { value: 'telebirr', label: 'Telebirr'},
-    { value: 'zamzam', label: 'ZamZam Bank'},
-    { value: 'hijra', label: 'Hijra Bank'},
-    { value: 'abyssinia', label: 'Abyssinia Bank'},
-];
 
-// Old constants, to be removed or refactored.
-// These are no longer used by the new Hafsa Madrassa structure.
 export type Course = {
   value: string;
   label: string;
