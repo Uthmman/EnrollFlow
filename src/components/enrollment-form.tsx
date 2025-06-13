@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, UserPlus, UserCheck, BookOpenText, Baby, GraduationCap, Briefcase } from 'lucide-react';
 import Image from 'next/image';
 
@@ -21,10 +21,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format } from "date-fns";
+import { useIsMobile } from '@/hooks/use-mobile';
 
-import { HAFSA_PROGRAMS, HAFSA_PAYMENT_METHODS, HafsaProgram, ProgramField } from '@/lib/constants';
+import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ChildInfoData, AdultTraineeData, RegistrationData, EnrolledChildData } from '@/types';
-import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema } from '@/types';
+import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema } from '@/types'; // Renamed to avoid conflict
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -219,6 +220,7 @@ const EnrollmentForm: React.FC = () => {
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
   const [adultDOB, setAdultDOB] = useState<Date | undefined>(undefined);
@@ -496,7 +498,7 @@ const EnrollmentForm: React.FC = () => {
                 isLoading={isLoading}
                 selectedProgramLabel={programForNewParticipant.label}
             />
-          ) : ( // Adult Self-Enrollment
+          ) : ( 
             <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
                 <CardHeader>
                     <CardTitle className="text-lg sm:text-xl font-headline">Enroll in {programForNewParticipant.label}</CardTitle>
@@ -541,23 +543,25 @@ const EnrollmentForm: React.FC = () => {
 
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
-        <TabsList className="flex items-center justify-center space-x-1 sm:space-x-2 bg-neutral-800 dark:bg-neutral-950 p-1.5 rounded-full shadow-md max-w-xs mx-auto mb-4">
-            <TabsTrigger value="enrollments" className="flex-1 p-2.5 rounded-full transition-colors duration-150 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700/50 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:hover:bg-background">
-                <Users className="h-5 w-5 sm:h-6 sm:w-6" />
-                <span className="sr-only">Manage Enrollments</span>
-            </TabsTrigger>
-            <TabsTrigger value="account" className="flex-1 p-2.5 rounded-full transition-colors duration-150 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700/50 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:hover:bg-background">
-                <UserCog className="h-5 w-5 sm:h-6 sm:w-6" />
-                <span className="sr-only">Account</span>
-            </TabsTrigger>
-            <TabsTrigger value="payment" className="flex-1 p-2.5 rounded-full transition-colors duration-150 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700/50 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:hover:bg-background">
-                <CreditCard className="h-5 w-5 sm:h-6 sm:w-6" />
-                <span className="sr-only">Payment</span>
-            </TabsTrigger>
-        </TabsList>
+        {!isMobile && ( 
+            <TabsList className="grid w-full grid-cols-3 mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
+                <TabsTrigger value="enrollments" className="text-sm sm:text-base py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
+                    <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
+                    <span className="sr-only sm:not-sr-only">Manage Enrollments</span>
+                </TabsTrigger>
+                <TabsTrigger value="account" className="text-sm sm:text-base py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
+                    <UserCog className="mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
+                    <span className="sr-only sm:not-sr-only">Account</span>
+                </TabsTrigger>
+                <TabsTrigger value="payment" className="text-sm sm:text-base py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
+                    <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
+                    <span className="sr-only sm:not-sr-only">Payment</span>
+                </TabsTrigger>
+            </TabsList>
+        )}
 
-        <TabsContent value="enrollments" className="space-y-4 pt-4">
-            <h3 className="text-xl font-semibold text-primary">Manage Enrollments</h3>
+        <TabsContent value="enrollments" className="space-y-4 pt-2">
+            <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Manage Enrollments</h3>
             
             {watchedAdultTraineeInfo && watchedAdultTraineeInfo.programId && (
                 <Card className="p-3 mb-3 bg-primary/10 border-primary/30">
@@ -606,8 +610,8 @@ const EnrollmentForm: React.FC = () => {
             </Button>
         </TabsContent>
 
-        <TabsContent value="account" className="space-y-4 pt-4">
-            <h3 className="text-xl font-semibold text-primary">Account Information</h3>
+        <TabsContent value="account" className="space-y-4 pt-2">
+            <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Account Information</h3>
             {getValues('parentInfo') && (
                 <Card className="p-4 space-y-2">
                     <p><strong>Full Name:</strong> {getValues('parentInfo.parentFullName')}</p>
@@ -618,7 +622,8 @@ const EnrollmentForm: React.FC = () => {
             )}
         </TabsContent>
 
-        <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-4">
+        <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-2">
+            <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Payment & Verification</h3>
             <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
                 <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
                 <p className="mt-2 sm:mt-4 text-xl sm:text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
@@ -687,6 +692,46 @@ const EnrollmentForm: React.FC = () => {
                 {errors.agreeToTerms && <p className="text-sm text-destructive mt-1">{errors.agreeToTerms.message}</p>}
             </div>
         </TabsContent>
+
+        {isMobile && currentView === 'dashboard' && ( 
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-auto">
+                <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-2 rounded-full shadow-xl border border-primary-foreground/20">
+                    <button
+                        onClick={() => setActiveDashboardTab('enrollments')}
+                        className={cn(
+                            "p-3 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
+                            activeDashboardTab === 'enrollments' ? "bg-primary-foreground text-primary scale-110 shadow-md" : "hover:bg-white/20"
+                        )}
+                        aria-label="Manage Enrollments"
+                        type="button"
+                    >
+                        <Users className="h-5 w-5" />
+                    </button>
+                    <button
+                        onClick={() => setActiveDashboardTab('account')}
+                        className={cn(
+                            "p-3 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
+                            activeDashboardTab === 'account' ? "bg-primary-foreground text-primary scale-110 shadow-md" : "hover:bg-white/20"
+                        )}
+                        aria-label="Account Settings"
+                        type="button"
+                    >
+                        <UserCog className="h-5 w-5" />
+                    </button>
+                    <button
+                        onClick={() => setActiveDashboardTab('payment')}
+                        className={cn(
+                            "p-3 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
+                            activeDashboardTab === 'payment' ? "bg-primary-foreground text-primary scale-110 shadow-md" : "hover:bg-white/20"
+                        )}
+                        aria-label="Payment"
+                        type="button"
+                    >
+                        <CreditCard className="h-5 w-5" />
+                    </button>
+                </div>
+            </div>
+        )}
     </Tabs>
   );
   
@@ -696,7 +741,7 @@ const EnrollmentForm: React.FC = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl">
           
-          <CardContent className="min-h-[300px] sm:min-h-[350px] p-4 sm:p-6">
+           <CardContent className={cn("min-h-[300px] sm:min-h-[350px] p-4 sm:p-6", isMobile && currentView === 'dashboard' && "pb-24")}>
             {currentView === 'accountCreation' && renderAccountCreation()}
             {currentView === 'dashboard' && renderDashboard()}
             {currentView === 'addParticipant' && renderAddParticipant()}
