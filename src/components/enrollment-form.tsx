@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
+import React, { useState, useEffect } from 'react';
+import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, UserCheck, BookOpenText, Baby, GraduationCap, Briefcase } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -18,18 +18,29 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
+import AppHeader from '@/components/app-header';
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
-import { EnrollmentFormSchema, ParticipantInfoSchema } from '@/types';
+import { EnrollmentFormSchema } from '@/types'; // ParticipantInfoSchema is used internally by RHF
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
-// Changed from ChildInfoData to ParticipantInfoData and childFirstName to firstName
+
+const defaultParentValues: ParentInfoData = {
+  parentFullName: '',
+  parentPhone1: '',
+  telegramPhoneNumber: '',
+  parentPhone2: '',
+  usePhone1ForTelegram: false,
+  usePhone2ForTelegram: false,
+};
+
 const defaultParticipantValues: ParticipantInfoData = {
   firstName: '',
   gender: 'male' as 'male' | 'female',
@@ -38,6 +49,7 @@ const defaultParticipantValues: ParticipantInfoData = {
   schoolGrade: '',
   quranLevel: '',
 };
+
 
 const ParentInfoFields: React.FC = () => {
   const { control, register, formState: { errors }, watch, setValue } = useFormContext<EnrollmentFormData>();
@@ -56,7 +68,7 @@ const ParentInfoFields: React.FC = () => {
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-primary/20 border">
       <CardHeader className="p-2 pb-1">
         <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center">
-          <UserCheck className="mr-2 h-5 w-5"/> {title}
+          <User className="mr-2 h-5 w-5"/> {title}
         </CardTitle>
         <CardDescription>Please provide details for the main contact person for this registration.</CardDescription>
       </CardHeader>
@@ -89,7 +101,7 @@ const ParentInfoFields: React.FC = () => {
                     <Checkbox id={`${fieldPrefix}UsePhone1`} checked={field.value} onCheckedChange={(checked) => {
                         field.onChange(checked);
                         if (checked && phone1) setValue(`${fieldPrefix}.telegramPhoneNumber` as any, phone1);
-                        setValue(`${fieldPrefix}.usePhone2ForTelegram` as any, false);
+                        if (checked) setValue(`${fieldPrefix}.usePhone2ForTelegram` as any, false);
                     }} disabled={!phone1}/>
                     <Label htmlFor={`${fieldPrefix}UsePhone1`} className="font-normal">Use Primary Phone for Telegram</Label>
                 </div>
@@ -100,7 +112,7 @@ const ParentInfoFields: React.FC = () => {
                     <Checkbox id={`${fieldPrefix}UsePhone2`} checked={field.value} onCheckedChange={(checked) => {
                         field.onChange(checked);
                         if (checked && phone2) setValue(`${fieldPrefix}.telegramPhoneNumber` as any, phone2);
-                        setValue(`${fieldPrefix}.usePhone1ForTelegram` as any, false);
+                        if (checked) setValue(`${fieldPrefix}.usePhone1ForTelegram` as any, false);
                     }} disabled={!phone2}/>
                     <Label htmlFor={`${fieldPrefix}UsePhone2`} className="font-normal">Use Secondary Phone for Telegram</Label>
                 </div>
@@ -173,7 +185,7 @@ const ParticipantDetailFields: React.FC<{
                         </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
-                          <Calendar mode="single" selected={field.value ? new Date(field.value): undefined} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("2000-01-01")} />
+                          <Calendar mode="single" selected={field.value ? new Date(field.value): undefined} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("1920-01-01")} />
                         </PopoverContent>
                     </Popover>
                     )}
@@ -216,20 +228,20 @@ const ParticipantDetailFields: React.FC<{
 
 const EnrollmentForm: React.FC = () => {
   const [currentView, setCurrentView] = useState<'accountCreation' | 'dashboard' | 'addParticipant' | 'confirmation'>('accountCreation');
-  const [activeDashboardTab, setActiveDashboardTab] = useState<'enrollments' | 'account' | 'payment'>('enrollments');
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'enrollments' | 'payment'>('enrollments');
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
+  const [showAccountDialog, setShowAccountDialog] = useState(false);
 
 
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
     defaultValues: {
-      parentInfo: { parentFullName: '', parentPhone1: '', telegramPhoneNumber: '' },
+      parentInfo: defaultParentValues,
       participants: [],
       agreeToTerms: false,
       couponCode: '',
@@ -251,7 +263,6 @@ const EnrollmentForm: React.FC = () => {
 
  useEffect(() => {
     let total = 0;
-    
     if (watchedParticipants) {
       watchedParticipants.forEach(enrolledParticipant => {
         const program = HAFSA_PROGRAMS.find(p => p.id === enrolledParticipant.programId);
@@ -397,7 +408,7 @@ const EnrollmentForm: React.FC = () => {
               return (
                 <Card 
                   key={prog.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
+                  className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col p-0"
                   onClick={() => setProgramForNewParticipant(prog)}
                 >
                   <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
@@ -425,14 +436,14 @@ const EnrollmentForm: React.FC = () => {
         </div>
       ) : (
         <>
-            <ParticipantDetailFields 
-                programSpecificFields={programForNewParticipant.specificFields}
-                onSave={handleSaveParticipant}
-                onCancel={() => { setProgramForNewParticipant(null);}}
-                isLoading={isLoading}
-                selectedProgramLabel={programForNewParticipant.label}
-            />
-           <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null);}} className="w-full mt-2 sm:hidden">
+          <ParticipantDetailFields 
+              programSpecificFields={programForNewParticipant.specificFields}
+              onSave={handleSaveParticipant}
+              onCancel={() => { setProgramForNewParticipant(null);}}
+              isLoading={isLoading}
+              selectedProgramLabel={programForNewParticipant.label}
+          />
+           <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null);}} className="w-full sm:w-auto mt-2">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Program Selection
             </Button>
         </>
@@ -444,14 +455,10 @@ const EnrollmentForm: React.FC = () => {
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
         {!isMobile && ( 
-            <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
+            <TabsList className="grid w-full grid-cols-2 mb-4 sm:mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
                 <TabsTrigger value="enrollments" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
                     <Users className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
                     Manage Enrollments
-                </TabsTrigger>
-                <TabsTrigger value="account" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
-                    <UserCog className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                    Account
                 </TabsTrigger>
                 <TabsTrigger value="payment" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
                     <CreditCard className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
@@ -467,7 +474,7 @@ const EnrollmentForm: React.FC = () => {
                 const enrolledParticipant = field as unknown as EnrolledParticipantData;
                 const program = HAFSA_PROGRAMS.find(p => p.id === enrolledParticipant.programId);
                 return (
-                <Card key={field.id} className="p-3 mb-2 bg-background">
+                <Card key={field.id} className="p-3 mb-2 bg-background/80">
                     <div className="flex justify-between items-start">
                     <div>
                         <p className="font-semibold text-md">{enrolledParticipant.participantInfo.firstName}</p>
@@ -490,18 +497,6 @@ const EnrollmentForm: React.FC = () => {
             <Button type="button" variant="default" onClick={handleAddParticipantClick} className="w-full sm:w-auto">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Participant / Enrollment
             </Button>
-        </TabsContent>
-
-        <TabsContent value="account" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
-            <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Account Information</h3>
-            {getValues('parentInfo') && (
-                <Card className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
-                    <p><strong>Full Name:</strong> {getValues('parentInfo.parentFullName')}</p>
-                    <p><strong>Primary Phone:</strong> {getValues('parentInfo.parentPhone1')}</p>
-                    {getValues('parentInfo.parentPhone2') && <p><strong>Secondary Phone:</strong> {getValues('parentInfo.parentPhone2')}</p>}
-                    <p><strong>Telegram Phone:</strong> {getValues('parentInfo.telegramPhoneNumber')}</p>
-                </Card>
-            )}
         </TabsContent>
 
         <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-1 sm:pt-2">
@@ -580,7 +575,6 @@ const EnrollmentForm: React.FC = () => {
                 <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20">
                     {[
                         { value: 'enrollments', label: 'Enroll', icon: Users },
-                        { value: 'account', label: 'Account', icon: UserCog },
                         { value: 'payment', label: 'Payment', icon: CreditCard },
                     ].map(tab => (
                         <button
@@ -605,11 +599,13 @@ const EnrollmentForm: React.FC = () => {
     </Tabs>
   );
   
+  const parentInfoForDialog = getValues('parentInfo');
 
   return (
     <FormProvider {...methods}>
+      <AppHeader onAccountClick={() => setShowAccountDialog(true)} />
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
-        <Card className="w-full max-w-2xl mx-auto shadow-xl">
+        <Card className="w-full max-w-2xl mx-auto shadow-xl border-none sm:border sm:rounded-lg">
           
            <CardContent className={cn("min-h-[300px] sm:min-h-[350px] p-3 sm:p-6", isMobile && currentView === 'dashboard' && "pb-24")}>
             {currentView === 'accountCreation' && renderAccountCreation()}
@@ -617,56 +613,64 @@ const EnrollmentForm: React.FC = () => {
             {currentView === 'addParticipant' && renderAddParticipant()}
           </CardContent>
 
-          <CardFooter className="flex flex-col sm:flex-row justify-between pt-3 sm:pt-4 p-3 sm:p-6 space-y-2 sm:space-y-0">
-            {currentView === 'dashboard' && (
-                <>
-                    <Button type="button" variant="outline" onClick={() => setCurrentView('accountCreation')} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-first mt-2 sm:mt-0">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account Details
-                    </Button>
-                    {activeDashboardTab !== 'payment' ? (
-                        <Button 
-                            type="button" 
-                            onClick={() => {
-                                if (participantFields.length === 0 ) {
-                                    toast({title: "No Enrollments", description: "Please add at least one participant before proceeding to payment.", variant: "destructive"});
-                                    return;
-                                }
-                                setActiveDashboardTab('payment')
-                            }} 
-                            disabled={isLoading || (participantFields.length === 0)} 
-                            className="w-full sm:ml-auto"
-                        >
-                            Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
+          {currentView !== 'accountCreation' && currentView !== 'addParticipant' && (
+            <CardFooter className="flex flex-col sm:flex-row justify-between pt-3 sm:pt-4 p-3 sm:p-6 space-y-2 sm:space-y-0">
+                {currentView === 'dashboard' && (
+                    <>
+                        <Button type="button" variant="outline" onClick={() => setCurrentView('accountCreation')} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-first mt-2 sm:mt-0">
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account Details
                         </Button>
-                    ) : (
-                        <Button type="submit" 
-                            disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0} 
-                            className="w-full sm:ml-auto"
-                        >
-                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                            Submit Registration (${calculatedPrice.toFixed(2)})
-                        </Button>
-                    )}
-                </>
-            )}
-            { (currentView === 'addParticipant' && !programForNewParticipant) && 
-                 <Button type="button" variant="outline" onClick={() => { setCurrentView('dashboard'); setActiveDashboardTab('enrollments');}} disabled={isLoading} className="w-full">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-                </Button>
-            }
-            { (currentView === 'addParticipant' && programForNewParticipant) &&
-                 <Button type="button" variant="outline" onClick={() => setProgramForNewParticipant(null)} disabled={isLoading} className="w-full sm:w-auto order-first sm:order-none">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Program Selection
-                </Button>
-            }
-          </CardFooter>
+                        {activeDashboardTab !== 'payment' ? (
+                            <Button 
+                                type="button" 
+                                onClick={() => {
+                                    if (participantFields.length === 0 ) {
+                                        toast({title: "No Enrollments", description: "Please add at least one participant before proceeding to payment.", variant: "destructive"});
+                                        return;
+                                    }
+                                    setActiveDashboardTab('payment')
+                                }} 
+                                disabled={isLoading || (participantFields.length === 0)} 
+                                className="w-full sm:ml-auto"
+                            >
+                                Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        ) : (
+                            <Button type="submit" 
+                                disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0} 
+                                className="w-full sm:ml-auto"
+                            >
+                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                                Submit Registration (${calculatedPrice.toFixed(2)})
+                            </Button>
+                        )}
+                    </>
+                )}
+            </CardFooter>
+          )}
         </Card>
       </form>
+       <Dialog open={showAccountDialog} onOpenChange={setShowAccountDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>Account Information</DialogTitle>
+            <DialogDescription>
+              Details of the primary registrant.
+            </DialogDescription>
+          </DialogHeader>
+          {parentInfoForDialog && (
+            <div className="space-y-2 py-2 text-sm">
+              <p><strong>Full Name:</strong> {parentInfoForDialog.parentFullName}</p>
+              <p><strong>Primary Phone:</strong> {parentInfoForDialog.parentPhone1}</p>
+              {parentInfoForDialog.parentPhone2 && <p><strong>Secondary Phone:</strong> {parentInfoForDialog.parentPhone2}</p>}
+              <p><strong>Telegram Phone:</strong> {parentInfoForDialog.telegramPhoneNumber}</p>
+            </div>
+          )}
+          <Button onClick={() => setShowAccountDialog(false)} className="mt-2 w-full">Close</Button>
+        </DialogContent>
+      </Dialog>
     </FormProvider>
   );
 };
 
 export default EnrollmentForm;
-
-
-    
