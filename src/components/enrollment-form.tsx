@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2, Settings, Building, FileImage, LinkIcon, FingerprintIcon, UserCheck, Info, Percent, Phone, UserCog, LogOut, Edit3, BookUser, UserPlus } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, UserPlus, UserCheck, BookOpenText, Baby, GraduationCap, Briefcase } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
@@ -25,7 +24,7 @@ import { format } from "date-fns";
 
 import { HAFSA_PROGRAMS, HAFSA_PAYMENT_METHODS, HafsaProgram, ProgramField, SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ChildInfoData, AdultTraineeData, RegistrationData, EnrolledChildData } from '@/types';
-import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema, AdultTraineeSchema } from '@/types';
+import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -37,11 +36,6 @@ const defaultChildValues: ChildInfoData = {
   schoolGrade: '',
   quranLevel: '',
 };
-
-const defaultAdultEnrollmentValues = {
-  dateOfBirth: undefined as any,
-};
-
 
 const ParentInfoFields: React.FC = () => {
   const { control, register, formState: { errors }, watch, setValue } = useFormContext<EnrollmentFormData>();
@@ -55,7 +49,6 @@ const ParentInfoFields: React.FC = () => {
   const nameField = "parentFullName";
   const phone1Field = "parentPhone1";
   const phone2Field = "parentPhone2";
-
 
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-primary/20 border">
@@ -243,7 +236,8 @@ const EnrollmentForm: React.FC = () => {
     },
   });
 
-  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset } = methods;
+  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register: formRegister } = methods;
+
 
   const { fields: childFields, append: appendChild, remove: removeChild } = useFieldArray({
     control,
@@ -287,7 +281,6 @@ const EnrollmentForm: React.FC = () => {
         setCurrentView('dashboard');
     } else {
       toast({ title: "Validation Error", description: "Please check your entries and try again.", variant: "destructive" });
-      console.log("Validation errors on account creation:", errors.parentInfo);
     }
   };
 
@@ -320,6 +313,17 @@ const EnrollmentForm: React.FC = () => {
     if (!adultDOB) {
       toast({ title: "Date of Birth Required", description: "Please provide your date of birth for this program.", variant: "destructive" });
       return;
+    }
+
+    // Check if adult is already enrolled in any adult program
+    const existingAdultEnrollment = getValues('adultTraineeInfo');
+    if (existingAdultEnrollment && existingAdultEnrollment.programId) {
+        toast({
+            title: "Already Enrolled",
+            description: `You are already enrolled in ${HAFSA_PROGRAMS.find(p => p.id === existingAdultEnrollment.programId)?.label}. You can only enroll in one adult program at a time. This new selection will replace the previous one.`,
+            variant: "default",
+            duration: 7000,
+        });
     }
 
     setValue('adultTraineeInfo', {
@@ -416,34 +420,58 @@ const EnrollmentForm: React.FC = () => {
 
   const renderAddParticipant = () => (
     <div className="space-y-4 sm:space-y-6">
+      {!programForNewParticipant ? (
         <div>
-            <Label htmlFor="programForNewParticipant" className="text-base sm:text-lg">Select Program</Label>
-            <Select 
-                onValueChange={(programId) => {
-                    setProgramForNewParticipant(HAFSA_PROGRAMS.find(p => p.id === programId) || null);
-                    setAdultDOB(undefined); // Reset adult DOB if program changes
-                }}
-                value={programForNewParticipant?.id || ''}
-            >
-                <SelectTrigger id="programForNewParticipant" className="mt-1"><SelectValue placeholder="Choose a program" /></SelectTrigger>
-                <SelectContent>
-                {HAFSA_PROGRAMS.map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description} (${prog.price})</SelectItem>)}
-                </SelectContent>
-            </Select>
-            {!programForNewParticipant && <p className="text-sm text-muted-foreground mt-1">Select a program to enroll a participant.</p>}
+          <h3 className="text-xl sm:text-2xl font-semibold mb-4 text-primary">Select a Program to Enroll In</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {HAFSA_PROGRAMS.map(prog => {
+              let IconComponent;
+              switch(prog.category) {
+                case 'daycare': IconComponent = Baby; break;
+                case 'quran_kids': IconComponent = GraduationCap; break; // Or BookOpenText
+                case 'arabic_women': IconComponent = Briefcase; break; // Or User
+                default: IconComponent = BookOpenText;
+              }
+              return (
+                <Card 
+                  key={prog.id} 
+                  className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
+                  onClick={() => setProgramForNewParticipant(prog)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center space-x-3 mb-1">
+                        <IconComponent className="h-6 w-6 text-primary" />
+                        <CardTitle className="text-lg sm:text-xl text-primary">{prog.label}</CardTitle>
+                    </div>
+                    <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-xs sm:text-sm flex-grow">
+                    {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
+                    {prog.duration && <p><strong>Duration:</strong> {prog.duration}</p>}
+                    {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
+                  </CardContent>
+                  <CardFooter className="pt-2">
+                    <p className="text-base sm:text-lg font-semibold text-accent">${prog.price.toFixed(2)}</p>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+          <Button type="button" variant="outline" onClick={() => { setCurrentView('dashboard'); setActiveDashboardTab('enrollments');}} className="w-full mt-6">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+          </Button>
         </div>
-
-        {programForNewParticipant && programForNewParticipant.isChildProgram && (
+      ) : (
+        <>
+          {programForNewParticipant.isChildProgram ? (
              <ChildParticipantFields 
                 programSpecificFields={programForNewParticipant.specificFields}
                 onSave={handleSaveChild}
-                onCancel={() => setCurrentView('dashboard')}
+                onCancel={() => { setProgramForNewParticipant(null); setCurrentView('dashboard'); setActiveDashboardTab('enrollments'); }}
                 isLoading={isLoading}
                 selectedProgramLabel={programForNewParticipant.label}
             />
-        )}
-
-        {programForNewParticipant && !programForNewParticipant.isChildProgram && (
+          ) : (
             <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
                 <CardHeader>
                     <CardTitle className="text-lg sm:text-xl font-headline">Enroll in {programForNewParticipant.label}</CardTitle>
@@ -463,29 +491,29 @@ const EnrollmentForm: React.FC = () => {
                             <Calendar mode="single" selected={adultDOB} onSelect={setAdultDOB} initialFocus disabled={(date) => date > new Date() || date < new Date("1940-01-01")} />
                             </PopoverContent>
                         </Popover>
-                        {!adultDOB && <p className="text-sm text-destructive mt-1">Date of birth is required.</p>}
+                        {!adultDOB && getValues('adultTraineeInfo.programId') === programForNewParticipant.id && errors.adultTraineeInfo?.dateOfBirth && (
+                           <p className="text-sm text-destructive mt-1">{errors.adultTraineeInfo.dateOfBirth.message}</p>
+                        )}
+                         {!adultDOB && <p className="text-sm text-muted-foreground mt-1">Date of birth is required for this program.</p>}
                     </div>
                 </CardContent>
                  <CardFooter className="flex justify-end gap-2 p-2 pt-1">
-                    <Button type="button" variant="outline" onClick={() => setCurrentView('dashboard')} disabled={isLoading}>Cancel</Button>
+                    <Button type="button" variant="outline" onClick={() => { setProgramForNewParticipant(null); setCurrentView('dashboard'); setActiveDashboardTab('enrollments');}} disabled={isLoading}>Cancel</Button>
                     <Button type="button" onClick={handleSaveAdultEnrollment} disabled={isLoading || !adultDOB}>
                         {isLoading ? <Loader2 className="animate-spin mr-2"/> : <UserPlus className="mr-2 h-4 w-4" />} Confirm My Enrollment
                     </Button>
                 </CardFooter>
             </Card>
-        )}
-
-         {!programForNewParticipant && (
-            <Button type="button" variant="outline" onClick={() => setCurrentView('dashboard')} className="w-full">
-                Cancel
-            </Button>
-        )}
+          )}
+        </>
+      )}
     </div>
   );
+  
 
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
-        <TabsList className="grid w-full grid-cols-3"> {/* Adjusted to 3 cols */}
+        <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="enrollments"><Users className="mr-1 sm:mr-2 h-4 w-4"/>Manage Enrollments</TabsTrigger>
             <TabsTrigger value="account"><UserCog className="mr-1 sm:mr-2 h-4 w-4"/>Account</TabsTrigger>
             <TabsTrigger value="payment"><CreditCard className="mr-1 sm:mr-2 h-4 w-4"/>Payment</TabsTrigger>
@@ -494,7 +522,6 @@ const EnrollmentForm: React.FC = () => {
         <TabsContent value="enrollments" className="space-y-4 pt-4">
             <h3 className="text-xl font-semibold text-primary">Current Enrollments</h3>
             
-            {/* Adult's Own Enrollment Display */}
             {watchedAdultTraineeInfo && watchedAdultTraineeInfo.programId && (
                 <Card className="p-3 mb-3 bg-blue-50 border-blue-200">
                      <div className="flex justify-between items-start">
@@ -506,14 +533,13 @@ const EnrollmentForm: React.FC = () => {
                             </p>
                             <p className="text-xs text-muted-foreground">Date of Birth: {watchedAdultTraineeInfo.dateOfBirth ? format(new Date(watchedAdultTraineeInfo.dateOfBirth), "PPP") : 'N/A'}</p>
                         </div>
-                         <Button type="button" variant="ghost" size="sm" onClick={() => setValue('adultTraineeInfo', undefined)} className="text-destructive hover:text-destructive/80">
+                         <Button type="button" variant="ghost" size="sm" onClick={() => { setValue('adultTraineeInfo', undefined); toast({title: "Adult Enrollment Removed"});}} className="text-destructive hover:text-destructive/80">
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
                 </Card>
             )}
 
-            {/* Children's Enrollments Display */}
             {childFields.map((field, index) => {
                 const enrolledChild = field as unknown as EnrolledChildData;
                 const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
@@ -563,7 +589,7 @@ const EnrollmentForm: React.FC = () => {
             <div>
                 <Label htmlFor="couponCode">Coupon Code (Optional)</Label>
                 <div className="flex items-center gap-2 mt-1">
-                    <Input id="couponCode" {...methods.register('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
+                    <Input id="couponCode" {...formRegister('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
                     <Button type="button" variant="outline" size="sm" onClick={() => toast({title: "Coupon Applied!", description:"(Example: 10% off - not functional yet)"})}>Apply</Button>
                 </div>
             </div>
@@ -583,16 +609,32 @@ const EnrollmentForm: React.FC = () => {
                 />
                 {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{errors.paymentProof.paymentType.message}</p>}
             </div>
-            { (HAFSA_PAYMENT_METHODS.some(pm => pm.value === watchedPaymentType)) && (
+            { (HAFSA_PAYMENT_METHODS.some(pm => pm.value === watchedPaymentType && pm.value !== 'screenshot_ai_verification')) && (
             <div>
                 <Label htmlFor="paymentProof.transactionId" className="text-base sm:text-lg">Transaction ID / Reference</Label>
-                <Input id="paymentProof.transactionId" {...methods.register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
+                <Input id="paymentProof.transactionId" {...formRegister('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
                 {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
                 <p className="text-xs text-muted-foreground mt-1">
                     Please make your payment to the designated Hafsa Madrassa account for {HAFSA_PAYMENT_METHODS.find(pm => pm.value === watchedPaymentType)?.label}
                     and enter the transaction reference number here. Payment instructions will be provided.
                 </p>
             </div>
+            )}
+             {watchedPaymentType === 'screenshot_ai_verification' && (
+              <div>
+                <Label htmlFor="paymentProof.screenshot" className="text-base sm:text-lg">Upload Payment Screenshot</Label>
+                <Input 
+                    id="paymentProof.screenshot" 
+                    type="file" 
+                    accept="image/*" 
+                    className="mt-1"
+                    {...formRegister('paymentProof.screenshot')}
+                />
+                {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{(errors.paymentProof.screenshot as any).message}</p>}
+                 <p className="text-xs text-muted-foreground mt-1">
+                    Upload a clear screenshot of your payment receipt for AI verification.
+                </p>
+              </div>
             )}
              <div>
                 <Controller
@@ -624,7 +666,7 @@ const EnrollmentForm: React.FC = () => {
              <CardDescription className="text-sm">
                 {currentView === 'accountCreation' && "Step 1: Create Your Account."}
                 {currentView === 'dashboard' && "Step 2: Manage Enrollments & Payment."}
-                {currentView === 'addParticipant' && `Add New Participant for ${programForNewParticipant?.label || 'Selected Program'}.`}
+                {currentView === 'addParticipant' && `Select a Program and Add Participant Details.`}
              </CardDescription>
           </CardHeader>
 
@@ -637,7 +679,7 @@ const EnrollmentForm: React.FC = () => {
           <CardFooter className="flex flex-col sm:flex-row justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
             {currentView === 'dashboard' && (
                 <>
-                    <Button type="button" variant="outline" onClick={() => setCurrentView('accountCreation')} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-none">
+                    <Button type="button" variant="outline" onClick={() => setCurrentView('accountCreation')} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-none mt-2 sm:mt-0">
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account Details
                     </Button>
                     {activeDashboardTab !== 'payment' ? (
@@ -645,12 +687,12 @@ const EnrollmentForm: React.FC = () => {
                             type="button" 
                             onClick={() => {
                                 if (childFields.length === 0 && !getValues('adultTraineeInfo.programId')) {
-                                    toast({title: "No Enrollments", description: "Please add at least one participant or select an adult program for yourself before proceeding to payment.", variant: "destructive"});
+                                    toast({title: "No Enrollments", description: "Please add at least one participant or enroll yourself in an adult program before proceeding to payment.", variant: "destructive"});
                                     return;
                                 }
                                 setActiveDashboardTab('payment')
                             }} 
-                            disabled={isLoading || (childFields.length === 0 && !getValues('adultTraineeInfo.programId') && (activeDashboardTab === 'enrollments' || activeDashboardTab === 'account'))} 
+                            disabled={isLoading || (childFields.length === 0 && !getValues('adultTraineeInfo.programId'))} 
                             className="w-full sm:ml-auto"
                         >
                             Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
@@ -666,9 +708,14 @@ const EnrollmentForm: React.FC = () => {
                     )}
                 </>
             )}
-            { (currentView === 'addParticipant') &&
-                 <Button type="button" variant="outline" onClick={() => setCurrentView('dashboard')} disabled={isLoading} className="w-full sm:w-auto order-first sm:order-none">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+            { (currentView === 'addParticipant' && !programForNewParticipant) && 
+                 <Button type="button" variant="outline" onClick={() => { setCurrentView('dashboard'); setActiveDashboardTab('enrollments');}} disabled={isLoading} className="w-full">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                </Button>
+            }
+            { (currentView === 'addParticipant' && programForNewParticipant) &&
+                 <Button type="button" variant="outline" onClick={() => setProgramForNewParticipant(null)} disabled={isLoading} className="w-full sm:w-auto order-first sm:order-none">
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Program Selection
                 </Button>
             }
           </CardFooter>
@@ -679,3 +726,4 @@ const EnrollmentForm: React.FC = () => {
 };
 
 export default EnrollmentForm;
+
