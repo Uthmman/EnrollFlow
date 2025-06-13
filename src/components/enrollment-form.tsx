@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -23,11 +23,11 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
-// AppHeader is no longer imported or used here
+import AppHeader from '@/components/app-header';
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
-import { EnrollmentFormSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types'; // Renamed to avoid conflict
+import { EnrollmentFormSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -231,9 +231,12 @@ interface EnrollmentFormProps {
   onCloseAccountDialog: () => void;
 }
 
+type DashboardTab = 'enrollments' | 'programs' | 'payment';
+
+
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAccountDialogFromParent, onCloseAccountDialog }) => {
   const [currentView, setCurrentView] = useState<'accountCreation' | 'dashboard' | 'addParticipant' | 'confirmation'>('accountCreation');
-  const [activeDashboardTab, setActiveDashboardTab] = useState<'enrollments' | 'payment'>('enrollments');
+  const [activeDashboardTab, setActiveDashboardTab] = useState<DashboardTab>('enrollments');
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
@@ -252,7 +255,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     },
   });
 
-  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register: formRegister } = methods;
+  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset } = methods;
 
 
   const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
@@ -285,7 +288,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     if (isValid) {
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
-        onStageChange('accountCreated'); // Notify parent component
+        onStageChange('accountCreated'); 
     } else {
       toast({ title: "Validation Error", description: "Please check your entries and try again.", variant: "destructive" });
     }
@@ -457,12 +460,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   
 
   const renderDashboard = () => (
-    <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
+    <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as DashboardTab)} className="w-full">
         {!isMobile && ( 
-            <TabsList className="grid w-full grid-cols-2 mb-4 sm:mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
+            <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
                 <TabsTrigger value="enrollments" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
                     <Users className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
                     Manage Enrollments
+                </TabsTrigger>
+                 <TabsTrigger value="programs" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
+                    <LayoutList className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
+                    View Programs
                 </TabsTrigger>
                 <TabsTrigger value="payment" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
                     <CreditCard className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
@@ -502,6 +509,40 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Participant / Enrollment
             </Button>
         </TabsContent>
+        
+        <TabsContent value="programs" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
+            <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only mb-2">Available Programs</h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                {HAFSA_PROGRAMS.map(prog => {
+                let IconComponent;
+                switch(prog.category) {
+                    case 'daycare': IconComponent = Baby; break;
+                    case 'quran_kids': IconComponent = GraduationCap; break; 
+                    case 'arabic_women': IconComponent = Briefcase; break; 
+                    default: IconComponent = BookOpenText;
+                }
+                return (
+                    <Card key={prog.id} className="flex flex-col p-0">
+                    <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
+                        <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
+                            <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                            <CardTitle className="text-base sm:text-lg text-primary">{prog.label}</CardTitle>
+                        </div>
+                        <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
+                        {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
+                        {prog.duration && <p><strong>Duration:</strong> {prog.duration}</p>}
+                        {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
+                    </CardContent>
+                    <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
+                        <p className="text-sm sm:text-base font-semibold text-accent">${prog.price.toFixed(2)}</p>
+                    </CardFooter>
+                    </Card>
+                );
+                })}
+            </div>
+        </TabsContent>
 
         <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Payment & Verification</h3>
@@ -535,7 +576,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             { (HAFSA_PAYMENT_METHODS.some(pm => pm.value === watchedPaymentType && pm.value !== 'screenshot_ai_verification')) && (
             <div>
                 <Label htmlFor="paymentProof.transactionId" className="text-sm sm:text-base">Transaction ID / Reference</Label>
-                <Input id="paymentProof.transactionId" {...formRegister('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
+                <Input id="paymentProof.transactionId" {...methods.register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
                 {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
                 <p className="text-xs text-muted-foreground mt-1">
                     Please make your payment to the designated Hafsa Madrassa account for {HAFSA_PAYMENT_METHODS.find(pm => pm.value === watchedPaymentType)?.label}
@@ -551,7 +592,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     type="file" 
                     accept="image/*" 
                     className="mt-1"
-                    {...formRegister('paymentProof.screenshot')}
+                    {...methods.register('paymentProof.screenshot')}
                 />
                 {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{(errors.paymentProof.screenshot as any).message}</p>}
                  <p className="text-xs text-muted-foreground mt-1">
@@ -579,14 +620,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20">
                     {[
                         { value: 'enrollments', label: 'Enroll', icon: Users },
-                        // { value: 'account', label: 'Account', icon: UserCog }, // Account tab removed for mobile
+                        { value: 'programs', label: 'Programs', icon: LayoutList },
                         { value: 'payment', label: 'Payment', icon: CreditCard },
                     ].map(tab => (
                         <button
                             key={tab.value}
-                            onClick={() => setActiveDashboardTab(tab.value as any)}
+                            onClick={() => setActiveDashboardTab(tab.value as DashboardTab)}
                             className={cn(
-                                "flex flex-col items-center justify-center p-2.5 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-20 h-14",
+                                "flex flex-col items-center justify-center p-2.5 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-20", // Adjusted width
                                 activeDashboardTab === tab.value 
                                     ? "bg-primary-foreground text-primary scale-105 shadow-md" 
                                     : "hover:bg-white/20"
@@ -608,7 +649,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   return (
     <FormProvider {...methods}>
-      {/* AppHeader is no longer rendered here */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl border-none sm:border sm:rounded-lg">
           
@@ -679,3 +719,4 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+
