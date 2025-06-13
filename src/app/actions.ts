@@ -1,10 +1,12 @@
+
 "use server";
 
 import { verifyPaymentFromScreenshot, VerifyPaymentFromScreenshotInput } from '@/ai/flows/payment-verification';
-import type { PaymentProofData } from '@/types';
+// Make sure PaymentProofData is imported correctly based on the new types structure
+import type { PaymentProofData } from '@/types'; 
 
 interface VerificationInput {
-  paymentProof: PaymentProofData;
+  paymentProof: PaymentProofData; // This type itself might not need to change if it's self-contained
   expectedAmount: number;
 }
 
@@ -21,14 +23,20 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
 
   if (paymentProof.paymentType === "screenshot") {
     if (!paymentProof.screenshotDataUri) {
-      return { isPaymentValid: false, message: "Screenshot data URI is missing." };
+      // Check if a file was provided for screenshot, as screenshotDataUri is generated on client
+      if (!paymentProof.screenshot) {
+         return { isPaymentValid: false, message: "Screenshot file or data URI is missing." };
+      }
+      // If screenshotDataUri is still missing at this point (shouldn't happen if file provided)
+      // it will be caught by the AI flow or prior logic.
+      // For AI, screenshotDataUri is essential.
     }
 
     try {
       const aiInput: VerifyPaymentFromScreenshotInput = {
-        paymentScreenshotDataUri: paymentProof.screenshotDataUri,
+        paymentScreenshotDataUri: paymentProof.screenshotDataUri!, // Asserting it's present due to check or client-side generation
         expectedPaymentAmount: expectedAmount,
-        transactionNumber: paymentProof.transactionId, // Pass if available from form
+        transactionNumber: paymentProof.transactionId,
       };
       
       const aiResult = await verifyPaymentFromScreenshot(aiInput);
@@ -50,20 +58,21 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
       return { isPaymentValid: false, message: "An error occurred during AI payment verification." };
     }
   } else if (paymentProof.paymentType === "link") {
-    // Placeholder logic for PDF link verification
-    // In a real app, you might fetch the PDF, parse it, etc.
-    // For now, assume valid if a link is provided. Could add amount check if user enters it.
     if (paymentProof.pdfLink) {
-      return { isPaymentValid: true, message: "PDF link submitted. (Verification Placeholder)" };
+       // Basic validation for PDF link, could be enhanced
+      if (!paymentProof.pdfLink.startsWith('http://') && !paymentProof.pdfLink.startsWith('https://')) {
+         return { isPaymentValid: false, message: "Invalid PDF link format." };
+      }
+      // For now, assume valid if a link is provided.
+      return { isPaymentValid: true, message: "PDF link submitted. (Basic Verification)" };
     }
     return { isPaymentValid: false, message: "PDF link is missing." };
   } else if (paymentProof.paymentType === "transaction_id") {
-    // Placeholder logic for Transaction ID
-    // For now, assume valid if an ID is provided. Could add amount check.
-    if (paymentProof.transactionId) {
-      return { isPaymentValid: true, transactionNumber: paymentProof.transactionId, message: "Transaction ID submitted. (Verification Placeholder)" };
+    if (paymentProof.transactionId && paymentProof.transactionId.length >= 5) {
+      // For now, assume valid if an ID is provided.
+      return { isPaymentValid: true, transactionNumber: paymentProof.transactionId, message: "Transaction ID submitted. (Basic Verification)" };
     }
-    return { isPaymentValid: false, message: "Transaction ID is missing." };
+    return { isPaymentValid: false, message: "Transaction ID is missing or too short." };
   }
 
   return { isPaymentValid: false, message: "Invalid payment proof type." };

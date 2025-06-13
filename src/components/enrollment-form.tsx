@@ -1,10 +1,11 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useForm, FormProvider, Controller, useWatch } from 'react-hook-form';
+import { useForm, FormProvider, Controller, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon } from 'lucide-react';
+import { School, User, BookOpen, CreditCard, FileText, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertTriangle, CalendarIcon, Users, PlusCircle, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -22,42 +23,33 @@ import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 
 import { SCHOOL_LEVELS, PROGRAMS_BY_LEVEL, PAYMENT_TYPES, Course, Program } from '@/lib/constants';
-import type { EnrollmentFormData, RegistrationData } from '@/types';
+import type { EnrollmentFormData, RegistrationData, ChildEnrollmentData } from '@/types';
 import { EnrollmentFormSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
 const formSteps = [
-  { id: 'program', title: 'Program Selection', icon: <School className="h-5 w-5" /> },
-  { id: 'student', title: 'Student Information', icon: <User className="h-5 w-5" /> },
-  { id: 'courses', title: 'Course Selection', icon: <BookOpen className="h-5 w-5" /> },
+  { id: 'parent', title: 'Parent Information', icon: <Users className="h-5 w-5" /> },
+  { id: 'children', title: "Children's Enrollment", icon: <User className="h-5 w-5" /> },
   { id: 'payment', title: 'Payment & Verification', icon: <CreditCard className="h-5 w-5" /> },
   { id: 'confirmation', title: 'Confirmation', icon: <CheckCircle className="h-5 w-5" /> },
 ];
 
-const EnrollmentForm: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [calculatedPrice, setCalculatedPrice] = useState(0);
-  const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
-  const { toast } = useToast();
+const defaultChildValues: ChildEnrollmentData = {
+  fullName: '',
+  dateOfBirth: undefined as any, // Needs to be undefined for placeholder
+  schoolLevel: '',
+  program: '',
+  selectedCourses: [],
+};
 
-  const methods = useForm<EnrollmentFormData>({
-    resolver: zodResolver(EnrollmentFormSchema),
-    defaultValues: {
-      schoolLevel: '',
-      program: '',
-      selectedCourses: [],
-      paymentType: 'screenshot',
-    },
-  });
+const ChildEnrollmentFields: React.FC<{ childIndex: number; removeChild: (index: number) => void }> = ({ childIndex, removeChild }) => {
+  const { control, setValue, getValues, formState: { errors } } = useFormContext<EnrollmentFormData>();
+  
+  const pathPrefix = `children.${childIndex}` as const;
 
-  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch } = methods;
-
-  const watchedSchoolLevel = watch('schoolLevel');
-  const watchedProgram = watch('program');
-  const watchedSelectedCourses = watch('selectedCourses');
-  const watchedPaymentType = watch('paymentType');
+  const watchedSchoolLevel = useWatch({ control, name: `${pathPrefix}.schoolLevel` });
+  const watchedProgram = useWatch({ control, name: `${pathPrefix}.program` });
 
   const availablePrograms = useMemo(() => {
     return watchedSchoolLevel ? PROGRAMS_BY_LEVEL[watchedSchoolLevel] || [] : [];
@@ -73,53 +65,213 @@ const EnrollmentForm: React.FC = () => {
 
   useEffect(() => {
     if (watchedSchoolLevel) {
-      setValue('program', ''); // Reset program when school level changes
-      setValue('selectedCourses', []); // Reset courses
+      setValue(`${pathPrefix}.program`, '');
+      setValue(`${pathPrefix}.selectedCourses`, []);
     }
-  }, [watchedSchoolLevel, setValue]);
-  
+  }, [watchedSchoolLevel, setValue, pathPrefix]);
+
   useEffect(() => {
     if (watchedProgram) {
-       setValue('selectedCourses', []); // Reset courses when program changes
+       setValue(`${pathPrefix}.selectedCourses`, []);
     }
-  }, [watchedProgram, setValue]);
+  }, [watchedProgram, setValue, pathPrefix]);
+
+  const childErrors = errors.children?.[childIndex] || {};
+
+  return (
+    <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
+      <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
+        <CardTitle className="text-lg sm:text-xl font-headline">Child {childIndex + 1}</CardTitle>
+        <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(childIndex)} className="text-destructive hover:text-destructive/80">
+          <Trash2 className="h-4 w-4 mr-1" /> Remove
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
+        <div>
+          <Label htmlFor={`${pathPrefix}.fullName`} className="text-base sm:text-lg">Full Name</Label>
+          <Controller
+            name={`${pathPrefix}.fullName`}
+            control={control}
+            render={({ field }) => <Input {...field} id={`${pathPrefix}.fullName`} className="mt-1" placeholder="Child's Full Name" />}
+          />
+          {childErrors.fullName && <p className="text-sm text-destructive mt-1">{(childErrors.fullName as any).message}</p>}
+        </div>
+        <div>
+          <Label htmlFor={`${pathPrefix}.dateOfBirth`} className="text-base sm:text-lg">Date of Birth</Label>
+          <Controller
+            name={`${pathPrefix}.dateOfBirth`}
+            control={control}
+            render={({ field }) => (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal mt-1", !field.value && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date() || date < new Date("1900-01-01")} /></PopoverContent>
+              </Popover>
+            )}
+          />
+          {childErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{(childErrors.dateOfBirth as any).message}</p>}
+        </div>
+        <div>
+          <Label htmlFor={`${pathPrefix}.schoolLevel`} className="text-base sm:text-lg">School Level</Label>
+          <Controller
+            name={`${pathPrefix}.schoolLevel`}
+            control={control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger id={`${pathPrefix}.schoolLevel`} className="mt-1"><SelectValue placeholder="Select school level" /></SelectTrigger>
+                <SelectContent>{SCHOOL_LEVELS.map(level => <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>)}</SelectContent>
+              </Select>
+            )}
+          />
+          {childErrors.schoolLevel && <p className="text-sm text-destructive mt-1">{(childErrors.schoolLevel as any).message}</p>}
+        </div>
+        {watchedSchoolLevel && (
+          <div>
+            <Label htmlFor={`${pathPrefix}.program`} className="text-base sm:text-lg">Program/Grade</Label>
+            <Controller
+              name={`${pathPrefix}.program`}
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger id={`${pathPrefix}.program`} className="mt-1"><SelectValue placeholder="Select program/grade" /></SelectTrigger>
+                  <SelectContent>{availablePrograms.map(prog => <SelectItem key={prog.value} value={prog.value}>{prog.label}</SelectItem>)}</SelectContent>
+                </Select>
+              )}
+            />
+            {childErrors.program && <p className="text-sm text-destructive mt-1">{(childErrors.program as any).message}</p>}
+          </div>
+        )}
+         {watchedProgram && availableCourses.length > 0 && (
+          <div className="space-y-2 sm:space-y-3">
+            <h3 className="text-md sm:text-lg font-semibold">Available Courses for {currentProgramDetails?.label}</h3>
+            <Controller
+              name={`${pathPrefix}.selectedCourses`}
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  {availableCourses.map((course: Course) => (
+                    <div key={course.value} className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                      <Checkbox
+                        id={`${pathPrefix}.course.${course.value}`}
+                        checked={field.value?.includes(course.value)}
+                        onCheckedChange={(checked) => {
+                          const newValue = checked ? [...(field.value || []), course.value] : (field.value || []).filter((v) => v !== course.value);
+                          field.onChange(newValue);
+                        }}
+                      />
+                      <Label htmlFor={`${pathPrefix}.course.${course.value}`} className="flex-grow text-sm sm:text-md cursor-pointer">{course.label}</Label>
+                      <span className="text-xs sm:text-sm text-foreground/80">${course.price.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+
+const EnrollmentForm: React.FC = () => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [calculatedPrice, setCalculatedPrice] = useState(0);
+  const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
+  const { toast } = useToast();
+
+  const methods = useForm<EnrollmentFormData>({
+    resolver: zodResolver(EnrollmentFormSchema),
+    defaultValues: {
+      parentInfo: {
+        parentFullName: '',
+        parentEmail: '',
+        parentPhone: '',
+      },
+      children: [defaultChildValues], // Start with one child
+      paymentProof: {
+        paymentType: 'screenshot',
+      },
+    },
+  });
+
+  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, register } = methods;
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "children",
+  });
+
+  const watchedChildren = watch('children'); // Watch all children for price calculation
+  const watchedPaymentType = watch('paymentProof.paymentType');
 
   useEffect(() => {
-    const calculate = () => {
+    const calculateTotal = () => {
       let total = 0;
-      const programDetails = PROGRAMS_BY_LEVEL[getValues("schoolLevel")]?.find(p => p.value === getValues("program"));
-      if (programDetails) {
-        total += programDetails.basePrice;
-        const courses = getValues("selectedCourses") || [];
-        courses.forEach(courseValue => {
-          const courseDetails = programDetails.courses?.find(c => c.value === courseValue);
-          if (courseDetails) {
-            total += courseDetails.price;
-          }
-        });
-      }
+      const childrenData = getValues("children") || [];
+      childrenData.forEach(child => {
+        const programDetails = PROGRAMS_BY_LEVEL[child.schoolLevel]?.find(p => p.value === child.program);
+        if (programDetails) {
+          total += programDetails.basePrice;
+          const courses = child.selectedCourses || [];
+          courses.forEach(courseValue => {
+            const courseDetails = programDetails.courses?.find(c => c.value === courseValue);
+            if (courseDetails) {
+              total += courseDetails.price;
+            }
+          });
+        }
+      });
       setCalculatedPrice(total);
     };
-    calculate();
-  }, [watchedSchoolLevel, watchedProgram, watchedSelectedCourses, getValues]);
+    calculateTotal();
+  }, [watchedChildren, getValues]);
+
 
   const handleNext = async () => {
-    let fieldsToValidate: (keyof EnrollmentFormData)[] = [];
-    if (currentStep === 0) fieldsToValidate = ['schoolLevel', 'program'];
-    if (currentStep === 1) fieldsToValidate = ['fullName', 'dateOfBirth', 'email']; // 'phone', 'address' are optional
-    // No specific validation for step 2 (courses) beyond schema
-    // Step 3 (payment) validation is complex, handled during submission
+    let fieldsToValidate: (keyof EnrollmentFormData | `parentInfo.${keyof EnrollmentFormData["parentInfo"]}` | `children.${number}.${keyof ChildEnrollmentData}` | `children`)[] = [];
+    
+    if (currentStep === 0) fieldsToValidate = ['parentInfo.parentFullName', 'parentInfo.parentEmail']; // parentPhone is optional
+    if (currentStep === 1) { // Children step
+      fieldsToValidate.push('children'); // This validates the array (e.g., min length) and all its items
+      // To validate all fields for all children explicitly:
+      // getValues("children").forEach((_, index) => {
+      //   fieldsToValidate.push(`children.${index}.fullName`);
+      //   fieldsToValidate.push(`children.${index}.dateOfBirth`);
+      //   fieldsToValidate.push(`children.${index}.schoolLevel`);
+      //   fieldsToValidate.push(`children.${index}.program`);
+      // });
+    }
+    // Payment step validation handled during submission
 
     const isValid = fieldsToValidate.length > 0 ? await trigger(fieldsToValidate) : true;
+    
     if (isValid) {
       setCurrentStep(prev => prev + 1);
     } else {
-       // Highlight errors, e.g. by focusing on the first error
-       const firstErrorField = Object.keys(errors)[0] as keyof EnrollmentFormData;
-       if (firstErrorField && methods.getFieldState(firstErrorField).error) {
-         const fieldElement = document.getElementsByName(firstErrorField)[0];
-         if(fieldElement) fieldElement.focus();
+       const firstErrorKey = Object.keys(errors)[0];
+       let firstErrorPath = firstErrorKey;
+
+       if (firstErrorKey === 'parentInfo' && errors.parentInfo) {
+         firstErrorPath = `parentInfo.${Object.keys(errors.parentInfo)[0]}`;
+       } else if (firstErrorKey === 'children' && errors.children && Array.isArray(errors.children)) {
+          const firstChildErrorIndex = errors.children.findIndex(c => c && Object.keys(c).length > 0);
+          if (firstChildErrorIndex !== -1 && errors.children[firstChildErrorIndex]) {
+            const childErrorDetail = errors.children[firstChildErrorIndex];
+            if(childErrorDetail) {
+                 const firstChildErrorField = Object.keys(childErrorDetail)[0] as keyof ChildEnrollmentData;
+                 firstErrorPath = `children.${firstChildErrorIndex}.${firstChildErrorField}`;
+            }
+          }
        }
+       // Try to focus on the element, document.getElementsByName might not work with nested RHF names directly
+       console.log("Validation errors:", errors, "Trying to focus on path:", firstErrorPath);
+       toast({ title: "Validation Error", description: "Please check the highlighted fields.", variant: "destructive" });
     }
   };
 
@@ -129,23 +281,23 @@ const EnrollmentForm: React.FC = () => {
     setIsLoading(true);
     try {
       let screenshotDataUri: string | undefined;
-      if (data.paymentType === 'screenshot' && data.screenshot) {
+      if (data.paymentProof.paymentType === 'screenshot' && data.paymentProof.screenshot) {
         screenshotDataUri = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
-          reader.readAsDataURL(data.screenshot);
+          reader.readAsDataURL(data.paymentProof.screenshot as File);
         });
-        setValue('screenshotDataUri', screenshotDataUri); // Update form data
-        data.screenshotDataUri = screenshotDataUri; // ensure data passed to action has it
+        setValue('paymentProof.screenshotDataUri', screenshotDataUri);
+        data.paymentProof.screenshotDataUri = screenshotDataUri;
       }
       
       const verificationInput = {
         paymentProof: {
-          paymentType: data.paymentType,
-          screenshotDataUri: data.screenshotDataUri,
-          pdfLink: data.pdfLink,
-          transactionId: data.transactionId,
+          paymentType: data.paymentProof.paymentType,
+          screenshotDataUri: data.paymentProof.screenshotDataUri,
+          pdfLink: data.paymentProof.pdfLink,
+          transactionId: data.paymentProof.transactionId,
         },
         expectedAmount: calculatedPrice,
       };
@@ -160,14 +312,16 @@ const EnrollmentForm: React.FC = () => {
           className: "bg-accent text-accent-foreground",
         });
         const finalRegistrationData: RegistrationData = {
-          ...data,
+          parentInfo: data.parentInfo,
+          children: data.children,
+          paymentProof: data.paymentProof,
           calculatedPrice,
           paymentVerified: true,
           paymentVerificationDetails: result,
           registrationDate: new Date(),
         };
         setRegistrationData(finalRegistrationData);
-        setCurrentStep(prev => prev + 1); // Move to confirmation
+        setCurrentStep(prev => prev + 1); 
       } else {
         toast({
           title: "Payment Verification Failed",
@@ -216,173 +370,70 @@ const EnrollmentForm: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent className="min-h-[250px] sm:min-h-[300px] p-4 sm:p-6">
-            {currentStep === 0 && (
-              <div className="space-y-4 sm:space-y-6">
+            {currentStep === 0 && ( // Parent Information
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <Label htmlFor="schoolLevel" className="text-base sm:text-lg">School Level</Label>
-                   <Controller
-                    name="schoolLevel"
-                    control={control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger id="schoolLevel" className="mt-1">
-                          <SelectValue placeholder="Select school level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SCHOOL_LEVELS.map(level => (
-                            <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.schoolLevel && <p className="text-sm text-destructive mt-1">{errors.schoolLevel.message}</p>}
+                  <Label htmlFor="parentInfo.parentFullName" className="text-base sm:text-lg">Parent's Full Name</Label>
+                  <Input id="parentInfo.parentFullName" {...register('parentInfo.parentFullName')} className="mt-1" placeholder="Parent's Name" />
+                  {errors.parentInfo?.parentFullName && <p className="text-sm text-destructive mt-1">{errors.parentInfo.parentFullName.message}</p>}
                 </div>
-                {watchedSchoolLevel && (
-                  <div>
-                    <Label htmlFor="program" className="text-base sm:text-lg">Program/Grade</Label>
-                    <Controller
-                      name="program"
-                      control={control}
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value} >
-                          <SelectTrigger id="program" className="mt-1">
-                            <SelectValue placeholder="Select program/grade" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availablePrograms.map(prog => (
-                              <SelectItem key={prog.value} value={prog.value}>{prog.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.program && <p className="text-sm text-destructive mt-1">{errors.program.message}</p>}
-                  </div>
-                )}
+                <div>
+                  <Label htmlFor="parentInfo.parentEmail" className="text-base sm:text-lg">Parent's Email</Label>
+                  <Input id="parentInfo.parentEmail" type="email" {...register('parentInfo.parentEmail')} className="mt-1" placeholder="parent@example.com" />
+                  {errors.parentInfo?.parentEmail && <p className="text-sm text-destructive mt-1">{errors.parentInfo.parentEmail.message}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="parentInfo.parentPhone" className="text-base sm:text-lg">Parent's Phone (Optional)</Label>
+                  <Input id="parentInfo.parentPhone" type="tel" {...register('parentInfo.parentPhone')} className="mt-1" placeholder="123-456-7890" />
+                  {errors.parentInfo?.parentPhone && <p className="text-sm text-destructive mt-1">{errors.parentInfo.parentPhone.message}</p>}
+                </div>
               </div>
             )}
 
-            {currentStep === 1 && (
-              <div className="space-y-3 sm:space-y-4">
-                <div>
-                  <Label htmlFor="fullName" className="text-base sm:text-lg">Full Name</Label>
-                  <Input id="fullName" {...methods.register('fullName')} className="mt-1" placeholder="John Doe" />
-                  {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="dateOfBirth" className="text-base sm:text-lg">Date of Birth</Label>
-                  <Controller
-                    name="dateOfBirth"
-                    control={control}
-                    render={({ field }) => (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full justify-start text-left font-normal mt-1",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                  />
-                  {errors.dateOfBirth && <p className="text-sm text-destructive mt-1">{errors.dateOfBirth.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="email" className="text-base sm:text-lg">Email Address</Label>
-                  <Input id="email" type="email" {...methods.register('email')} className="mt-1" placeholder="john.doe@example.com" />
-                  {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
-                </div>
-                 <div>
-                  <Label htmlFor="phone" className="text-base sm:text-lg">Phone Number (Optional)</Label>
-                  <Input id="phone" type="tel" {...methods.register('phone')} className="mt-1" placeholder="123-456-7890"/>
-                  {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="address" className="text-base sm:text-lg">Address (Optional)</Label>
-                  <Input id="address" {...methods.register('address')} className="mt-1" placeholder="123 Main St, Anytown USA"/>
-                  {errors.address && <p className="text-sm text-destructive mt-1">{errors.address.message}</p>}
+            {currentStep === 1 && ( // Children Enrollment
+              <div className="space-y-4 sm:space-y-6">
+                {fields.map((field, index) => (
+                  <ChildEnrollmentFields key={field.id} childIndex={index} removeChild={remove} />
+                ))}
+                 {errors.children && typeof errors.children === 'object' && !Array.isArray(errors.children) && (errors.children as any).message && (
+                    <p className="text-sm text-destructive mt-1">{(errors.children as any).message}</p>
+                 )}
+                <Button type="button" variant="outline" onClick={() => append(defaultChildValues)} className="w-full sm:w-auto">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Another Child
+                </Button>
+                <Separator className="my-4 sm:my-6"/>
+                <div className="text-right space-y-1">
+                   <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
                 </div>
               </div>
             )}
             
-            {currentStep === 2 && (
-                 <div className="space-y-3 sm:space-y-4">
-                 <h3 className="text-lg sm:text-xl font-semibold font-headline">Available Courses for {currentProgramDetails?.label}</h3>
-                 {availableCourses.length > 0 ? (
-                   <Controller
-                     name="selectedCourses"
-                     control={control}
-                     render={({ field }) => (
-                       <div className="space-y-2">
-                         {availableCourses.map((course: Course) => (
-                           <div key={course.value} className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 border rounded-md hover:bg-muted/50 transition-colors">
-                             <Checkbox
-                               id={course.value}
-                               checked={field.value?.includes(course.value)}
-                               onCheckedChange={(checked) => {
-                                 const newValue = checked
-                                   ? [...(field.value || []), course.value]
-                                   : (field.value || []).filter((v) => v !== course.value);
-                                 field.onChange(newValue);
-                               }}
-                             />
-                             <Label htmlFor={course.value} className="flex-grow text-sm sm:text-md cursor-pointer">
-                               {course.label}
-                             </Label>
-                             <span className="text-xs sm:text-sm text-foreground/80">${course.price.toFixed(2)}</span>
-                           </div>
-                         ))}
-                       </div>
-                     )}
-                   />
-                 ) : (
-                   <p className="text-muted-foreground text-sm sm:text-base">No specific courses to select for this program, or program not yet selected.</p>
-                 )}
-                 <Separator className="my-4 sm:my-6"/>
-                 <div className="text-right space-y-1">
-                    <p className="text-base sm:text-lg">Program Base Price: <span className="font-semibold">${currentProgramDetails?.basePrice.toFixed(2) || '0.00'}</span></p>
-                    <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
-                 </div>
-               </div>
-            )}
-
-            {currentStep === 3 && (
+            {currentStep === 2 && ( // Payment Step
               <div className="space-y-4 sm:space-y-6">
                 <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
                   <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Payment Summary</h3>
-                  <p className="mt-1 sm:mt-2 text-base sm:text-lg">Program: {currentProgramDetails?.label}</p>
-                  { (getValues("selectedCourses")?.length || 0) > 0 && (
-                    <div className="mt-1">
-                        <p className="text-sm sm:text-md">Selected Courses:</p>
-                        <ul className="list-disc list-inside ml-4 text-xs sm:text-sm">
-                        {getValues("selectedCourses")?.map(courseValue => {
-                            const course = availableCourses.find(c => c.value === courseValue);
-                            return course ? <li key={course.value}>{course.label} (${course.price.toFixed(2)})</li> : null;
-                        })}
-                        </ul>
-                    </div>
-                  )}
+                    {getValues("children").map((child, index) => {
+                        const programDetails = PROGRAMS_BY_LEVEL[child.schoolLevel]?.find(p => p.value === child.program);
+                        return (
+                            <div key={index} className="mt-1 text-sm">
+                                <p>Child {index+1}: {child.fullName || `Child ${index+1}`}</p>
+                                <p className="ml-2">Program: {programDetails?.label || 'N/A'}</p>
+                                {(child.selectedCourses?.length || 0) > 0 && (
+                                    <ul className="list-disc list-inside ml-6 text-xs">
+                                    {child.selectedCourses?.map(courseValue => {
+                                        const course = programDetails?.courses?.find(c => c.value === courseValue);
+                                        return course ? <li key={course.value}>{course.label} (${course.price.toFixed(2)})</li> : null;
+                                    })}
+                                    </ul>
+                                )}
+                            </div>
+                        );
+                    })}
                   <p className="mt-2 sm:mt-4 text-xl sm:text-2xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
                 </div>
 
                 <Tabs defaultValue={watchedPaymentType || "screenshot"} 
-                      onValueChange={(value) => setValue('paymentType', value as "screenshot" | "link" | "transaction_id")} 
+                      onValueChange={(value) => setValue('paymentProof.paymentType', value as "screenshot" | "link" | "transaction_id")} 
                       className="w-full">
                   <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
                     {PAYMENT_TYPES.map(type => (
@@ -390,13 +441,13 @@ const EnrollmentForm: React.FC = () => {
                     ))}
                   </TabsList>
                   <TabsContent value="screenshot" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
-                    <Label htmlFor="screenshotFile" className="text-base sm:text-lg">Upload Payment Screenshot</Label>
+                    <Label htmlFor="paymentProof.screenshotFile" className="text-base sm:text-lg">Upload Payment Screenshot</Label>
                     <Controller
-                        name="screenshot"
+                        name="paymentProof.screenshot"
                         control={control}
                         render={({ field: { onChange, value, ...restField } }) => (
                             <Input 
-                                id="screenshotFile" 
+                                id="paymentProof.screenshotFile" 
                                 type="file" 
                                 accept="image/*"
                                 onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
@@ -405,24 +456,24 @@ const EnrollmentForm: React.FC = () => {
                             />
                         )}
                     />
-                    {errors.screenshot && <p className="text-sm text-destructive mt-1">{errors.screenshot.message}</p>}
-                    {getValues("screenshot") && <p className="text-xs sm:text-sm text-muted-foreground mt-1">Selected: {(getValues("screenshot") as File)?.name}</p>}
+                    {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{errors.paymentProof.screenshot.message as string}</p>}
+                    {getValues("paymentProof.screenshot") && <p className="text-xs sm:text-sm text-muted-foreground mt-1">Selected: {(getValues("paymentProof.screenshot") as File)?.name}</p>}
                   </TabsContent>
                   <TabsContent value="link" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
-                    <Label htmlFor="pdfLink" className="text-base sm:text-lg">PDF Link</Label>
-                    <Input id="pdfLink" type="url" {...methods.register('pdfLink')} className="mt-1 text-xs sm:text-sm" placeholder="https://example.com/receipt.pdf"/>
-                    {errors.pdfLink && <p className="text-sm text-destructive mt-1">{errors.pdfLink.message}</p>}
+                    <Label htmlFor="paymentProof.pdfLink" className="text-base sm:text-lg">PDF Link</Label>
+                    <Input id="paymentProof.pdfLink" type="url" {...register('paymentProof.pdfLink')} className="mt-1 text-xs sm:text-sm" placeholder="https://example.com/receipt.pdf"/>
+                    {errors.paymentProof?.pdfLink && <p className="text-sm text-destructive mt-1">{errors.paymentProof.pdfLink.message}</p>}
                   </TabsContent>
                   <TabsContent value="transaction_id" className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
-                    <Label htmlFor="transactionId" className="text-base sm:text-lg">Transaction ID</Label>
-                    <Input id="transactionId" {...methods.register('transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID"/>
-                    {errors.transactionId && <p className="text-sm text-destructive mt-1">{errors.transactionId.message}</p>}
+                    <Label htmlFor="paymentProof.transactionId" className="text-base sm:text-lg">Transaction ID</Label>
+                    <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID"/>
+                    {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
                   </TabsContent>
                 </Tabs>
                 {calculatedPrice === 0 && (
                     <div className="flex items-start sm:items-center p-2 sm:p-3 rounded-md bg-destructive/10 text-destructive text-xs sm:text-sm">
                         <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 shrink-0 mt-0.5 sm:mt-0" />
-                        <p>Total amount is $0.00. Please ensure your selections are correct. Payment verification might be skipped for $0 amount.</p>
+                        <p>Total amount is $0.00. Please ensure selections are correct. Payment verification might be skipped for $0 amount if all registrations are free.</p>
                     </div>
                 )}
               </div>
@@ -437,7 +488,7 @@ const EnrollmentForm: React.FC = () => {
                 Next <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button type="submit" disabled={isLoading || calculatedPrice < 0} className="w-full sm:w-auto"> {/* Allow $0 submission */}
+              <Button type="submit" disabled={isLoading || (calculatedPrice < 0)} className="w-full sm:w-auto"> {/* Allow $0 submission */}
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                 Verify & Register
               </Button>
