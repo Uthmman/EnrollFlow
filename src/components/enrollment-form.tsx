@@ -25,7 +25,7 @@ import { format } from "date-fns";
 
 import { HAFSA_PROGRAMS, HAFSA_PAYMENT_METHODS, HafsaProgram, ProgramField, SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ChildInfoData, AdultTraineeData, RegistrationData, EnrolledChildData } from '@/types';
-import { EnrollmentFormSchema, EnrolledChildSchema } from '@/types'; // Ensure EnrolledChildSchema is imported
+import { EnrollmentFormSchema, ChildInfoSchema as EnrolledChildInfoSchema, AdultTraineeSchema } from '@/types'; // Renamed to avoid conflict
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -110,7 +110,7 @@ const ParentInfoFields: React.FC<{ isAdultTrainee?: boolean }> = ({ isAdultTrain
         </div>
         <div>
           <Label htmlFor={`${fieldPrefix}.telegramPhoneNumber`}>Telegram Phone Number</Label>
-          <Input id={`${fieldPrefix}.telegramPhoneNumber`} {...register(`${fieldPrefix}.telegramPhoneNumber` as any)} type="tel" placeholder="For Telegram updates" />
+          <Input id={`${fieldPrefix}.telegramPhoneNumber}`} {...register(`${fieldPrefix}.telegramPhoneNumber` as any)} type="tel" placeholder="For Telegram updates" />
           {(currentErrors as any).telegramPhoneNumber && <p className="text-sm text-destructive mt-1">{(currentErrors as any).telegramPhoneNumber.message}</p>}
           <div className="mt-2 space-y-1 text-sm">
             <Controller name={`${fieldPrefix}.usePhone1ForTelegram` as any} control={control} render={({field}) => (
@@ -142,22 +142,20 @@ const ParentInfoFields: React.FC<{ isAdultTrainee?: boolean }> = ({ isAdultTrain
 };
 
 const ChildParticipantFields: React.FC<{ 
-    childIndex: number; 
     programSpecificFields?: ProgramField[];
     onSave: (data: ChildInfoData) => void; 
     onCancel: () => void;
     isLoading: boolean;
-}> = ({ childIndex, programSpecificFields, onSave, onCancel, isLoading }) => {
+}> = ({ programSpecificFields, onSave, onCancel, isLoading }) => {
   
-  // Use a local form for this sub-component to avoid conflicts if needed, or ensure paths are unique
   const { control, register, handleSubmit: handleChildSubmit, formState: { errors: childErrors }, reset: resetChildForm } = useForm<ChildInfoData>({
-    resolver: zodResolver(ChildInfoSchema), // Use ChildInfoSchema for validation
-    defaultValues: defaultChildValues,
+    resolver: zodResolver(EnrolledChildInfoSchema), 
+    defaultValues: defaultChildValues, 
   });
 
   const actualOnSave = (data: ChildInfoData) => {
     onSave(data);
-    resetChildForm(defaultChildValues); // Reset after saving
+    resetChildForm(defaultChildValues); 
   };
 
   return (
@@ -225,7 +223,7 @@ const ChildParticipantFields: React.FC<{
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
                       <SelectTrigger id={`childInfo.${fieldInfo.name}`}><SelectValue placeholder={`Select ${fieldInfo.label.toLowerCase()}`} /></SelectTrigger>
-                      <SelectContent>{fieldInfo.options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                      <SelectContent>{fieldInfo.options?.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
                     </Select>
                   )}
                 />
@@ -247,14 +245,13 @@ const ChildParticipantFields: React.FC<{
 
 
 const EnrollmentForm: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'accountTypeSelection' | 'accountCreation' | 'dashboard' | 'addStudent' | 'payment' | 'confirmation'>('accountTypeSelection');
+  const [currentView, setCurrentView] = useState<'accountTypeSelection' | 'accountCreation' | 'dashboard' | 'addStudent' | 'confirmation'>('accountTypeSelection');
   const [activeDashboardTab, setActiveDashboardTab] = useState<'students' | 'settings' | 'payment'>('students');
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
   
-  // For the "Add Student" flow
   const [programForNewStudent, setProgramForNewStudent] = useState<HafsaProgram | null>(null);
 
   const methods = useForm<EnrollmentFormData>({
@@ -270,9 +267,9 @@ const EnrollmentForm: React.FC = () => {
     },
   });
 
-  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset } = methods;
+  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register } = methods;
 
-  const { fields: childFields, append: appendChild, remove: removeChild, update: updateChild } = useFieldArray({
+  const { fields: childFields, append: appendChild, remove: removeChild } = useFieldArray({
     control,
     name: "children",
   });
@@ -282,7 +279,6 @@ const EnrollmentForm: React.FC = () => {
   const watchedAccountHolderType = watch('accountHolderType');
   const watchedAdultProgramId = watch('adultTraineeInfo.programId');
 
-  // Price Calculation
   useEffect(() => {
     let total = 0;
     const accountType = getValues('accountHolderType');
@@ -311,24 +307,18 @@ const EnrollmentForm: React.FC = () => {
   };
 
   const handleAccountCreation = async () => {
-    const fieldsToValidate: (keyof EnrollmentFormData)[] = ['accountHolderType'];
-    if (getValues('accountHolderType') === 'parent') {
-        fieldsToValidate.push('parentInfo');
-    } else {
-        fieldsToValidate.push('adultTraineeInfo');
-        // Also validate adult's program choice if that's part of this step
-        const adultProgramIsValid = await trigger('adultTraineeInfo.programId');
-         if (!adultProgramIsValid) {
-            toast({ title: "Validation Error", description: "Please select a program for the trainee.", variant: "destructive" });
-            return;
-        }
+    const fieldsToValidate: (keyof EnrollmentFormData | `parentInfo.${keyof ParentInfoData}` | `adultTraineeInfo.${keyof AdultTraineeData}`)[] = ['accountHolderType'];
+    const accountType = getValues('accountHolderType');
+
+    if (accountType === 'parent') {
+        fieldsToValidate.push('parentInfo.parentFullName', 'parentInfo.parentPhone1', 'parentInfo.telegramPhoneNumber');
+    } else if (accountType === 'adult_trainee') {
+        fieldsToValidate.push('adultTraineeInfo.traineeFullName', 'adultTraineeInfo.dateOfBirth', 'adultTraineeInfo.phone1', 'adultTraineeInfo.telegramPhoneNumber', 'adultTraineeInfo.programId');
     }
     
     const isValid = await trigger(fieldsToValidate);
     if (isValid) {
-        if (getValues('accountHolderType') === 'adult_trainee') {
-             // For adult trainee, they might go directly to payment or confirmation if no further steps.
-             // Or if agreeToTerms is a separate step. For now, assume they go to payment tab.
+        if (accountType === 'adult_trainee') {
             setActiveDashboardTab('payment'); 
         } else {
             setActiveDashboardTab('students');
@@ -336,11 +326,17 @@ const EnrollmentForm: React.FC = () => {
         setCurrentView('dashboard');
     } else {
       toast({ title: "Validation Error", description: "Please check your entries and try again.", variant: "destructive" });
+      // Log detailed errors
+      const currentErrors = methods.formState.errors;
+      console.log("Validation errors:", currentErrors);
+      if(accountType === 'parent' && currentErrors.parentInfo) console.log("Parent Info Errors:", currentErrors.parentInfo);
+      if(accountType === 'adult_trainee' && currentErrors.adultTraineeInfo) console.log("Adult Trainee Info Errors:", currentErrors.adultTraineeInfo);
+
     }
   };
 
   const handleAddStudentClick = () => {
-    setProgramForNewStudent(null); // Reset selected program for new student
+    setProgramForNewStudent(null); 
     setCurrentView('addStudent');
   };
 
@@ -456,9 +452,14 @@ const EnrollmentForm: React.FC = () => {
                 <ParentInfoFields isAdultTrainee={true} />
             </>
         )}
-        <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
-            Proceed <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+            <Button type="button" variant="outline" onClick={() => setCurrentView('accountTypeSelection')} disabled={isLoading} className="w-full sm:w-auto">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
+                Proceed <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+        </div>
     </div>
   );
 
@@ -472,14 +473,15 @@ const EnrollmentForm: React.FC = () => {
             >
                 <SelectTrigger id="programForNewStudent" className="mt-1"><SelectValue placeholder="Choose a program" /></SelectTrigger>
                 <SelectContent>
-                {HAFSA_PROGRAMS.filter(p => p.isChildProgram).map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description}</SelectItem>)}
+                {HAFSA_PROGRAMS.filter(p => p.isChildProgram).map(prog => <SelectItem key={prog.id} value={prog.id}>{prog.label} - {prog.description} (${prog.price})</SelectItem>)}
                 </SelectContent>
             </Select>
-            {!programForNewStudent && <p className="text-sm text-destructive mt-1">Please select a program for the child.</p>}
+            {!programForNewStudent && getValues('children').length > 0 && <p className="text-sm text-muted-foreground mt-1">Select a program to add another student.</p>}
+            {!programForNewStudent && getValues('children').length === 0 && <p className="text-sm text-destructive mt-1">Please select a program for the first child.</p>}
+
         </div>
         {programForNewStudent && (
              <ChildParticipantFields 
-                childIndex={-1} // Not tied to an array index directly here
                 programSpecificFields={programForNewStudent.specificFields}
                 onSave={handleSaveStudent}
                 onCancel={() => setCurrentView('dashboard')}
@@ -497,37 +499,48 @@ const EnrollmentForm: React.FC = () => {
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as any)} className="w-full">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3">
-            {getValues('accountHolderType') === 'parent' && <TabsTrigger value="students"><Users className="mr-2"/>My Students</TabsTrigger>}
-            <TabsTrigger value="settings"><UserCog className="mr-2"/>Account Settings</TabsTrigger>
-            <TabsTrigger value="payment"><CreditCard className="mr-2"/>Payment</TabsTrigger>
+            {getValues('accountHolderType') === 'parent' && <TabsTrigger value="students"><Users className="mr-1 sm:mr-2 h-4 w-4"/>My Students</TabsTrigger>}
+            <TabsTrigger value="settings"><UserCog className="mr-1 sm:mr-2 h-4 w-4"/>Account</TabsTrigger>
+            <TabsTrigger value="payment"><CreditCard className="mr-1 sm:mr-2 h-4 w-4"/>Payment</TabsTrigger>
         </TabsList>
 
         {getValues('accountHolderType') === 'parent' && (
             <TabsContent value="students" className="space-y-4 pt-4">
                 <h3 className="text-xl font-semibold text-primary">Registered Students</h3>
-                {childFields.length === 0 && <p className="text-muted-foreground">No students added yet.</p>}
-                <div className="space-y-3">
-                {childFields.map((field, index) => {
-                    const program = HAFSA_PROGRAMS.find(p => p.id === (field as unknown as EnrolledChildData).programId);
-                    return (
-                    <Card key={field.id} className="p-3">
-                        <div className="flex justify-between items-start">
-                        <div>
-                            <p className="font-semibold text-md">{(field as unknown as EnrolledChildData).childInfo.childFirstName}</p>
-                            <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'}</p>
-                        </div>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(index)} className="text-destructive hover:text-destructive/80">
-                            <Trash2 className="h-4 w-4" />
+                {childFields.length === 0 && (
+                    <div className="text-center py-6">
+                        <p className="text-muted-foreground mb-4">No students added yet. Click below to add your first student.</p>
+                         <Button type="button" variant="default" onClick={handleAddStudentClick} className="w-full sm:w-auto">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Student
                         </Button>
+                    </div>
+                )}
+                {childFields.length > 0 && (
+                    <>
+                        <div className="space-y-3">
+                        {childFields.map((field, index) => {
+                            const enrolledChild = field as unknown as EnrolledChildData;
+                            const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
+                            return (
+                            <Card key={field.id} className="p-3">
+                                <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-semibold text-md">{enrolledChild.childInfo.childFirstName}</p>
+                                    <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - ${program?.price.toFixed(2)}</p>
+                                </div>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => removeChild(index)} className="text-destructive hover:text-destructive/80">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                                </div>
+                            </Card>
+                            );
+                        })}
                         </div>
-                         {/* TODO: Option to edit child details - updateChild(index, newChildData) */}
-                    </Card>
-                    );
-                })}
-                </div>
-                <Button type="button" variant="outline" onClick={handleAddStudentClick} className="w-full sm:w-auto">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Another Student
-                </Button>
+                        <Button type="button" variant="outline" onClick={handleAddStudentClick} className="w-full sm:w-auto">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Another Student
+                        </Button>
+                    </>
+                )}
                  <div className="mt-4 text-right space-y-1">
                     <p className="text-xl sm:text-2xl font-bold font-headline text-primary">Total Estimated Price: ${calculatedPrice.toFixed(2)}</p>
                 </div>
@@ -542,7 +555,6 @@ const EnrollmentForm: React.FC = () => {
                     <p><strong>Primary Phone:</strong> {getValues('parentInfo.parentPhone1')}</p>
                     {getValues('parentInfo.parentPhone2') && <p><strong>Secondary Phone:</strong> {getValues('parentInfo.parentPhone2')}</p>}
                     <p><strong>Telegram Phone:</strong> {getValues('parentInfo.telegramPhoneNumber')}</p>
-                    {/* <Button variant="outline" size="sm" className="mt-2"><Edit3 className="mr-2 h-3 w-3"/> Edit (Not implemented)</Button> */}
                 </Card>
             )}
             {getValues('accountHolderType') === 'adult_trainee' && getValues('adultTraineeInfo') && (
@@ -552,7 +564,7 @@ const EnrollmentForm: React.FC = () => {
                     <p><strong>Primary Phone:</strong> {getValues('adultTraineeInfo.phone1')}</p>
                     {getValues('adultTraineeInfo.phone2') && <p><strong>Secondary Phone:</strong> {getValues('adultTraineeInfo.phone2')}</p>}
                     <p><strong>Telegram Phone:</strong> {getValues('adultTraineeInfo.telegramPhoneNumber')}</p>
-                    <p><strong>Selected Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === getValues('adultTraineeInfo.programId'))?.label || 'N/A'}</p>
+                    <p><strong>Selected Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === getValues('adultTraineeInfo.programId'))?.label || 'N/A'} (${HAFSA_PROGRAMS.find(p => p.id === getValues('adultTraineeInfo.programId'))?.price.toFixed(2)})</p>
                 </Card>
             )}
         </TabsContent>
@@ -565,7 +577,7 @@ const EnrollmentForm: React.FC = () => {
             <div>
                 <Label htmlFor="couponCode">Coupon Code (Optional)</Label>
                 <div className="flex items-center gap-2 mt-1">
-                    <Input id="couponCode" {...register('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
+                    <Input id="couponCode" {...methods.register('couponCode')} placeholder="Enter coupon code" className="flex-grow"/>
                     <Button type="button" variant="outline" size="sm" onClick={() => toast({title: "Coupon Applied!", description:"(Example: 10% off - not functional yet)"})}>Apply</Button>
                 </div>
             </div>
@@ -585,7 +597,7 @@ const EnrollmentForm: React.FC = () => {
                 />
                 {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{errors.paymentProof.paymentType.message}</p>}
             </div>
-            { (HAFSA_PAYMENT_METHODS.map(pm => pm.value).includes(watchedPaymentType || '')) && (
+            { (HAFSA_PAYMENT_METHODS.some(pm => pm.value === watchedPaymentType)) && (
             <div>
                 <Label htmlFor="paymentProof.transactionId" className="text-base sm:text-lg">Transaction ID / Reference</Label>
                 <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder="Enter your transaction ID or reference"/>
@@ -603,7 +615,7 @@ const EnrollmentForm: React.FC = () => {
                     render={({ field }) => (
                     <div className="flex items-center space-x-2 sm:space-x-3 mt-3">
                         <Checkbox id="agreeToTermsDashboard" checked={field.value} onCheckedChange={field.onChange} />
-                        <Label htmlFor="agreeToTermsDashboard" className="text-sm font-normal">I agree to the terms and conditions of Hafsa Madrassa.</Label>
+                        <Label htmlFor="agreeToTermsDashboard" className="text-sm font-normal">I agree to the <a href="/terms" target="_blank" className="text-primary hover:underline">terms and conditions</a> of Hafsa Madrassa.</Label>
                     </div>
                     )}
                 />
@@ -620,15 +632,14 @@ const EnrollmentForm: React.FC = () => {
         <Card className="w-full max-w-2xl mx-auto shadow-xl">
           <CardHeader>
             <div className="flex items-center space-x-2 mb-2 sm:mb-4">
-              <School className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
-              <CardTitle className="text-2xl sm:text-3xl font-headline">Hafsa Madrassa Registration</CardTitle>
+                <Image src="https://placehold.co/40x40.png" alt="Hafsa Madrassa Logo" width={40} height={40} data-ai-hint="islamic education logo" className="rounded-md"/>
+                <CardTitle className="text-2xl sm:text-3xl font-headline">Hafsa Madrassa Registration</CardTitle>
             </div>
              <CardDescription className="text-sm">
                 {currentView === 'accountTypeSelection' && "Select your registration type."}
-                {currentView === 'accountCreation' && "Step 1: Create Your Account."}
-                {currentView === 'dashboard' && "Step 2: Manage Enrollments & Payment."}
-                {currentView === 'addStudent' && "Add New Student Details."}
-                {currentView === 'payment' && "Step 3: Finalize Payment."}
+                {currentView === 'accountCreation' && `Step 1: Create Your ${getValues('accountHolderType') === 'parent' ? 'Parent/Guardian' : 'Trainee'} Account.`}
+                {currentView === 'dashboard' && `Step 2: Manage Enrollments & Payment.`}
+                {currentView === 'addStudent' && `Add New Student for ${programForNewStudent?.label || 'Selected Program'}.`}
              </CardDescription>
           </CardHeader>
 
@@ -647,29 +658,45 @@ const EnrollmentForm: React.FC = () => {
             {currentView === 'accountCreation' && renderAccountCreation()}
             {currentView === 'dashboard' && renderDashboard()}
             {currentView === 'addStudent' && renderAddStudent()}
-            {/* Payment view is now a tab within dashboard */}
           </CardContent>
 
           <CardFooter className="flex flex-col sm:flex-row justify-between pt-4 sm:pt-6 p-4 sm:p-6 space-y-2 sm:space-y-0">
-            {currentView === 'dashboard' && activeDashboardTab !== 'payment' && (
-                <Button type="button" onClick={() => setActiveDashboardTab('payment')} 
-                    disabled={isLoading || (getValues('accountHolderType') === 'parent' && childFields.length === 0)} 
-                    className="w-full sm:ml-auto"
-                >
-                    Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-            )}
-             {currentView === 'dashboard' && activeDashboardTab === 'payment' && (
-                <Button type="submit" disabled={isLoading || !getValues('agreeToTerms')} className="w-full sm:ml-auto">
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                    Submit Registration
-                </Button>
-            )}
             {currentView === 'dashboard' && (
-                 <Button type="button" variant="outline" onClick={() => setCurrentView(getValues('accountHolderType') ? 'accountCreation' : 'accountTypeSelection')} disabled={isLoading} className="w-full sm:w-auto order-first sm:order-none">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account
-                </Button>
+                <>
+                    <Button type="button" variant="outline" onClick={() => setCurrentView('accountCreation')} disabled={isLoading} className="w-full sm:w-auto order-last sm:order-none">
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Account Details
+                    </Button>
+                    {activeDashboardTab !== 'payment' ? (
+                        <Button 
+                            type="button" 
+                            onClick={() => {
+                                if (getValues('accountHolderType') === 'parent' && childFields.length === 0) {
+                                    toast({title: "No Students", description: "Please add at least one student before proceeding to payment.", variant: "destructive"});
+                                    return;
+                                }
+                                setActiveDashboardTab('payment')
+                            }} 
+                            disabled={isLoading || (getValues('accountHolderType') === 'parent' && childFields.length === 0 && activeDashboardTab === 'students')} 
+                            className="w-full sm:ml-auto"
+                        >
+                            Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    ) : (
+                        <Button type="submit" 
+                            disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0} 
+                            className="w-full sm:ml-auto"
+                        >
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                            Submit Registration (${calculatedPrice.toFixed(2)})
+                        </Button>
+                    )}
+                </>
             )}
+            { (currentView !== 'accountTypeSelection' && currentView !== 'accountCreation' && currentView !== 'dashboard' && currentView !== 'confirmation') &&
+                 <Button type="button" variant="outline" onClick={() => setCurrentView('dashboard')} disabled={isLoading} className="w-full sm:w-auto order-first sm:order-none">
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                </Button>
+            }
           </CardFooter>
         </Card>
       </form>
@@ -679,3 +706,4 @@ const EnrollmentForm: React.FC = () => {
 
 export default EnrollmentForm;
 
+    
