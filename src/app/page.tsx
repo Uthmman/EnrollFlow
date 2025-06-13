@@ -1,6 +1,6 @@
 
 import EnrollmentForm from '@/components/enrollment-form';
-import { School } from 'lucide-react'; // Using School as a generic icon
+import { BookHeart } from 'lucide-react'; // Changed icon
 
 export default function HomePage() {
   return (
@@ -8,21 +8,21 @@ export default function HomePage() {
       <div className="w-full max-w-4xl">
         <header className="mb-8 sm:mb-10 text-center">
           <div className="inline-flex items-center justify-center p-3 bg-primary text-primary-foreground rounded-full mb-3 sm:mb-4 shadow-lg">
-            <School size={36} className="sm:size-48" />
+            <BookHeart size={36} className="sm:size-48" />
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold font-headline text-primary">
-            Welcome to EnrollFlow
+            Welcome to Hafsa Madrassa Programs
           </h1>
           <p className="mt-2 sm:mt-3 text-md sm:text-lg md:text-xl text-foreground/80">
-            Begin by creating your parent account, then register your children and complete the payment.
+            Please create an account or enter your information to register for our programs.
           </p>
         </header>
         
         <EnrollmentForm />
 
         <footer className="mt-10 sm:mt-12 text-center text-xs sm:text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} EnrollFlow. All rights reserved.</p>
-          <p>Powered by Awesome Technology™</p>
+          <p>&copy; {new Date().getFullYear()} Hafsa Madrassa. All rights reserved.</p>
+          <p>Quality Islamic Education</p>
         </footer>
       </div>
     </main>

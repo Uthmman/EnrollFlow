@@ -2,12 +2,16 @@
 "use server";
 
 import { verifyPaymentFromScreenshot, VerifyPaymentFromScreenshotInput } from '@/ai/flows/payment-verification';
-// Make sure PaymentProofData is imported correctly based on the new types structure
-import type { PaymentProofData } from '@/types'; 
+// Import main form data type, and also specific payment proof type for clarity
+import type { EnrollmentFormData, PaymentProofData } from '@/types'; 
+import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 
 interface VerificationInput {
-  paymentProof: PaymentProofData; // This type itself might not need to change if it's self-contained
+  // The paymentProof part of EnrollmentFormData
+  paymentProof: PaymentProofData; 
   expectedAmount: number;
+  // Potentially add coupon code here if server-side validation is needed
+  // couponCode?: string; 
 }
 
 interface VerificationResult {
@@ -21,22 +25,36 @@ interface VerificationResult {
 export async function handlePaymentVerification(input: VerificationInput): Promise<VerificationResult> {
   const { paymentProof, expectedAmount } = input;
 
-  if (paymentProof.paymentType === "screenshot") {
+  // Check if the payment type is one of the new Hafsa Madrassa methods
+  const isHafsaMethod = HAFSA_PAYMENT_METHODS.some(method => method.value === paymentProof.paymentType);
+
+  if (isHafsaMethod) {
+    // For these methods, we are currently relying on a transaction ID / reference.
+    // Actual verification would likely be manual or via direct bank integration,
+    // which is beyond the scope of this AI-focused verification flow.
+    // We'll assume valid if a transaction ID is provided.
+    if (paymentProof.transactionId && paymentProof.transactionId.length >= 3) { // Min length for a basic check
+      return { 
+        isPaymentValid: true, 
+        transactionNumber: paymentProof.transactionId,
+        message: `Payment submitted via ${paymentProof.paymentType}. Verification pending confirmation of Transaction ID: ${paymentProof.transactionId}.` 
+      };
+    }
+    return { 
+        isPaymentValid: false, 
+        message: `Transaction ID/Reference is required for ${paymentProof.paymentType}.` 
+    };
+  } else if (paymentProof.paymentType === "screenshot_ai_verification") { // Example value if you want to keep AI for screenshots
     if (!paymentProof.screenshotDataUri) {
-      // Check if a file was provided for screenshot, as screenshotDataUri is generated on client
-      if (!paymentProof.screenshot) {
-         return { isPaymentValid: false, message: "Screenshot file or data URI is missing." };
-      }
-      // If screenshotDataUri is still missing at this point (shouldn't happen if file provided)
-      // it will be caught by the AI flow or prior logic.
-      // For AI, screenshotDataUri is essential.
+      // This case should ideally be handled by ensuring screenshotDataUri is generated client-side before calling this.
+      return { isPaymentValid: false, message: "Screenshot data URI is missing for AI verification." };
     }
 
     try {
       const aiInput: VerifyPaymentFromScreenshotInput = {
-        paymentScreenshotDataUri: paymentProof.screenshotDataUri!, // Asserting it's present due to check or client-side generation
+        paymentScreenshotDataUri: paymentProof.screenshotDataUri!, 
         expectedPaymentAmount: expectedAmount,
-        transactionNumber: paymentProof.transactionId,
+        transactionNumber: paymentProof.transactionId, // Optional transaction ID from screenshot
       };
       
       const aiResult = await verifyPaymentFromScreenshot(aiInput);
@@ -57,23 +75,21 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
       console.error("AI Payment Verification Error:", error);
       return { isPaymentValid: false, message: "An error occurred during AI payment verification." };
     }
-  } else if (paymentProof.paymentType === "link") {
+  } else if (paymentProof.paymentType === "link") { // Legacy example
     if (paymentProof.pdfLink) {
-       // Basic validation for PDF link, could be enhanced
       if (!paymentProof.pdfLink.startsWith('http://') && !paymentProof.pdfLink.startsWith('https://')) {
          return { isPaymentValid: false, message: "Invalid PDF link format." };
       }
-      // For now, assume valid if a link is provided.
       return { isPaymentValid: true, message: "PDF link submitted. (Basic Verification)" };
     }
     return { isPaymentValid: false, message: "PDF link is missing." };
-  } else if (paymentProof.paymentType === "transaction_id") {
+  } else if (paymentProof.paymentType === "transaction_id_legacy") { // Legacy example
     if (paymentProof.transactionId && paymentProof.transactionId.length >= 5) {
-      // For now, assume valid if an ID is provided.
       return { isPaymentValid: true, transactionNumber: paymentProof.transactionId, message: "Transaction ID submitted. (Basic Verification)" };
     }
     return { isPaymentValid: false, message: "Transaction ID is missing or too short." };
   }
 
-  return { isPaymentValid: false, message: "Invalid payment proof type." };
+
+  return { isPaymentValid: false, message: "Invalid or unsupported payment proof type." };
 }
