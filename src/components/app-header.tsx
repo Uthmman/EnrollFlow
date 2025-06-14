@@ -2,6 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { UserCog, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,13 +12,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getTranslatedText } from '@/lib/translationService';
 
 interface AppHeaderProps {
   showAccountIcon: boolean;
   onAccountClick?: () => void;
+  currentLanguage: string;
+  onLanguageChange: (lang: string) => void;
 }
 
-const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick }) => {
+const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick, currentLanguage, onLanguageChange }) => {
+  const [translatedHeaderTitle, setTranslatedHeaderTitle] = useState("Hafsa Madrassa");
+  const originalHeaderTitle = "Hafsa Madrassa";
+
+  const translateHeader = useCallback(async (lang: string) => {
+    if (lang === 'en') {
+      setTranslatedHeaderTitle(originalHeaderTitle);
+    } else {
+      const translated = await getTranslatedText(originalHeaderTitle, lang, 'en');
+      setTranslatedHeaderTitle(translated);
+    }
+  }, [originalHeaderTitle]);
+
+  useEffect(() => {
+    translateHeader(currentLanguage);
+  }, [currentLanguage, translateHeader]);
+
+  const handleLanguageSelect = (lang: string) => {
+    onLanguageChange(lang);
+  };
+
   return (
     <header className="flex items-center justify-between p-3 sm:p-4 border-b bg-card sticky top-0 z-40 w-full">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -30,7 +54,7 @@ const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick }) => {
           className="h-8 w-8 rounded-md"
         />
         <h1 className="text-md sm:text-lg font-semibold text-primary truncate">
-          Hafsa Madrassa
+          {translatedHeaderTitle}
         </h1>
       </div>
       <div className="flex items-center gap-1 sm:gap-2">
@@ -41,13 +65,13 @@ const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick }) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => console.log('English selected')}>
+            <DropdownMenuItem onSelect={() => handleLanguageSelect('en')} disabled={currentLanguage === 'en'}>
               English
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => console.log('Amharic selected')}>
+            <DropdownMenuItem onSelect={() => handleLanguageSelect('am')} disabled={currentLanguage === 'am'}>
               Amharic (አማርኛ)
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => console.log('Arabic selected')}>
+            <DropdownMenuItem onSelect={() => handleLanguageSelect('ar')} disabled={currentLanguage === 'ar'}>
               Arabic (العربية)
             </DropdownMenuItem>
           </DropdownMenuContent>
