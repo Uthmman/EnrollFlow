@@ -109,6 +109,7 @@ const O_PDF_USE_TRAINEE_SECONDARY_TELEGRAM_LABEL = "Use Trainee's Secondary Phon
 const O_PDF_CANCEL_BUTTON = "Cancel";
 const O_PDF_SAVE_PARTICIPANT_BUTTON = "Save Participant";
 const O_PDF_SAVE_TRAINEE_BUTTON = "Save Trainee";
+const O_PDF_SELECT_PLACEHOLDER_PREFIX = "Select ";
 
 
 const ParticipantDetailFields: React.FC<{
@@ -160,6 +161,7 @@ const ParticipantDetailFields: React.FC<{
   const [tSaveParticipantButton, setTSaveParticipantButton] = useState(O_PDF_SAVE_PARTICIPANT_BUTTON);
   const [tSaveTraineeButton, setTSaveTraineeButton] = useState(O_PDF_SAVE_TRAINEE_BUTTON);
   const [tProgramSpecificLabels, setTProgramSpecificLabels] = useState<Record<string, string>>({});
+  const [tSelectPlaceholderPrefix, setTSelectPlaceholderPrefix] = useState(O_PDF_SELECT_PLACEHOLDER_PREFIX);
 
 
   const translateParticipantDetailFieldsContent = useCallback(async (lang: string) => {
@@ -194,6 +196,7 @@ const ParticipantDetailFields: React.FC<{
         setTCancelButton(O_PDF_CANCEL_BUTTON);
         setTSaveParticipantButton(O_PDF_SAVE_PARTICIPANT_BUTTON);
         setTSaveTraineeButton(O_PDF_SAVE_TRAINEE_BUTTON);
+        setTSelectPlaceholderPrefix(O_PDF_SELECT_PLACEHOLDER_PREFIX);
 
         const originalSpecificLabels: Record<string, string> = {};
         selectedProgram.specificFields?.forEach(field => {
@@ -232,6 +235,8 @@ const ParticipantDetailFields: React.FC<{
         setTCancelButton(await getTranslatedText(O_PDF_CANCEL_BUTTON, lang, 'en'));
         setTSaveParticipantButton(await getTranslatedText(O_PDF_SAVE_PARTICIPANT_BUTTON, lang, 'en'));
         setTSaveTraineeButton(await getTranslatedText(O_PDF_SAVE_TRAINEE_BUTTON, lang, 'en'));
+        setTSelectPlaceholderPrefix(await getTranslatedText(O_PDF_SELECT_PLACEHOLDER_PREFIX, lang, 'en'));
+
 
         const translatedSpecificLabels: Record<string, string> = {};
         if (selectedProgram.specificFields) {
@@ -370,7 +375,7 @@ const ParticipantDetailFields: React.FC<{
                             control={control}
                             render={({ field: controllerField }) => (
                             <Select onValueChange={controllerField.onChange} value={controllerField.value}>
-                                <SelectTrigger id={field.name}><SelectValue placeholder={`${getTranslatedText('Select', currentLanguage, 'en')} ${translatedLabel.toLowerCase()}`} /></SelectTrigger>
+                                <SelectTrigger id={field.name}><SelectValue placeholder={`${tSelectPlaceholderPrefix}${translatedLabel.toLowerCase()}`} /></SelectTrigger>
                                 <SelectContent>{options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
                             </Select>
                             )}
@@ -456,7 +461,6 @@ const O_EF_GUEST_SESSION_LOADED_TOAST_DESC = "Your previous guest session detail
 const O_EF_AUTH_ERROR_TOAST_TITLE = "Authentication Error";
 const O_EF_AUTH_INIT_FAILED_TOAST_DESC = "Firebase Auth is not initialized.";
 const O_EF_ACCOUNT_CREATED_TOAST_TITLE = "Account Created!";
-const O_EF_WELCOME_USER_TOAST_DESC = (name: string) => `Welcome ${name}! You can now enroll participants.`;
 const O_EF_REGISTRATION_ERROR_TOAST_TITLE = "Registration Error";
 const O_EF_REGISTRATION_FAILED_TOAST_DESC = "Registration failed. Please try again.";
 const O_EF_EMAIL_IN_USE_TOAST_DESC = "This email is already registered. Please log in or use a different email.";
@@ -464,7 +468,6 @@ const O_EF_WEAK_PASSWORD_TOAST_DESC = "Password is too weak. Please choose a str
 const O_EF_VALIDATION_ERROR_TOAST_TITLE = "Validation Error";
 const O_EF_CHECK_ENTRIES_TOAST_DESC = "Please check your entries and try again.";
 const O_EF_LOGIN_SUCCESSFUL_TOAST_TITLE = "Login Successful!";
-const O_EF_WELCOME_BACK_USER_TOAST_DESC = (nameOrEmail: string) => `Welcome back, ${nameOrEmail}!`;
 const O_EF_LOGIN_FAILED_TOAST_TITLE = "Login Failed";
 const O_EF_INVALID_EMAIL_PASSWORD_TOAST_DESC = "Invalid email or password. Please try again.";
 const O_EF_FILL_EMAIL_PASSWORD_TOAST_DESC = "Please fill in your email and password.";
@@ -473,7 +476,6 @@ const O_EF_WAIT_PROGRAMS_LOADED_TOAST_DESC = "Please wait until programs are loa
 const O_EF_NO_PROGRAMS_TOAST_TITLE = "No Programs Available";
 const O_EF_NO_PROGRAMS_DESC = "There are no programs to enroll in at the moment.";
 const O_EF_PARTICIPANT_ADDED_TOAST_TITLE = "Participant Added";
-const O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC = (name: string, program: string) => `${name} has been added for ${program}.`;
 const O_EF_PAYMENT_INFO_MISSING_TOAST_TITLE = "Payment Information Missing";
 const O_EF_PROVIDE_PAYMENT_DETAILS_TOAST_DESC = "Please provide payment details.";
 const O_EF_PROOF_SUBMISSION_MISSING_TOAST_TITLE = "Proof Submission Missing";
@@ -483,7 +485,6 @@ const O_EF_PAYMENT_VERIFIED_SAVED_TOAST_DESC = "Payment verified and registratio
 const O_EF_DB_ERROR_TOAST_TITLE = "Database Error";
 const O_EF_FIRESTORE_INIT_FAILED_TOAST_DESC = "Firestore is not initialized. Cannot save registration.";
 const O_EF_SAVING_ERROR_TOAST_TITLE = "Saving Error";
-const O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC = (message: string) => `Registration submitted, but failed to save to database: ${message}. Please contact support.`;
 const O_EF_PAYMENT_ISSUE_TOAST_TITLE = "Payment Issue";
 const O_EF_PAYMENT_VERIFICATION_FAILED_TOAST_DESC = "Payment verification failed.";
 const O_EF_ERROR_TOAST_TITLE = "Error";
@@ -495,6 +496,13 @@ const O_EF_LOGGED_OUT_TOAST_TITLE = "Logged Out";
 const O_EF_LOGGED_OUT_SUCCESS_TOAST_DESC = "You have been successfully logged out.";
 const O_EF_LOGOUT_ERROR_TOAST_TITLE = "Logout Error";
 const O_EF_LOGOUT_FAILED_TOAST_DESC = "Failed to log out.";
+
+// Template strings for dynamic messages
+const O_EF_WELCOME_USER_TOAST_DESC_TPL = "Welcome {name}! You can now enroll participants.";
+const O_EF_WELCOME_BACK_USER_TOAST_DESC_TPL = "Welcome back, {nameOrEmail}!";
+const O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC_TPL = "{name} has been added for {program}.";
+const O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC_TPL = "Registration submitted, but failed to save to database: {message}. Please contact support.";
+
 const O_EF_REGISTER_NEW_ACCOUNT_TAB = "Register New Account";
 const O_EF_LOGIN_EXISTING_ACCOUNT_TAB = "Login to Existing Account";
 const O_EF_PRIMARY_ACCOUNT_INFO_TITLE = "Primary Account Information";
@@ -609,13 +617,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const translateEnrollmentFormContent = useCallback(async (lang: string) => {
     const newT: Record<string, string> = {};
-    const keysToTranslate: Record<string, string | ((...args: any[]) => string)> = {
+    const keysToTranslate: Record<string, string> = {
         welcomeBackToastTitle: O_EF_WELCOME_BACK_TOAST_TITLE,
         guestSessionLoadedToastDesc: O_EF_GUEST_SESSION_LOADED_TOAST_DESC,
         authErrorToastTitle: O_EF_AUTH_ERROR_TOAST_TITLE,
         authInitFailedToastDesc: O_EF_AUTH_INIT_FAILED_TOAST_DESC,
         accountCreatedToastTitle: O_EF_ACCOUNT_CREATED_TOAST_TITLE,
-        welcomeUserToastDesc: O_EF_WELCOME_USER_TOAST_DESC("..."), // Placeholder for dynamic part
+        welcomeUserToastDescTpl: O_EF_WELCOME_USER_TOAST_DESC_TPL,
         registrationErrorToastTitle: O_EF_REGISTRATION_ERROR_TOAST_TITLE,
         registrationFailedToastDesc: O_EF_REGISTRATION_FAILED_TOAST_DESC,
         emailInUseToastDesc: O_EF_EMAIL_IN_USE_TOAST_DESC,
@@ -623,7 +631,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         validationErrorToastTitle: O_EF_VALIDATION_ERROR_TOAST_TITLE,
         checkEntriesToastDesc: O_EF_CHECK_ENTRIES_TOAST_DESC,
         loginSuccessfulToastTitle: O_EF_LOGIN_SUCCESSFUL_TOAST_TITLE,
-        welcomeBackUserToastDesc: O_EF_WELCOME_BACK_USER_TOAST_DESC("..."), // Placeholder
+        welcomeBackUserToastDescTpl: O_EF_WELCOME_BACK_USER_TOAST_DESC_TPL,
         loginFailedToastTitle: O_EF_LOGIN_FAILED_TOAST_TITLE,
         invalidEmailPasswordToastDesc: O_EF_INVALID_EMAIL_PASSWORD_TOAST_DESC,
         fillEmailPasswordToastDesc: O_EF_FILL_EMAIL_PASSWORD_TOAST_DESC,
@@ -632,7 +640,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         noProgramsToastTitle: O_EF_NO_PROGRAMS_TOAST_TITLE,
         noProgramsDesc: O_EF_NO_PROGRAMS_DESC,
         participantAddedToastTitle: O_EF_PARTICIPANT_ADDED_TOAST_TITLE,
-        participantForProgramToastDesc: O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC("...", "..."), // Placeholders
+        participantForProgramToastDescTpl: O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC_TPL,
         paymentInfoMissingToastTitle: O_EF_PAYMENT_INFO_MISSING_TOAST_TITLE,
         providePaymentDetailsToastDesc: O_EF_PROVIDE_PAYMENT_DETAILS_TOAST_DESC,
         proofSubmissionMissingToastTitle: O_EF_PROOF_SUBMISSION_MISSING_TOAST_TITLE,
@@ -642,7 +650,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         dbErrorToastTitle: O_EF_DB_ERROR_TOAST_TITLE,
         firestoreInitFailedToastDesc: O_EF_FIRESTORE_INIT_FAILED_TOAST_DESC,
         savingErrorToastTitle: O_EF_SAVING_ERROR_TOAST_TITLE,
-        regSubmittedDbFailToastDesc: O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC("..."), // Placeholder
+        regSubmittedDbFailToastDescTpl: O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC_TPL,
         paymentIssueToastTitle: O_EF_PAYMENT_ISSUE_TOAST_TITLE,
         paymentVerificationFailedToastDesc: O_EF_PAYMENT_VERIFICATION_FAILED_TOAST_DESC,
         errorToastTitle: O_EF_ERROR_TOAST_TITLE,
@@ -747,13 +755,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
     if (lang === 'en') {
         for (const key in keysToTranslate) {
-            const value = keysToTranslate[key];
-            newT[key] = typeof value === 'function' ? value() : value;
+            newT[key] = keysToTranslate[key];
         }
     } else {
         for (const key in keysToTranslate) {
-            const value = keysToTranslate[key];
-            newT[key] = await getTranslatedText(typeof value === 'function' ? value() : value, lang, 'en');
+            newT[key] = await getTranslatedText(keysToTranslate[key], lang, 'en');
         }
     }
     setT(newT);
@@ -775,7 +781,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     );
     setTranslatedAvailablePrograms(translatedProgs);
 
-  }, [ HAFSA_PROGRAMS]); // Removed HAFSA_PROGRAMS from dep array for static data
+  }, []); 
 
   useEffect(() => {
     translateEnrollmentFormContent(currentLanguage);
@@ -832,7 +838,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
                     setValue('parentInfo.parentFullName', user.displayName || parentName);
                     setValue('parentInfo.parentEmail', user.email);
-                    setValue('parentInfo.parentPhone1', '');
+                    setValue('parentInfo.parentPhone1', ''); // Clear phone if email mismatch
                 }
             } catch (e) {
                 console.error("Error parsing parent info from LS on auth change", e);
@@ -844,7 +850,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         } else {
             setValue('parentInfo.parentFullName', user.displayName || parentName);
             setValue('parentInfo.parentEmail', user.email);
-            setValue('parentInfo.parentPhone1', '');
+            setValue('parentInfo.parentPhone1', ''); // Initialize if no LS data
         }
 
         const savedParticipantsRaw = localStorage.getItem(LOCALSTORAGE_PARTICIPANTS_KEY);
@@ -900,6 +906,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
            setValue('parentInfo.parentFullName', loadedParentInfo?.parentFullName || '');
            setValue('parentInfo.parentEmail', loadedParentInfo?.parentEmail || '');
            setValue('parentInfo.parentPhone1', loadedParentInfo?.parentPhone1 || '');
+           // Do NOT set password from local storage for security reasons
         }
         
         if (loadedParentInfo?.parentEmail && loadedParentInfo?.password) { // Indicates a previous "account created" like state for guest
@@ -971,7 +978,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             if (typeof window !== 'undefined') {
                 localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify(currentParentInfo));
             }
-            toast({ title: t['accountCreatedToastTitle'] || O_EF_ACCOUNT_CREATED_TOAST_TITLE, description: (t['welcomeUserToastDesc'] || O_EF_WELCOME_USER_TOAST_DESC)(parentFullName) });
+            const descTemplate = t['welcomeUserToastDescTpl'] || O_EF_WELCOME_USER_TOAST_DESC_TPL;
+            toast({ title: t['accountCreatedToastTitle'] || O_EF_ACCOUNT_CREATED_TOAST_TITLE, description: descTemplate.replace('{name}', parentFullName) });
         } catch (error: any) {
             console.error("Firebase registration error:", error);
             let errorMessage = t['registrationFailedToastDesc'] || O_EF_REGISTRATION_FAILED_TOAST_DESC;
@@ -1043,8 +1051,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
          if (typeof window !== 'undefined') {
             localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify(currentParentInfo));
         }
-
-        toast({ title: t['loginSuccessfulToastTitle'] || O_EF_LOGIN_SUCCESSFUL_TOAST_TITLE, description: (t['welcomeBackUserToastDesc'] || O_EF_WELCOME_BACK_USER_TOAST_DESC)(currentParentInfo.parentFullName || user.email!) });
+        
+        const descTemplate = t['welcomeBackUserToastDescTpl'] || O_EF_WELCOME_BACK_USER_TOAST_DESC_TPL;
+        const description = descTemplate.replace('{nameOrEmail}', currentParentInfo.parentFullName || user.email!);
+        toast({ title: t['loginSuccessfulToastTitle'] || O_EF_LOGIN_SUCCESSFUL_TOAST_TITLE, description: description });
       } catch (error: any) {
         console.error("Firebase login error:", error);
         let errorMessage = t['invalidEmailPasswordToastDesc'] || O_EF_INVALID_EMAIL_PASSWORD_TOAST_DESC;
@@ -1095,7 +1105,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setCurrentView('dashboard');
     setActiveDashboardTab('enrollments');
     const programLabel = translatedAvailablePrograms.find(p => p.id === programForNewParticipant.id)?.label || programForNewParticipant.label;
-    toast({title: t['participantAddedToastTitle'] || O_EF_PARTICIPANT_ADDED_TOAST_TITLE, description: (t['participantForProgramToastDesc'] || O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC)(participantData.firstName, programLabel)})
+    
+    const descTemplate = t['participantForProgramToastDescTpl'] || O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC_TPL;
+    const description = descTemplate.replace('{name}', participantData.firstName).replace('{program}', programLabel);
+    toast({title: t['participantAddedToastTitle'] || O_EF_PARTICIPANT_ADDED_TOAST_TITLE, description: description});
   };
 
   const handleRemoveParticipant = (index: number) => {
@@ -1210,9 +1223,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
         } catch (firestoreError: any) {
             console.error("Error saving registration to Firestore:", firestoreError);
+            const descTemplate = t['regSubmittedDbFailToastDescTpl'] || O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC_TPL;
+            const description = descTemplate.replace('{message}', firestoreError.message);
             toast({
                 title: t['savingErrorToastTitle'] || O_EF_SAVING_ERROR_TOAST_TITLE,
-                description: (t['regSubmittedDbFailToastDesc'] || O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC)(firestoreError.message),
+                description: description,
                 variant: "destructive",
             });
             setRegistrationData(finalRegistrationData);
@@ -1904,3 +1919,4 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+
