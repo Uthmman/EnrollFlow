@@ -411,15 +411,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const handleSkipLogin = () => {
-     // Set parentInfo to guest defaults
     setValue('parentInfo.parentFullName', 'Guest User');
-    setValue('parentInfo.parentPhone1', '0000000000'); // Placeholder that should pass basic regex
-    setValue('parentInfo.password', 'guestpassword'); // Meets min length
+    setValue('parentInfo.parentPhone1', '0000000000'); 
+    setValue('parentInfo.password', 'guestpassword'); 
     setValue('parentInfo.confirmPassword', 'guestpassword');
-
-    // Clear any validation errors that might have been set on parentInfo fields if user interacted before skipping
     trigger('parentInfo');
-
 
     toast({ title: "Proceeding as Guest", description: "You can enroll participants. Account features will be limited."});
     setActiveDashboardTab('enrollments');
@@ -487,7 +483,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUri, // Ensure this is passed
+            screenshotDataUri: screenshotDataUri, 
         },
         expectedAmount: calculatedPrice,
       };
@@ -495,9 +491,19 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       const result = await handlePaymentVerification(verificationInput);
 
       if (result.isPaymentValid) {
+        const successResult: VerificationResult = {
+            isPaymentValid: true,
+            message: result.message || "Payment verified successfully.",
+            extractedPaymentAmount: result.extractedPaymentAmount,
+            transactionNumber: result.transactionNumber || paymentProof.transactionId,
+            isAccountMatch: result.isAccountMatch,
+            extractedAccountName: result.extractedAccountName,
+            extractedAccountNumber: result.extractedAccountNumber,
+            reason: result.reason,
+        };
         toast({
           title: "Payment Submitted!",
-          description: result.message || "Your payment information has been submitted for processing.",
+          description: successResult.message,
           variant: "default",
           className: "bg-accent text-accent-foreground",
         });
@@ -520,9 +526,19 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         if (result.reason && result.reason !== result.message) {
             failureMessage += ` Reason: ${result.reason}`;
         }
+         const failureResult: VerificationResult = {
+              isPaymentValid: false,
+              message: failureMessage,
+              reason: result.reason || failureMessage,
+              extractedPaymentAmount: result.extractedPaymentAmount,
+              transactionNumber: result.transactionNumber || paymentProof.transactionId,
+              isAccountMatch: result.isAccountMatch,
+              extractedAccountName: result.extractedAccountName,
+              extractedAccountNumber: result.extractedAccountNumber,
+          };
         toast({
           title: "Payment Issue",
-          description: failureMessage,
+          description: failureResult.message,
           variant: "destructive",
         });
       }
@@ -538,14 +554,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       setIsLoading(false);
     }
   };
+  
+  interface VerificationResult extends Partial<VerifyPaymentFromScreenshotOutput> {
+    isPaymentValid: boolean;
+    message: string;
+  }
+  type VerifyPaymentFromScreenshotOutput = import('@/ai/flows/payment-verification').VerifyPaymentFromScreenshotOutput;
+
 
   const handleBackFromReceipt = () => {
     setRegistrationData(null);
-    setValue('participants', []); // Clear participants array
+    setValue('participants', []); 
     setValue('agreeToTerms', false);
     setValue('couponCode', '');
-    resetField('paymentProof'); // Resets paymentProof to its default value in useForm
-    // calculatedPrice will update automatically via useEffect due to participants changing
+    resetField('paymentProof'); 
     setCurrentView('dashboard');
     setActiveDashboardTab('enrollments');
     toast({ title: "Ready for New Enrollment", description: "Previous receipt details cleared." });
@@ -638,7 +660,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
                   </CardContent>
                   <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
-                    <p className="text-sm sm:text-base font-semibold text-accent">${prog.price.toFixed(2)}</p>
+                    <p className="text-sm sm:text-base font-semibold text-accent">Br{prog.price.toFixed(2)}</p>
                   </CardFooter>
                 </Card>
               );
@@ -671,13 +693,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as DashboardTab)} className="w-full">
         {!isMobile && (
              <div className="mb-4 sm:mb-6 w-full">
-                <div className="flex items-center justify-center space-x-2 sm:space-x-3 bg-muted p-1.5 rounded-lg shadow-sm mx-auto max-w-xl"> {/* Adjusted max-w-2xl to max-w-xl or similar */}
+                <div className="flex items-center justify-center space-x-2 sm:space-x-3 bg-muted p-1.5 rounded-lg shadow-sm mx-auto max-w-xl"> 
                     {dashboardTabsConfig.map(tab => (
                     <button
                         key={tab.value}
                         onClick={() => setActiveDashboardTab(tab.value)}
                         className={cn(
-                        "flex-1 flex items-center justify-center gap-2 sm:gap-2.5 px-4 py-2.5 sm:px-6 sm:py-3 rounded-md transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted text-sm sm:text-base font-medium", // Increased padding
+                        "flex-1 flex items-center justify-center gap-2 sm:gap-2.5 px-4 py-2.5 sm:px-6 sm:py-3 rounded-md transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted text-sm sm:text-base font-medium", 
                         activeDashboardTab === tab.value
                             ? "bg-primary text-primary-foreground shadow"
                             : "text-muted-foreground hover:bg-background hover:text-primary"
@@ -704,7 +726,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     <div className="flex justify-between items-start">
                     <div>
                         <p className="font-semibold text-md">{enrolledParticipant.participantInfo.firstName}</p>
-                        <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - ${program?.price.toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - Br{program?.price.toFixed(2)}</p>
                         <p className="text-xs text-muted-foreground mt-1">Guardian: {enrolledParticipant.participantInfo.guardianFullName} ({enrolledParticipant.participantInfo.guardianPhone1})</p>
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={() => removeParticipant(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
@@ -752,7 +774,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
                     </CardContent>
                     <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
-                        <p className="text-sm sm:text-base font-semibold text-accent">${prog.price.toFixed(2)}</p>
+                        <p className="text-sm sm:text-base font-semibold text-accent">Br{prog.price.toFixed(2)}</p>
                     </CardFooter>
                     </Card>
                 );
@@ -762,9 +784,40 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
         <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary">Payment & Verification</h3>
+            
+            <Card className="mb-4">
+              <CardHeader className="p-3 sm:p-4 pb-2">
+                <CardTitle className="text-md sm:text-lg">Terms and Conditions</CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 sm:p-4 pt-0">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-2">
+                  Please read our terms and conditions carefully. Hafsa Madrassa is committed to providing quality education and services. 
+                  All fees are non-refundable once a program has commenced. Parents/guardians are responsible for ensuring timely drop-off and pick-up of participants. 
+                  Hafsa Madrassa reserves the right to modify program schedules or content with prior notice. By proceeding with enrollment and payment, 
+                  you acknowledge that you have read, understood, and agree to be bound by the full terms and conditions available on our website or upon request.
+                </p>
+                <p className="text-xs sm:text-sm font-medium mb-3">
+                  I agree to the terms and conditions of Hafsa Madrassa.
+                </p>
+                <div>
+                    <Controller
+                        name="agreeToTerms"
+                        control={control}
+                        render={({ field }) => (
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                            <Checkbox id="agreeToTermsDashboard" checked={field.value} onCheckedChange={field.onChange} />
+                            <Label htmlFor="agreeToTermsDashboard" className="text-xs sm:text-sm font-normal">I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">terms and conditions</a> of Hafsa Madrassa.</Label>
+                        </div>
+                        )}
+                    />
+                    {errors.agreeToTerms && <p className="text-sm text-destructive mt-1">{errors.agreeToTerms.message}</p>}
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
                 <h3 className="text-base sm:text-lg font-semibold font-headline text-primary">Payment Summary</h3>
-                <p className="mt-1 sm:mt-2 text-lg sm:text-xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
+                <p className="mt-1 sm:mt-2 text-lg sm:text-xl font-bold text-primary">Total Amount Due: Br{calculatedPrice.toFixed(2)}</p>
             </div>
             <div>
                 <Label htmlFor="couponCode">Coupon Code (Optional)</Label>
@@ -897,20 +950,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 )}
               </div>
             )}
-
-             <div>
-                <Controller
-                    name="agreeToTerms"
-                    control={control}
-                    render={({ field }) => (
-                    <div className="flex items-center space-x-2 sm:space-x-3 mt-3 sm:mt-4">
-                        <Checkbox id="agreeToTermsDashboard" checked={field.value} onCheckedChange={field.onChange} />
-                        <Label htmlFor="agreeToTermsDashboard" className="text-xs sm:text-sm font-normal">I agree to the <a href="/terms" target="_blank" className="text-primary hover:underline">terms and conditions</a> of Hafsa Madrassa.</Label>
-                    </div>
-                    )}
-                />
-                {errors.agreeToTerms && <p className="text-sm text-destructive mt-1">{errors.agreeToTerms.message}</p>}
-            </div>
         </TabsContent>
 
         {isMobile && currentView === 'dashboard' && (
@@ -975,7 +1014,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         className="w-full sm:ml-auto sm:w-auto"
                     >
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                        Submit Registration (${calculatedPrice.toFixed(2)})
+                        Submit Registration (Br{calculatedPrice.toFixed(2)})
                     </Button>
                 )}
             </CardFooter>

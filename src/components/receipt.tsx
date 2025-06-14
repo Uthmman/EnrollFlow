@@ -87,7 +87,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack }) => {
                             <h4 className="text-md sm:text-lg font-semibold mb-1">Participant {index + 1}: {participant.firstName}</h4>
                             <div className="space-y-0.5 text-xs sm:text-sm">
                                 <p><strong>Program:</strong> {program?.label || 'N/A'}</p>
-                                <p><strong>Price:</strong> ${program?.price.toFixed(2) || '0.00'}</p>
+                                <p><strong>Price:</strong> Br{program?.price.toFixed(2) || '0.00'}</p>
                                 <p><strong>Gender:</strong> {participant.gender.charAt(0).toUpperCase() + participant.gender.slice(1)}</p>
                                 <p><strong>Date of Birth:</strong> {format(new Date(participant.dateOfBirth), "MMMM d, yyyy")}</p>
                                 {participant.schoolGrade && <p><strong>School Grade:</strong> {participant.schoolGrade}</p>}
@@ -115,7 +115,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack }) => {
         <div>
           <h3 className="text-md sm:text-lg font-semibold font-headline mb-1">Payment Details</h3>
           <div className="space-y-0.5">
-            <p><strong>Total Amount Paid:</strong> <span className="font-bold text-accent">${data.calculatedPrice.toFixed(2)}</span></p>
+            <p><strong>Total Amount Paid:</strong> <span className="font-bold text-accent">Br{data.calculatedPrice.toFixed(2)}</span></p>
             {data.couponCode && <p><strong>Coupon Code Applied:</strong> <span className="text-accent">{data.couponCode}</span></p>}
             <p><strong>Payment Method:</strong> {paymentMethodLabel}</p>
             {data.paymentProof.proofSubmissionType === 'transactionId' && data.paymentProof.transactionId && (
@@ -165,3 +165,4 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack }) => {
 };
 
 export default Receipt;
+
