@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
@@ -29,12 +29,16 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Skeleton } from '@/components/ui/skeleton';
 
 
-import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
-import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData, HafsaProgram, ProgramField } from '@/types';
+import { HAFSA_PAYMENT_METHODS, HAFSA_PROGRAMS, SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
+import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, HafsaProgram, ProgramField } from '@/types';
 import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
-import { fetchProgramsFromFirestore } from '@/lib/programService';
+// import { fetchProgramsFromFirestore } from '@/lib/programService';
+
+
+const LOCALSTORAGE_PARENT_KEY = 'enrollmentFormParentInfo';
+const LOCALSTORAGE_PARTICIPANTS_KEY = 'enrollmentFormParticipants';
 
 
 const defaultParentValues: ParentInfoData = {
@@ -317,32 +321,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
-  const [availablePrograms, setAvailablePrograms] = useState<HafsaProgram[]>([]);
-  const [programsLoading, setProgramsLoading] = useState<boolean>(true);
+  const [availablePrograms, setAvailablePrograms] = useState<HafsaProgram[]>(HAFSA_PROGRAMS); // Using HAFSA_PROGRAMS from constants
+  const [programsLoading, setProgramsLoading] = useState<boolean>(false); // Set to false as we are not fetching
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
   const [showPasswordInDialog, setShowPasswordInDialog] = useState(false);
-
-  useEffect(() => {
-    const loadPrograms = async () => {
-      setProgramsLoading(true);
-      try {
-        const programs = await fetchProgramsFromFirestore();
-        setAvailablePrograms(programs);
-      } catch (error) {
-        console.error("Failed to load programs:", error);
-        toast({
-          title: "Error Loading Programs",
-          description: "Could not fetch program list. Please try refreshing the page.",
-          variant: "destructive",
-        });
-        setAvailablePrograms([]); // Set to empty if error
-      } finally {
-        setProgramsLoading(false);
-      }
-    };
-    loadPrograms();
-  }, [toast]);
-
 
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
@@ -363,6 +345,66 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     control,
     name: "participants",
   });
+
+
+  const clearLocalStorageData = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
+      localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+    }
+  }, []);
+
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
+        const savedParticipantsRaw = localStorage.getItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+        
+        let loadedParentInfo: ParentInfoData | null = null;
+        let loadedParticipants: EnrolledParticipantData[] = [];
+
+        if (savedParentInfoRaw) {
+          loadedParentInfo = JSON.parse(savedParentInfoRaw);
+          // Ensure date strings are converted back to Date objects if needed
+          // (Not applicable for ParentInfoSchema directly, but good practice for ParticipantInfo dates)
+        }
+        if (savedParticipantsRaw) {
+            loadedParticipants = JSON.parse(savedParticipantsRaw).map((p: EnrolledParticipantData) => ({
+                ...p,
+                participantInfo: {
+                    ...p.participantInfo,
+                    dateOfBirth: p.participantInfo.dateOfBirth ? new Date(p.participantInfo.dateOfBirth) : undefined,
+                }
+            }));
+        }
+
+        if (loadedParentInfo) {
+          setValue('parentInfo', loadedParentInfo);
+          // Attempt to validate loaded parentInfo silently.
+          // If valid, we can consider changing the view.
+          RHFParentInfoSchema.safeParseAsync(loadedParentInfo).then(validationResult => {
+            if (validationResult.success) {
+              setCurrentView('dashboard');
+              onStageChange('accountCreated');
+              setActiveDashboardTab('enrollments');
+              toast({ title: "Welcome Back!", description: "Your previous session details have been loaded." });
+            }
+          });
+        }
+        if (loadedParticipants.length > 0) {
+          setValue('participants', loadedParticipants);
+        }
+
+      } catch (error) {
+        console.error("Error loading data from localStorage:", error);
+        // Clear potentially corrupted data
+        clearLocalStorageData();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setValue, onStageChange, toast, clearLocalStorageData]); // Only run once on mount
+
 
   const watchedParticipants = watch('participants');
   const watchedPaymentType = watch('paymentProof.paymentType');
@@ -393,6 +435,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const isValid = await mainFormTrigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
 
     if (isValid) {
+        const currentParentInfo = getValues('parentInfo');
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify(currentParentInfo));
+        }
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
         onStageChange('accountCreated');
@@ -405,37 +451,42 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const isValid = await trigger(['loginIdentifier', 'loginPassword']);
     if (isValid) {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
       const { loginIdentifier, loginPassword } = getValues();
-      const registeredParentInfo = getValues('parentInfo');
-
+      
       let loginSuccess = false;
+      let loggedInParentInfo: ParentInfoData | null = null;
 
-      // Scenario 1: Login with just-registered details
-      if (registeredParentInfo && registeredParentInfo.password && registeredParentInfo.parentPhone1 === loginIdentifier && registeredParentInfo.password === loginPassword) {
-        loginSuccess = true;
+      const registeredParentInfoString = typeof window !== 'undefined' ? localStorage.getItem(LOCALSTORAGE_PARENT_KEY) : null;
+      if (registeredParentInfoString) {
+          const registeredParentInfo = JSON.parse(registeredParentInfoString) as ParentInfoData;
+           if (registeredParentInfo.parentPhone1 === loginIdentifier && registeredParentInfo.password === loginPassword) {
+             loginSuccess = true;
+             loggedInParentInfo = registeredParentInfo;
+           }
       }
-      // Scenario 2: Login with stubbed admin credentials
-      else if (loginIdentifier === "0911223344" && loginPassword === "password") {
+      
+      if (!loginSuccess && loginIdentifier === "0911223344" && loginPassword === "password") {
         loginSuccess = true;
-         // If admin logs in, populate parentInfo with admin details (or fetch if real admin accounts)
-         setValue('parentInfo', {
+        loggedInParentInfo = {
             parentFullName: 'Hafsa Admin (Stubbed)',
             parentPhone1: loginIdentifier,
-            password: loginPassword, // Storing for consistency, though real auth would handle this
+            password: loginPassword, 
             confirmPassword: loginPassword,
-        });
+        };
       }
-      // TODO: Add actual Firebase Auth login here in a real scenario
-
-
-      if (loginSuccess) {
+      
+      if (loginSuccess && loggedInParentInfo) {
+        setValue('parentInfo', loggedInParentInfo); 
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify(loggedInParentInfo));
+        }
         toast({ title: "Login Successful!", description: "Welcome back!" });
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
-        onStageChange('accountCreated'); // Ensure header updates
+        onStageChange('accountCreated'); 
       } else {
-        toast({ title: "Login Failed", description: "Invalid credentials. (Hint: 0911223344 / password, or use registered details if you just created an account).", variant: "destructive" });
+        toast({ title: "Login Failed", description: "Invalid credentials. (Hint: 0911223344 / password, or use registered details if you created an account and it was saved).", variant: "destructive" });
       }
       setIsLoading(false);
     } else {
@@ -444,17 +495,22 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const handleSkipLogin = () => {
-    // Set minimal valid guest data
-    setValue('parentInfo.parentFullName', 'Guest User');
-    setValue('parentInfo.parentPhone1', '0000000000'); // Placeholder, ensure it passes regex if strict
-    setValue('parentInfo.password', 'guestpassword'); // Placeholder
-    setValue('parentInfo.confirmPassword', 'guestpassword'); // Placeholder
-    trigger('parentInfo'); // Validate to ensure it's acceptable
+    const guestParentInfo: ParentInfoData = {
+        parentFullName: 'Guest User',
+        parentPhone1: '0000000000', 
+        password: 'guestpassword', 
+        confirmPassword: 'guestpassword',
+    };
+    setValue('parentInfo', guestParentInfo);
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify(guestParentInfo));
+    }
+    trigger('parentInfo');
 
     toast({ title: "Proceeding as Guest", description: "You can enroll participants. Account features will be limited."});
     setActiveDashboardTab('enrollments');
     setCurrentView('dashboard');
-    onStageChange('accountCreated'); // Ensure header updates
+    onStageChange('accountCreated'); 
   };
 
 
@@ -481,9 +537,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         participantInfo: participantData,
     };
     appendParticipant(newEnrolledParticipant);
+    const updatedParticipants = [...getValues('participants'), newEnrolledParticipant]; // RHF appends, so getValues will reflect it
+     if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify(updatedParticipants));
+    }
     setCurrentView('dashboard');
     setActiveDashboardTab('enrollments');
     toast({title: "Participant Added", description: `${participantData.firstName} has been added for ${programForNewParticipant.label}.`})
+  };
+
+  const handleRemoveParticipant = (index: number) => {
+    removeParticipant(index);
+    const currentParticipants = getValues('participants'); // This will be the list AFTER removal
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify(currentParticipants));
+    }
   };
 
   const onSubmit = async (data: EnrollmentFormData) => {
@@ -504,29 +572,32 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         return;
       }
 
-      let screenshotDataUri: string | undefined;
+      let screenshotDataUriForAI: string | undefined;
       if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshot && data.paymentProof.screenshot.length > 0) {
         const fileToUpload = data.paymentProof.screenshot[0];
         if (fileToUpload instanceof File) {
-            screenshotDataUri = await new Promise((resolve, reject) => {
+            screenshotDataUriForAI = await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
             reader.onerror = reject;
             reader.readAsDataURL(fileToUpload);
             });
-            setValue('paymentProof.screenshotDataUri', screenshotDataUri);
-            if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri;
+            // RHF's `data` object passed to onSubmit already has the FileList.
+            // We only need screenshotDataUriForAI for the AI call, not to re-set it into the form state here.
+            // setValue('paymentProof.screenshotDataUri', screenshotDataUriForAI); // Not strictly needed here as `data` is final for submission
         } else {
             console.warn("Screenshot field did not contain a File object at submission.");
         }
       } else if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshotDataUri) {
-        screenshotDataUri = data.paymentProof.screenshotDataUri;
+        // This case handles if screenshotDataUri was pre-loaded or somehow set.
+        screenshotDataUriForAI = data.paymentProof.screenshotDataUri;
       }
+
 
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUri, 
+            screenshotDataUri: screenshotDataUriForAI, // Pass the AI-ready data URI
         },
         expectedAmount: calculatedPrice,
       };
@@ -556,7 +627,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           participants: data.participants || [],
           agreeToTerms: data.agreeToTerms,
           couponCode: data.couponCode,
-          paymentProof: data.paymentProof!,
+          paymentProof: { // Use the form's paymentProof, but ensure screenshotDataUri is what AI used.
+             ...data.paymentProof!,
+             screenshotDataUri: screenshotDataUriForAI 
+          },
           calculatedPrice: calculatedPrice,
           paymentVerified: result.isPaymentValid,
           paymentVerificationDetails: result,
@@ -564,6 +638,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         };
         setRegistrationData(finalRegistrationData);
         setCurrentView('confirmation');
+        clearLocalStorageData(); // Clear data on successful submission
       } else {
         let failureMessage = result.message || "Payment verification failed.";
         if (result.reason && result.reason !== result.message) {
@@ -607,13 +682,30 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const handleBackFromReceipt = () => {
     setRegistrationData(null);
-    setValue('participants', []); 
+    // Reset core form fields related to an enrollment session
+    resetField('participants');
+    setValue('participants', []); // Explicitly ensure it's an empty array for RHF
     setValue('agreeToTerms', false);
     setValue('couponCode', '');
-    resetField('paymentProof'); 
-    setCurrentView('dashboard');
-    setActiveDashboardTab('enrollments');
-    toast({ title: "Ready for New Enrollment", description: "Previous receipt details cleared." });
+    resetField('paymentProof');
+    setValue('paymentProof', defaultPaymentProofValues); // Reset to default
+
+    clearLocalStorageData(); // Clear data when starting over from receipt
+
+    // Keep parentInfo if it was from a "login" or "create account" step,
+    // or reset it if it was guest data to allow fresh account creation/login.
+    const currentParentInfo = getValues('parentInfo');
+    if (currentParentInfo.parentFullName === 'Guest User') {
+        resetField('parentInfo');
+        setValue('parentInfo', defaultParentValues);
+        setCurrentView('accountCreation'); // Go back to account creation if was guest
+        onStageChange('initial');
+    } else {
+        setCurrentView('dashboard'); // Stay in dashboard if account was created/logged in
+        setActiveDashboardTab('enrollments');
+    }
+    
+    toast({ title: "Ready for New Enrollment", description: "Previous enrollment details cleared." });
   };
 
   const getUniqueSelectedProgramsTerms = () => {
@@ -760,7 +852,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       ) : (
         <>
           <ParticipantDetailFields
-              programSpecificFields={programForNewParticipant.specificFields}
+              programSpecificFields={programForNewParticipant.specificFields?.map(sf => ({
+                ...sf,
+                options: sf.name === 'schoolGrade' ? SCHOOL_GRADES : sf.name === 'quranLevel' ? QURAN_LEVELS : sf.options,
+              }))}
               onSave={handleSaveParticipant}
               onCancel={() => { setProgramForNewParticipant(null);}}
               isLoading={isLoading}
@@ -816,7 +911,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - Br{program?.price.toFixed(2)}</p>
                         <p className="text-xs text-muted-foreground mt-1">Guardian: {enrolledParticipant.participantInfo.guardianFullName} ({enrolledParticipant.participantInfo.guardianPhone1})</p>
                     </div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => removeParticipant(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveParticipant(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
                         <Trash2 className="h-4 w-4" />
                     </Button>
                     </div>
