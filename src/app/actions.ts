@@ -17,23 +17,33 @@ interface VerificationResult extends Partial<VerifyPaymentFromScreenshotOutput> 
 
 async function fetchDocumentAsDataUri(url: string): Promise<string | null> {
   try {
-    const response = await fetch(url, { headers: { 'User-Agent': 'EnrollFlow/1.0' } }); // Added User-Agent
+    const response = await fetch(url, { headers: { 'User-Agent': 'EnrollFlow/1.0' } }); 
     if (!response.ok) {
-      console.error(`Failed to fetch document from ${url}. Status: ${response.status}`);
+      console.error(`Failed to fetch document from ${url}. Status: ${response.status} ${response.statusText}`);
       return null;
     }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64String = buffer.toString('base64');
     
-    // Determine MIME type - simplistic check, assumes PDF if not an image
-    // A more robust check might inspect response.headers.get('Content-Type')
-    // For now, Genkit's `media` helper relies on the Data URI's MIME type.
-    // We'll assume PDF for URLs unless it's explicitly an image.
-    // For this use case, we expect PDFs from URLs.
-    const mimeType = response.headers.get('Content-Type')?.startsWith('image/') 
-        ? response.headers.get('Content-Type')! 
-        : 'application/pdf';
+    let mimeType = response.headers.get('Content-Type');
+
+    if (!mimeType) {
+        console.warn(`Content-Type header missing for ${url}. Attempting to infer.`);
+        if (url.toLowerCase().endsWith('.pdf')) {
+            mimeType = 'application/pdf';
+        } else if (url.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/) != null) {
+            // Basic image type inference based on extension - less reliable
+            const ext = url.substring(url.lastIndexOf('.') + 1).toLowerCase();
+            mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+        } else {
+            mimeType = 'application/octet-stream'; // Fallback
+            console.warn(`Could not infer MIME type for ${url}, using application/octet-stream. AI processing might be affected.`);
+        }
+    } else if (!mimeType.startsWith('application/pdf') && !mimeType.startsWith('image/')) {
+        console.warn(`Unexpected Content-Type '${mimeType}' for ${url}. AI processing might be affected if not a PDF or image.`);
+    }
+
 
     return `data:${mimeType};base64,${base64String}`;
   } catch (error) {
@@ -45,7 +55,7 @@ async function fetchDocumentAsDataUri(url: string): Promise<string | null> {
 
 export async function handlePaymentVerification(input: VerificationInput): Promise<VerificationResult> {
   try {
-    if (!input || !input.paymentProof || !input.expectedAmount === undefined) { // check expectedAmount for undefined too
+    if (!input || !input.paymentProof || input.expectedAmount === undefined) { 
       console.error("handlePaymentVerification called with invalid input:", input);
       return { 
         isPaymentValid: false, 
@@ -87,9 +97,8 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
             };
           }
         } else if (paymentProof.transactionId && paymentProof.transactionId.length >= 3) {
-          // Non-CBE transaction ID or CBE TxID < 12 chars, but still valid format for manual check
           return {
-            isPaymentValid: true, // Pending manual verification
+            isPaymentValid: true, 
             transactionNumber: paymentProof.transactionId,
             message: `Payment proof submitted via Transaction ID: ${paymentProof.transactionId} for ${paymentProof.paymentType || 'selected method'}. Verification pending.`
           };
@@ -163,7 +172,7 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
             isPaymentValid: true,
             message: `Payment verified successfully by AI from ${paymentProof.proofSubmissionType} (amount and account match).`,
             extractedPaymentAmount: aiResult.extractedPaymentAmount,
-            transactionNumber: aiResult.transactionNumber || paymentProof.transactionId, // Fallback to input TxID if AI doesn't extract one
+            transactionNumber: aiResult.transactionNumber || paymentProof.transactionId, 
             isAccountMatch: aiResult.isAccountMatch,
             extractedAccountName: aiResult.extractedAccountName,
             extractedAccountNumber: aiResult.extractedAccountNumber,
@@ -225,12 +234,9 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
         };
       }
     } else if (!requiresAiVerification && paymentProof.proofSubmissionType === 'transactionId') {
-        // This case should have been handled inside the 'transactionId' switch block already
-        // for non-CBE or failed CBE fetch but valid TxID format.
-        // This is a safety net / redundant path if logic above changes.
         if (paymentProof.transactionId && paymentProof.transactionId.length >=3) {
              return {
-                isPaymentValid: true, // Pending manual verification
+                isPaymentValid: true, 
                 transactionNumber: paymentProof.transactionId,
                 message: `Payment proof submitted via Transaction ID: ${paymentProof.transactionId} for ${paymentProof.paymentType || 'selected method'}. Verification pending.`
              };
@@ -244,7 +250,6 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
 
     }
     
-    // Fallback if no path explicitly returned a result (should be rare with current logic)
     return {
         isPaymentValid: false,
         message: "Unable to process payment proof. Please check your submission.",
@@ -266,3 +271,6 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
     };
   }
 }
+
+
+    
