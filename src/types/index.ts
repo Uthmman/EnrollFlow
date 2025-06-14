@@ -30,7 +30,7 @@ export const EnrolledParticipantSchema = z.object({
 export type EnrolledParticipantData = z.infer<typeof EnrolledParticipantSchema>;
 
 export const PaymentProofSchema = z.object({
-  paymentType: z.string().min(1, "Payment method is required."), // This is the bank selected
+  paymentType: z.string().min(1, "Payment method is required."),
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
     required_error: "Proof submission method is required.",
   }),
@@ -66,40 +66,48 @@ export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 export const EnrollmentFormSchema = z.object({
   parentInfo: ParentInfoSchema,
-  participants: z.array(EnrolledParticipantSchema).min(1,"At least one participant must be enrolled.").optional().default([]),
+  participants: z.array(EnrolledParticipantSchema).optional().default([]), // Participants are optional until payment
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
   paymentProof: PaymentProofSchema.optional(),
+  loginIdentifier: z.string().optional(),
+  loginPassword: z.string().optional(),
 })
 .superRefine((data, ctx) => {
     if (!data.parentInfo || !data.parentInfo.parentFullName) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['parentInfo', 'parentFullName'],
-            message: 'Primary registrant information is required.',
-        });
+        // This check is more relevant for the registration path.
+        // For login, parentInfo might be populated after successful login.
+        // We might need a more sophisticated way to handle this if we were fully implementing login.
     }
-    if (data.participants.length > 0 && !data.paymentProof) {
+    if (data.participants && data.participants.length > 0 && !data.paymentProof) {
        ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['paymentProof.paymentType'], // Point to a field within paymentProof
+            path: ['paymentProof.paymentType'],
             message: 'Payment information is required when participants are enrolled.',
         });
+    }
+     if (data.paymentProof && (!data.participants || data.participants.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['participants'],
+        message: 'At least one participant must be enrolled to submit payment proof.',
+      });
     }
 });
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
+// Defines the structure for the actual registration record
 export type RegistrationData = {
   parentInfo: ParentInfoData;
-  participants: EnrolledParticipantData[]; // Made non-optional as form validation ensures at least one
+  participants: EnrolledParticipantData[];
   agreeToTerms: boolean;
   couponCode?: string;
-  paymentProof: PaymentProofData; // Made non-optional as form validation ensures it if participants exist
+  paymentProof: PaymentProofData;
   calculatedPrice: number;
   paymentVerified: boolean;
-  paymentVerificationDetails?: any;
+  paymentVerificationDetails?: any; // This can be VerifyPaymentFromScreenshotOutput or similar
   registrationDate: Date;
 };

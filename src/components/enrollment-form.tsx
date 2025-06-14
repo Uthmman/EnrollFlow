@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS, HafsaPaymentMethod } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
-import { EnrollmentFormSchema, ParticipantInfoSchema as RHFParticipantInfoSchema, ParentInfoSchema as RHFParentInfoSchema } from '@/types';
+import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 
@@ -80,7 +80,7 @@ const ParentInfoFields: React.FC = () => {
 
 
   return (
-    <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-primary/20 border">
+    <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-primary/20 border shadow-none">
       <CardHeader className="p-2 pb-1">
         <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center">
           <User className="mr-2 h-5 w-5"/> {title}
@@ -252,6 +252,7 @@ type DashboardTab = 'enrollments' | 'programs' | 'payment';
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAccountDialogFromParent, onCloseAccountDialog }) => {
   const [currentView, setCurrentView] = useState<'accountCreation' | 'dashboard' | 'addParticipant' | 'confirmation'>('accountCreation');
   const [activeDashboardTab, setActiveDashboardTab] = useState<DashboardTab>('enrollments');
+  const [authMode, setAuthMode] = useState<'register' | 'login'>('register');
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
@@ -267,6 +268,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       agreeToTerms: false,
       couponCode: '',
       paymentProof: { paymentType: HAFSA_PAYMENT_METHODS[0]?.value || '', proofSubmissionType: 'transactionId' },
+      loginIdentifier: '',
+      loginPassword: '',
     },
   });
 
@@ -305,6 +308,35 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         onStageChange('accountCreated'); 
     } else {
       toast({ title: "Validation Error", description: "Please check your entries in Primary Registrant Information and try again.", variant: "destructive" });
+    }
+  };
+
+  const handleLoginAttempt = async () => {
+    const isValid = await trigger(['loginIdentifier', 'loginPassword']);
+    if (isValid) {
+      setIsLoading(true);
+      // Simulate API call for login
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { loginIdentifier, loginPassword } = getValues();
+
+      // STUBBED: Replace with actual login logic
+      // For prototype, using a common phone format for identifier
+      if (loginIdentifier === "0911223344" && loginPassword === "password") {
+        toast({ title: "Login Successful!", description: "Welcome back! (Stubbed)" });
+        // In a real app, you would fetch user data here and populate parentInfo, participants, etc.
+        // For this prototype, we'll just proceed to the dashboard.
+        // You might want to set some dummy parentInfo for the dialog if needed:
+        // setValue('parentInfo', { parentFullName: 'Logged In User', parentPhone1: loginIdentifier, telegramPhoneNumber: loginIdentifier});
+        
+        setActiveDashboardTab('enrollments');
+        setCurrentView('dashboard');
+        onStageChange('accountCreated'); 
+      } else {
+        toast({ title: "Login Failed", description: "Invalid credentials. (Hint: 0911223344 / password)", variant: "destructive" });
+      }
+      setIsLoading(false);
+    } else {
+      toast({ title: "Validation Error", description: "Please fill in your login phone number and password.", variant: "destructive" });
     }
   };
 
@@ -397,7 +429,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       console.error("Submission error:", error);
       const errorMessage = error.message || "An unexpected error occurred. Please try again.";
       if (error.issues) { 
-        errorMessage.concat(error.issues.map((issue: any) => issue.message).join(' '));
+        // errorMessage.concat(error.issues.map((issue: any) => issue.message).join(' '));
       }
       toast({
         title: "Error",
@@ -414,14 +446,43 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   }
 
   const renderAccountCreation = () => (
-    <div className="space-y-4 sm:space-y-6">
+    <Tabs value={authMode} onValueChange={(value) => setAuthMode(value as 'register' | 'login')} className="w-full">
+      <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsTrigger value="register">Register New Account</TabsTrigger>
+        <TabsTrigger value="login">Login to Existing Account</TabsTrigger>
+      </TabsList>
+      <TabsContent value="register" className="space-y-4 sm:space-y-6">
         <ParentInfoFields />
-        <div className="flex flex-col sm:flex-row gap-2">
-            <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
-                Create Account & Proceed <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-        </div>
-    </div>
+        <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
+            Create Account & Proceed <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </TabsContent>
+      <TabsContent value="login" className="space-y-4 sm:space-y-6">
+        <Card className="p-3 sm:p-4 border-primary/20">
+          <CardHeader className="p-2 pb-1">
+            <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center">
+              <LogIn className="mr-2 h-5 w-5"/> Login
+            </CardTitle>
+            <CardDescription>Enter your credentials to access your account.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
+            <div>
+              <Label htmlFor="loginIdentifier">Phone Number (used for registration)</Label>
+              <Input id="loginIdentifier" {...register('loginIdentifier')} placeholder="e.g., 0911XXXXXX" type="tel"/>
+              {errors.loginIdentifier && <p className="text-sm text-destructive mt-1">{errors.loginIdentifier.message}</p>}
+            </div>
+            <div>
+              <Label htmlFor="loginPassword">Password</Label>
+              <Input id="loginPassword" {...register('loginPassword')} type="password" placeholder="Enter your password" />
+              {errors.loginPassword && <p className="text-sm text-destructive mt-1">{errors.loginPassword.message}</p>}
+            </div>
+          </CardContent>
+        </Card>
+        <Button type="button" onClick={handleLoginAttempt} disabled={isLoading} className="w-full">
+          Login & Proceed <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </TabsContent>
+    </Tabs>
   );
 
   const renderAddParticipant = () => (
@@ -807,15 +868,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           <DialogHeader>
             <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>Account Information</DialogTitle>
             <DialogDescription>
-              Details of the primary registrant.
+              Details of the primary registrant. {authMode === 'login' && "(Logged In - Stubbed)"}
             </DialogDescription>
           </DialogHeader>
           {parentInfoForDialog && (
             <div className="space-y-2 py-2 text-sm">
-              <p><strong>Full Name:</strong> {parentInfoForDialog.parentFullName}</p>
-              <p><strong>Primary Phone:</strong> {parentInfoForDialog.parentPhone1}</p>
+              <p><strong>Full Name:</strong> {parentInfoForDialog.parentFullName || (authMode === 'login' ? 'Logged In User (Stubbed)' : 'N/A')}</p>
+              <p><strong>Primary Phone:</strong> {parentInfoForDialog.parentPhone1 || (authMode === 'login' ? getValues('loginIdentifier'): 'N/A')}</p>
               {parentInfoForDialog.parentPhone2 && <p><strong>Secondary Phone:</strong> {parentInfoForDialog.parentPhone2}</p>}
-              <p><strong>Telegram Phone:</strong> {parentInfoForDialog.telegramPhoneNumber}</p>
+              <p><strong>Telegram Phone:</strong> {parentInfoForDialog.telegramPhoneNumber || (authMode === 'login' ? getValues('loginIdentifier'): 'N/A')}</p>
             </div>
           )}
           <Button onClick={onCloseAccountDialog} className="mt-2 w-full">Close</Button>
@@ -826,5 +887,4 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
-
     
