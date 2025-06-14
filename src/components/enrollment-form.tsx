@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Phone, Mail, ShieldQuestion } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Phone, Mail, ShieldQuestion, SkipForward } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ const defaultParentValues: ParentInfoData = {
 const defaultParticipantValues: ParticipantInfoData = {
   firstName: '',
   gender: 'male' as 'male' | 'female',
-  dateOfBirth: undefined as any, 
+  dateOfBirth: undefined as any,
   specialAttention: '',
   schoolGrade: '',
   quranLevel: '',
@@ -57,10 +57,10 @@ const defaultParticipantValues: ParticipantInfoData = {
 
 
 const ParentInfoFields: React.FC = () => {
-  const { register, formState: { errors } } = useFormContext<EnrollmentFormData>(); 
-  
+  const { register, formState: { errors } } = useFormContext<EnrollmentFormData>();
+
   const currentErrors = errors.parentInfo || {};
-  
+
   const title = "Primary Account Information";
   const nameLabel = "Full Name";
   const nameField = "parentInfo.parentFullName";
@@ -83,13 +83,13 @@ const ParentInfoFields: React.FC = () => {
           <Input id={nameField} {...register(nameField as any)} placeholder={nameLabel} />
           {(currentErrors as any)?.parentFullName && <p className="text-sm text-destructive mt-1">{(currentErrors as any).parentFullName.message}</p>}
         </div>
-        
+
         <div>
             <Label htmlFor={phone1Field}>Primary Phone Number (used for login)</Label>
             <Input id={phone1Field} {...register(phone1Field as any)} type="tel" placeholder="e.g., 0911XXXXXX" />
             {(currentErrors as any)?.parentPhone1 && <p className="text-sm text-destructive mt-1">{(currentErrors as any).parentPhone1.message}</p>}
         </div>
-       
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
                 <Label htmlFor={passwordField}>Password</Label>
@@ -107,17 +107,17 @@ const ParentInfoFields: React.FC = () => {
   );
 };
 
-const ParticipantDetailFields: React.FC<{ 
+const ParticipantDetailFields: React.FC<{
     programSpecificFields?: ProgramField[];
-    onSave: (data: ParticipantInfoData) => void; 
+    onSave: (data: ParticipantInfoData) => void;
     onCancel: () => void;
     isLoading: boolean;
     selectedProgramLabel?: string;
 }> = ({ programSpecificFields, onSave, onCancel, isLoading, selectedProgramLabel }) => {
-  
+
   const { control, register, handleSubmit: handleParticipantSubmit, formState: { errors: participantErrors }, reset: resetParticipantForm, setValue, watch: watchParticipantForm } = useForm<ParticipantInfoData>({
-    resolver: zodResolver(RHFParticipantInfoSchema), 
-    defaultValues: defaultParticipantValues, 
+    resolver: zodResolver(RHFParticipantInfoSchema),
+    defaultValues: defaultParticipantValues,
   });
 
   const mainFormMethods = useFormContext<EnrollmentFormData>();
@@ -129,7 +129,7 @@ const ParticipantDetailFields: React.FC<{
     }
     if (primaryRegistrantInfo.parentPhone1) {
         setValue('guardianPhone1', primaryRegistrantInfo.parentPhone1);
-        setValue('guardianTelegramPhoneNumber', primaryRegistrantInfo.parentPhone1); 
+        setValue('guardianTelegramPhoneNumber', primaryRegistrantInfo.parentPhone1);
     }
     setValue('firstName', defaultParticipantValues.firstName);
     setValue('gender', defaultParticipantValues.gender);
@@ -141,7 +141,7 @@ const ParticipantDetailFields: React.FC<{
     setValue('guardianUsePhone1ForTelegram', defaultParticipantValues.guardianUsePhone1ForTelegram);
     setValue('guardianUsePhone2ForTelegram', defaultParticipantValues.guardianUsePhone2ForTelegram);
 
-  }, [selectedProgramLabel, mainFormMethods, setValue]); 
+  }, [selectedProgramLabel, mainFormMethods, setValue]);
 
 
   const guardianPhone1 = watchParticipantForm('guardianPhone1');
@@ -149,7 +149,7 @@ const ParticipantDetailFields: React.FC<{
 
   const actualOnSave = (data: ParticipantInfoData) => {
     onSave(data);
-    resetParticipantForm(defaultParticipantValues); 
+    resetParticipantForm(defaultParticipantValues);
   };
 
   return (
@@ -260,7 +260,7 @@ const ParticipantDetailFields: React.FC<{
                     <Label htmlFor="guardianUsePhone1ForTelegram" className="font-normal">Use Guardian's Primary Phone for Telegram</Label>
                 </div>
             )}/>
-            {guardianPhone2 && 
+            {guardianPhone2 &&
             <Controller name="guardianUsePhone2ForTelegram" control={control} render={({field}) => (
                  <div className="flex items-center gap-2">
                     <Checkbox id="guardianUsePhone2ForTelegram" checked={field.value} onCheckedChange={(checked) => {
@@ -305,7 +305,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const isMobile = useIsMobile();
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
   const [showPasswordInDialog, setShowPasswordInDialog] = useState(false);
-  
+
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
     defaultValues: {
@@ -325,7 +325,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     control,
     name: "participants",
   });
-  
+
   const watchedParticipants = watch('participants');
   const watchedPaymentType = watch('paymentProof.paymentType');
   const watchedProofSubmissionType = watch('paymentProof.proofSubmissionType');
@@ -351,13 +351,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const handleAccountCreation = async () => {
     const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentPhone1', 'password', 'confirmPassword'];
-    const mainFormTrigger = methods.trigger; 
+    const mainFormTrigger = methods.trigger;
     const isValid = await mainFormTrigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
 
     if (isValid) {
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
-        onStageChange('accountCreated'); 
+        onStageChange('accountCreated');
     } else {
       toast({ title: "Validation Error", description: "Please check your entries in Primary Account Information and try again.", variant: "destructive" });
     }
@@ -367,7 +367,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const isValid = await trigger(['loginIdentifier', 'loginPassword']);
     if (isValid) {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const { loginIdentifier, loginPassword } = getValues();
       const registeredParentInfo = getValues('parentInfo');
 
@@ -375,14 +375,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
       if (registeredParentInfo && registeredParentInfo.password && registeredParentInfo.parentPhone1 === loginIdentifier && registeredParentInfo.password === loginPassword) {
         loginSuccess = true;
-      } 
+      }
       else if (loginIdentifier === "0911223344" && loginPassword === "password") {
         loginSuccess = true;
-         setValue('parentInfo', { 
-            parentFullName: 'Hafsa Admin (Stubbed)', 
-            parentPhone1: loginIdentifier, 
-            password: loginPassword, 
-            confirmPassword: loginPassword, 
+         setValue('parentInfo', {
+            parentFullName: 'Hafsa Admin (Stubbed)',
+            parentPhone1: loginIdentifier,
+            password: loginPassword,
+            confirmPassword: loginPassword,
         });
       }
 
@@ -391,7 +391,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         toast({ title: "Login Successful!", description: "Welcome back!" });
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
-        onStageChange('accountCreated'); 
+        onStageChange('accountCreated');
       } else {
         toast({ title: "Login Failed", description: "Invalid credentials. (Hint: 0911223344 / password, or use registered details if you just created an account).", variant: "destructive" });
       }
@@ -401,8 +401,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
   };
 
+  const handleSkipLogin = () => {
+    setValue('parentInfo', {
+        parentFullName: 'Guest User',
+        parentPhone1: '0000000000', // Placeholder, ensure it passes regex if strict
+        password: 'guestpassword', // Needs to meet min length for schema if strict
+        confirmPassword: 'guestpassword',
+    });
+    toast({ title: "Proceeding as Guest", description: "You can enroll participants. Account features will be limited."});
+    setActiveDashboardTab('enrollments');
+    setCurrentView('dashboard');
+    onStageChange('accountCreated');
+  };
+
   const handleAddParticipantClick = () => {
-    setProgramForNewParticipant(null); 
+    setProgramForNewParticipant(null);
     setCurrentView('addParticipant');
   };
 
@@ -420,17 +433,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setActiveDashboardTab('enrollments');
     toast({title: "Participant Added", description: `${participantData.firstName} has been added for ${programForNewParticipant.label}.`})
   };
-  
+
   const onSubmit = async (data: EnrollmentFormData) => {
     setIsLoading(true);
     try {
       if (data.participants && data.participants.length > 0 && !data.paymentProof) {
         toast({ title: "Payment Information Missing", description: "Please provide payment details.", variant: "destructive" });
         setIsLoading(false);
-        setActiveDashboardTab('payment'); 
+        setActiveDashboardTab('payment');
         return;
       }
-      
+
       if (data.paymentProof && !data.paymentProof.proofSubmissionType) {
         toast({ title: "Proof Submission Missing", description: "Please select how you will provide payment proof.", variant: "destructive" });
         setIsLoading(false);
@@ -448,16 +461,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           reader.onerror = reject;
           reader.readAsDataURL(fileToUpload);
         });
-        setValue('paymentProof.screenshotDataUri', screenshotDataUri); 
-        if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri; 
+        setValue('paymentProof.screenshotDataUri', screenshotDataUri);
+        if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri;
       } else if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshotDataUri) {
         screenshotDataUri = data.paymentProof.screenshotDataUri;
       }
-      
+
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUri, 
+            screenshotDataUri: screenshotDataUri,
         },
         expectedAmount: calculatedPrice,
       };
@@ -471,7 +484,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           variant: "default",
           className: "bg-accent text-accent-foreground",
         });
-        
+
         const finalRegistrationData: RegistrationData = {
           parentInfo: data.parentInfo,
           participants: data.participants || [],
@@ -486,9 +499,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setRegistrationData(finalRegistrationData);
         setCurrentView('confirmation');
       } else {
+        let failureMessage = result.message || "Payment verification failed.";
+        if (result.reason && result.reason !== result.message) {
+            failureMessage += ` Reason: ${result.reason}`;
+        }
         toast({
           title: "Payment Issue",
-          description: result.message || result.reason || "Please check your payment details and try again.",
+          description: failureMessage,
           variant: "destructive",
         });
       }
@@ -504,49 +521,56 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       setIsLoading(false);
     }
   };
-  
+
   if (currentView === 'confirmation' && registrationData) {
     return <Receipt data={registrationData} />;
   }
 
   const renderAccountCreation = () => (
-    <Tabs value={authMode} onValueChange={(value) => setAuthMode(value as 'register' | 'login')} className="w-full">
-      <TabsList className="grid w-full grid-cols-2 mb-4">
-        <TabsTrigger value="register">Register New Account</TabsTrigger>
-        <TabsTrigger value="login">Login to Existing Account</TabsTrigger>
-      </TabsList>
-      <TabsContent value="register" className="space-y-4 sm:space-y-6">
-        <ParentInfoFields />
-        <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
-            Create Account & Proceed <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </TabsContent>
-      <TabsContent value="login" className="space-y-4 sm:space-y-6">
-        <Card className="p-3 sm:p-4 border-primary/20">
-          <CardHeader className="p-2 pb-1">
-            <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center">
-              <LogIn className="mr-2 h-5 w-5"/> Login
-            </CardTitle>
-            <CardDescription>Enter your credentials to access your account.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
-            <div>
-              <Label htmlFor="loginIdentifier">Phone Number (used for registration)</Label>
-              <Input id="loginIdentifier" {...register('loginIdentifier')} placeholder="e.g., 0911XXXXXX" type="tel"/>
-              {errors.loginIdentifier && <p className="text-sm text-destructive mt-1">{errors.loginIdentifier.message}</p>}
-            </div>
-            <div>
-              <Label htmlFor="loginPassword">Password</Label>
-              <Input id="loginPassword" {...register('loginPassword')} type="password" placeholder="Enter your password" />
-              {errors.loginPassword && <p className="text-sm text-destructive mt-1">{errors.loginPassword.message}</p>}
-            </div>
-          </CardContent>
-        </Card>
-        <Button type="button" onClick={handleLoginAttempt} disabled={isLoading} className="w-full">
-          Login & Proceed <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </TabsContent>
-    </Tabs>
+    <>
+        <Tabs value={authMode} onValueChange={(value) => setAuthMode(value as 'register' | 'login')} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="register">Register New Account</TabsTrigger>
+            <TabsTrigger value="login">Login to Existing Account</TabsTrigger>
+        </TabsList>
+        <TabsContent value="register" className="space-y-4 sm:space-y-6">
+            <ParentInfoFields />
+            <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
+                Create Account & Proceed <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+        </TabsContent>
+        <TabsContent value="login" className="space-y-4 sm:space-y-6">
+            <Card className="p-3 sm:p-4 border-primary/20">
+            <CardHeader className="p-2 pb-1">
+                <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center">
+                <LogIn className="mr-2 h-5 w-5"/> Login
+                </CardTitle>
+                <CardDescription>Enter your credentials to access your account.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
+                <div>
+                <Label htmlFor="loginIdentifier">Phone Number (used for registration)</Label>
+                <Input id="loginIdentifier" {...register('loginIdentifier')} placeholder="e.g., 0911XXXXXX" type="tel"/>
+                {errors.loginIdentifier && <p className="text-sm text-destructive mt-1">{errors.loginIdentifier.message}</p>}
+                </div>
+                <div>
+                <Label htmlFor="loginPassword">Password</Label>
+                <Input id="loginPassword" {...register('loginPassword')} type="password" placeholder="Enter your password" />
+                {errors.loginPassword && <p className="text-sm text-destructive mt-1">{errors.loginPassword.message}</p>}
+                </div>
+            </CardContent>
+            </Card>
+            <Button type="button" onClick={handleLoginAttempt} disabled={isLoading} className="w-full">
+            Login & Proceed <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+        </TabsContent>
+        </Tabs>
+        <div className="mt-4 text-center">
+            <Button type="button" variant="link" onClick={handleSkipLogin} className="text-sm text-muted-foreground">
+                <SkipForward className="mr-2 h-4 w-4" /> Skip Login & Continue as Guest
+            </Button>
+        </div>
+    </>
   );
 
   const renderAddParticipant = () => (
@@ -560,14 +584,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               let IconComponent;
               switch(prog.category) {
                 case 'daycare': IconComponent = Baby; break;
-                case 'quran_kids': IconComponent = GraduationCap; break; 
-                case 'arabic_women': IconComponent = Briefcase; break; 
+                case 'quran_kids': IconComponent = GraduationCap; break;
+                case 'arabic_women': IconComponent = Briefcase; break;
                 default: IconComponent = BookOpenText;
               }
-              
+
               return (
-                <Card 
-                  key={prog.id} 
+                <Card
+                  key={prog.id}
                   className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col p-0"
                   onClick={() => setProgramForNewParticipant(prog)}
                 >
@@ -596,7 +620,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         </div>
       ) : (
         <>
-          <ParticipantDetailFields 
+          <ParticipantDetailFields
               programSpecificFields={programForNewParticipant.specificFields}
               onSave={handleSaveParticipant}
               onCancel={() => { setProgramForNewParticipant(null);}}
@@ -610,7 +634,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       )}
     </div>
   );
-  
+
   const selectedMethodDetails = HAFSA_PAYMENT_METHODS.find(m => m.value === watchedPaymentType);
 
   const renderDashboard = () => (
@@ -641,7 +665,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
         <TabsContent value="enrollments" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary">Manage Enrollments</h3>
-            
+
             {participantFields.map((field, index) => {
                 const enrolledParticipant = field as unknown as EnrolledParticipantData;
                 const program = HAFSA_PROGRAMS.find(p => p.id === enrolledParticipant.programId);
@@ -660,7 +684,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 </Card>
                 );
             })}
-            
+
             {(participantFields.length === 0) && (
                 <div className="text-center py-4 sm:py-6">
                     <p className="text-muted-foreground mb-3 sm:mb-4 text-sm">No participants added yet. Click below to add an enrollment.</p>
@@ -671,7 +695,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Participant / Enrollment
             </Button>
         </TabsContent>
-        
+
         <TabsContent value="programs" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary mb-2">Available Programs</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -679,8 +703,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 let IconComponent;
                 switch(prog.category) {
                     case 'daycare': IconComponent = Baby; break;
-                    case 'quran_kids': IconComponent = GraduationCap; break; 
-                    case 'arabic_women': IconComponent = Briefcase; break; 
+                    case 'quran_kids': IconComponent = GraduationCap; break;
+                    case 'arabic_women': IconComponent = Briefcase; break;
                     default: IconComponent = BookOpenText;
                 }
                 return (
@@ -742,12 +766,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     <CardHeader className="p-0 pb-2 sm:pb-3">
                         <div className="flex items-center gap-2 sm:gap-3">
                         {selectedMethodDetails.logoPlaceholder && (
-                            <Image 
-                                src={selectedMethodDetails.logoPlaceholder} 
-                                alt={`${selectedMethodDetails.label} logo`} 
-                                width={24} 
-                                height={24} 
-                                data-ai-hint={selectedMethodDetails.dataAiHint || 'bank logo'} 
+                            <Image
+                                src={selectedMethodDetails.logoPlaceholder}
+                                alt={`${selectedMethodDetails.label} logo`}
+                                width={24}
+                                height={24}
+                                data-ai-hint={selectedMethodDetails.dataAiHint || 'bank logo'}
                                 className="rounded h-6 w-6 object-contain"
                             />
                         )}
@@ -781,7 +805,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     </CardContent>
                  </Card>
             )}
-            
+
             {watchedPaymentType && (
               <div className="mt-4 space-y-3">
                 <Label className="text-sm sm:text-base">Proof Submission Method</Label>
@@ -821,16 +845,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 {watchedProofSubmissionType === 'screenshot' && (
                   <div>
                     <Label htmlFor="paymentProof.screenshot" className="text-sm">Upload Payment Screenshot</Label>
-                    <Input 
-                        id="paymentProof.screenshot" 
-                        type="file" 
-                        accept="image/*" 
+                    <Input
+                        id="paymentProof.screenshot"
+                        type="file"
+                        accept="image/*,application/pdf"
                         className="mt-1"
                         {...register('paymentProof.screenshot')}
                     />
                     {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{(errors.paymentProof.screenshot as any).message}</p>}
                     <p className="text-xs text-muted-foreground mt-1">
-                        Upload a clear screenshot of your payment receipt for AI verification.
+                        Upload a clear screenshot or PDF of your payment receipt for AI verification.
                     </p>
                   </div>
                 )}
@@ -859,7 +883,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             </div>
         </TabsContent>
 
-        {isMobile && currentView === 'dashboard' && ( 
+        {isMobile && currentView === 'dashboard' && (
              <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 w-auto">
                 <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20">
                     {dashboardTabsConfig.map(tab => (
@@ -867,9 +891,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             key={tab.value}
                             onClick={() => setActiveDashboardTab(tab.value)}
                             className={cn(
-                                "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-auto", 
-                                activeDashboardTab === tab.value 
-                                    ? "bg-primary-foreground text-primary scale-105 shadow-md" 
+                                "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-auto",
+                                activeDashboardTab === tab.value
+                                    ? "bg-primary-foreground text-primary scale-105 shadow-md"
                                     : "hover:bg-white/20"
                             )}
                             aria-label={tab.mobileLabel}
@@ -884,14 +908,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         )}
     </Tabs>
   );
-  
+
   const parentInfoForDialog = getValues('parentInfo');
 
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl border-none sm:border sm:rounded-lg">
-          
+
            <CardContent className={cn("min-h-[300px] sm:min-h-[350px] p-3 sm:p-6", isMobile && currentView === 'dashboard' && "pb-24")}>
             {currentView === 'accountCreation' && renderAccountCreation()}
             {currentView === 'dashboard' && renderDashboard()}
@@ -901,23 +925,23 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           {currentView === 'dashboard' && (
             <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-3 sm:pt-4 p-3 sm:p-6 gap-y-2 sm:gap-y-0">
                 {activeDashboardTab !== 'payment' ? (
-                    <Button 
-                        type="button" 
+                    <Button
+                        type="button"
                         onClick={() => {
                             if (participantFields.length === 0 ) {
                                 toast({title: "No Enrollments", description: "Please add at least one participant before proceeding to payment.", variant: "destructive"});
                                 return;
                             }
                             setActiveDashboardTab('payment')
-                        }} 
-                        disabled={isLoading || (participantFields.length === 0)} 
+                        }}
+                        disabled={isLoading || (participantFields.length === 0)}
                         className="w-full sm:ml-auto sm:w-auto"
                     >
                         Proceed to Payment <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 ) : (
-                    <Button type="submit" 
-                        disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType')} 
+                    <Button type="submit"
+                        disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType')}
                         className="w-full sm:ml-auto sm:w-auto"
                     >
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
@@ -934,6 +958,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>Account Information</DialogTitle>
             <DialogDescription>
               Details of the primary account holder. {authMode === 'login' && parentInfoForDialog && parentInfoForDialog.parentFullName === 'Hafsa Admin (Stubbed)' && "(Logged In - Stubbed)"}
+              {parentInfoForDialog && parentInfoForDialog.parentFullName === 'Guest User' && "(Proceeding as Guest)"}
             </DialogDescription>
           </DialogHeader>
           {parentInfoForDialog && (
@@ -958,4 +983,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+    
+
     
