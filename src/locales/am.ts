@@ -1,25 +1,20 @@
 
 // src/locales/am.ts
-// Amharic translations - Replace with actual Amharic text
 import type { LocaleStrings } from './en';
 
 export const am: LocaleStrings = {
-  // AppHeader
   headerTitle: "ሀፍሳ መድረሳ",
   changeLanguageLabel: "ቋንቋ ቀይር",
   accountSettingsLabel: "የመለያ ቅንብሮች",
+  adminPanelLabel: "የአስተዳዳሪ ፓነል",
   englishLabel: "እንግሊዝኛ",
   amharicLabel: "አማርኛ",
   arabicLabel: "አረብኛ",
-
-  // HomePage
   welcomeMessage: "እንኳን ወደ ሀፍሳ መድረሳ ፕሮግራሞች በደህና መጡ",
   subMessage: "በመጀመሪያ ዋና መለያ በመፍጠር ይጀምሩ። ከዚያ ተሳታፊዎችን ማከል ወይም በፕሮግራሞቻችን መመዝገብ ይችላሉ።",
   footerMessage1Prefix: "© ",
   footerMessage1Suffix: " ሀፍሳ መድረሳ። ሁሉም መብቶች የተጠበቁ ናቸው።",
   footerMessage2: "ጥራት ያለው ኢስላማዊ ትምህርት",
-
-  // EnrollmentForm - ParticipantDetailFields
   pdfAddDetailsFor: "ለ ... ዝርዝሮችን ያክሉ ",
   pdfParticipantInfo: "የተሳታፊ መረጃ",
   pdfTraineeInfo: "የሰልጣኝ መረጃ",
@@ -55,8 +50,6 @@ export const am: LocaleStrings = {
   "programs.specificFields.schoolGrade": "የትምህርት ደረጃ",
   "programs.specificFields.quranLevel": "የቁርአን ደረጃ",
   "programs.specificFields.arabicWomen.specialAttention": "የተለዩ የፍላጎት ወይም የመማር ፍላጎቶች",
-
-  // EnrollmentForm - Main
   efWelcomeBackToastTitle: "እንኳን ደህና መጡ!",
   efGuestSessionLoadedToastDesc: "የእርስዎ ቀዳሚ የእንግዳ ክፍለ ጊዜ ዝርዝሮች ተጭነዋል። በቋሚነት ለማስቀመጥ ይግቡ።",
   efAuthErrorToastTitle: "የማረጋገጫ ስህተት",
@@ -190,8 +183,6 @@ export const am: LocaleStrings = {
   efDialogPasswordLabel: "የይለፍ ቃል፦",
   efDialogLogoutButton: "ውጣ",
   efDialogCloseButton: "ዝጋ",
-
-  // Receipt
   rRegistrationConfirmedTitle: "ምዝገባ ተረጋግጧል!",
   rThankYouDesc: "ለሀፍሳ መድረሳ ስለተመዘገቡ እናመሰግናለን።",
   rRegistrationSummaryTitle: "የምዝገባ ማጠቃለያ",
@@ -232,7 +223,45 @@ export const am: LocaleStrings = {
   rBackToDashboardButton: "ወደ ዳሽቦርድ ተመለስ",
   rPrintReceiptButton: "ደረሰኝ ያትሙ",
 
-  // Program translations (example keys - you'll need one for each program's label, desc, terms)
+  // Admin Page
+  apAdminPanelTitle: "የአስተዳዳሪ ፓነል",
+  apAdminPanelSubtitle: "ምዝገባዎችን፣ ፕሮግራሞችን፣ እና ቅንብሮችን ያስተዳድሩ።",
+  apStudentsTab: "የተመዘገቡ ተማሪዎች",
+  apProgramsTab: "ፕሮግራሞችን ያስተዳድሩ",
+  apBankDetailsTab: "የባንክ ዝርዝሮች እና ቅንብሮች",
+  apStudentsListTitle: "ሁሉም የተመዘገቡ ተማሪዎች",
+  apStudentsListDesc: "ሁሉንም የተማሪ ምዝገባዎች ይመልከቱ እና ያስተዳድሩ።",
+  apDbNotInitError: "ዳታቤዝ አልተጀመረም። ምዝገባዎችን መጫን አይቻልም።",
+  apFetchRegError: "ምዝገባዎችን መጫን አልተሳካም፦",
+  apNoRegistrationsFound: "ምንም ምዝገባዎች አልተገኙም።",
+  apParentNameHeader: "የወላጅ ስም",
+  apParentEmailHeader: "የወላጅ ኢሜይል",
+  apParentPhoneHeader: "የወላጅ ስልክ",
+  apParticipantsCountHeader: "ተሳታፊዎች",
+  apRegDateHeader: "የምዝገባ ቀን",
+  apPaymentStatusHeader: "የክፍያ ሁኔታ",
+  apActionsHeader: "ድርጊቶች",
+  apInvalidDateText: "የተሳሳተ ቀን",
+  apVerifiedBadge: "የተረጋገጠ",
+  apNotVerifiedBadge: "ያልተረጋገጠ",
+  apPendingReviewBadge: "ግምገማ በመጠባበቅ ላይ",
+  apViewDetailsButton: "ዝርዝሮችን ይመልከቱ",
+  apViewDetailsForPrefix: "ለ ... ዝርዝሮችን ይመልከቱ ",
+  apViewDetailsSuffix: " (ባህሪ በቅርቡ ይመጣል)።",
+  apManageProgramsTitle: "ፕሮግራሞችን ያስተዳድሩ",
+  apManageProgramsDesc: "የትምህርት ፕሮግራሞችን ይፍጠሩ፣ ያርትዑ፣ ወይም ይሰርዙ። (ይህ ባህሪ በመገንባት ላይ ነው)።",
+  apImportantNoteLabel: "ጠቃሚ ማስታወሻ፦",
+  apProgramsStaticNote: "በአሁኑ ሰዓት ፕሮግራሞች በኮዱ ውስጥ በቋሚነት ተገልጸዋል። እዚህ እንዲስተካከሉ ለማድረግ ወደ Firestore ዳታቤዝ መዛወር አለባቸው።",
+  apFeatureComingSoon: "ባህሪ በቅርቡ ይመጣል።",
+  apAddProgramButtonDisabled: "አዲስ ፕሮግራም አክል",
+  apBankDetailsSettingsTitle: "የባንክ ዝርዝሮች እና ቅንብሮች",
+  apBankDetailsSettingsDesc: "ለክፍያዎች የባንክ መለያ ዝርዝሮችን እና ሌሎች የመተግበሪያ ቅንብሮችን ያዘምኑ። (ይህ ባህሪ በመገንባት ላይ ነው)።",
+  apBankDetailsStaticNote: "በአሁኑ ሰዓት የባንክ ዝርዝሮች በኮዱ ውስጥ በቋሚነት ተገልጸዋል። እዚህ እንዲስተካከሉ ለማድረግ ወደ Firestore ዳታቤዝ መዛወር አለባቸው።",
+  apUpdateBankDetailsButtonDisabled: "የባንክ ዝርዝሮችን አዘምን",
+  apAccessDeniedTitle: "መዳረሻ ተከልክሏል",
+  apAccessDeniedMessage: "ይህን ገጽ ለማየት ፈቃድ የለዎትም። ይህ ስህተት ነው ብለው ካመኑ እባክዎ አስተዳዳሪን ያነጋግሩ።",
+  apGoHomeButton: "ወደ መነሻ ገጽ ይመለሱ",
+
   "programs.daycare_morning.label": "የህጻናት ማቆያ (የጠዋት ክፍለ ጊዜ)",
   "programs.daycare_morning.description": "ለታዳጊ ህጻናት ከኢስላማዊ ውህደት ጋር ደህንነቱ የተጠበቀ እና አሳዳጊ አካባቢ። በመጀመሪያ ደረጃ ትምህርት እና ጨዋታ ላይ ያተኩራል።",
   "programs.daycare_morning.termsAndConditions": "ሙሉ ክፍያ አስቀድሞ ያስፈልጋል። ለቀሩ ቀናት ገንዘብ አይመለስም። ወላጆች አስፈላጊ ከሆነ ዳይፐር እና ፎርሙላ ማቅረብ አለባቸው። መደበኛ የህጻናት ማቆያ ፖሊሲዎች ተፈጻሚ ይሆናሉ።",
@@ -252,5 +281,3 @@ export const am: LocaleStrings = {
   "programs.islamic_studies_adults.description": "ጥልቅ ኢስላማዊ እውቀት ለሚሹ አዋቂዎች አቂዳ፣ ፊቅህ፣ ሲራ እና ሀዲስን የሚሸፍን አጠቃላይ ኮርስ።",
   "programs.islamic_studies_adults.termsAndConditions": "ንቁ ተሳትፎ እና ለተለያዩ የሊቃውንት አስተያየቶች መከበር ይጠበቃል። አንዳንድ የንባብ ማቴሪያሎች ይቀርባሉ፣ ሌሎች መግዛት ሊያስፈልጋቸው ይችላል።",
 };
-
-    

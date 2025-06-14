@@ -1,25 +1,20 @@
 
 // src/locales/ar.ts
-// Arabic translations - Replace with actual Arabic text
 import type { LocaleStrings } from './en';
 
 export const ar: LocaleStrings = {
-  // AppHeader
   headerTitle: "مدرسة حفصة",
   changeLanguageLabel: "تغيير اللغة",
   accountSettingsLabel: "إعدادات الحساب",
+  adminPanelLabel: "لوحة الإدارة",
   englishLabel: "الإنجليزية",
   amharicLabel: "الأمهرية",
   arabicLabel: "العربية",
-
-  // HomePage
   welcomeMessage: "مرحباً بكم في برامج مدرسة حفصة",
   subMessage: "ابدأ بإنشاء حساب أساسي. ثم يمكنك إضافة مشاركين أو تسجيل نفسك في برامجنا.",
   footerMessage1Prefix: "© ",
   footerMessage1Suffix: " مدرسة حفصة. جميع الحقوق محفوظة.",
   footerMessage2: "تعليم إسلامي نوعي",
-
-  // EnrollmentForm - ParticipantDetailFields
   pdfAddDetailsFor: "إضافة تفاصيل لـ ",
   pdfParticipantInfo: "معلومات المشارك",
   pdfTraineeInfo: "معلومات المتدربة",
@@ -55,8 +50,6 @@ export const ar: LocaleStrings = {
   "programs.specificFields.schoolGrade": "الصف الدراسي",
   "programs.specificFields.quranLevel": "مستوى القرآن",
   "programs.specificFields.arabicWomen.specialAttention": "مجالات الاهتمام أو الاحتياجات التعليمية المحددة",
-
-  // EnrollmentForm - Main
   efWelcomeBackToastTitle: "مرحبا بعودتك!",
   efGuestSessionLoadedToastDesc: "تم تحميل تفاصيل جلسة الضيف السابقة. قم بتسجيل الدخول للحفظ بشكل دائم.",
   efAuthErrorToastTitle: "خطأ في المصادقة",
@@ -190,8 +183,6 @@ export const ar: LocaleStrings = {
   efDialogPasswordLabel: "كلمة المرور:",
   efDialogLogoutButton: "تسجيل الخروج",
   efDialogCloseButton: "إغلاق",
-
-  // Receipt
   rRegistrationConfirmedTitle: "تم تأكيد التسجيل!",
   rThankYouDesc: "شكراً لتسجيلك في مدرسة حفصة.",
   rRegistrationSummaryTitle: "ملخص التسجيل",
@@ -232,7 +223,45 @@ export const ar: LocaleStrings = {
   rBackToDashboardButton: "العودة إلى لوحة التحكم",
   rPrintReceiptButton: "طباعة الإيصال",
 
-  // Program translations
+  // Admin Page
+  apAdminPanelTitle: "لوحة الإدارة",
+  apAdminPanelSubtitle: "إدارة التسجيلات والبرامج والإعدادات.",
+  apStudentsTab: "الطلاب المسجلون",
+  apProgramsTab: "إدارة البرامج",
+  apBankDetailsTab: "تفاصيل البنك والإعدادات",
+  apStudentsListTitle: "جميع الطلاب المسجلين",
+  apStudentsListDesc: "عرض وإدارة جميع تسجيلات الطلاب.",
+  apDbNotInitError: "لم يتم تهيئة قاعدة البيانات. لا يمكن جلب التسجيلات.",
+  apFetchRegError: "فشل جلب التسجيلات:",
+  apNoRegistrationsFound: "لم يتم العثور على تسجيلات.",
+  apParentNameHeader: "اسم ولي الأمر",
+  apParentEmailHeader: "البريد الإلكتروني لولي الأمر",
+  apParentPhoneHeader: "هاتف ولي الأمر",
+  apParticipantsCountHeader: "المشاركون",
+  apRegDateHeader: "تاريخ التسجيل",
+  apPaymentStatusHeader: "حالة الدفع",
+  apActionsHeader: "الإجراءات",
+  apInvalidDateText: "تاريخ غير صالح",
+  apVerifiedBadge: "تم التحقق",
+  apNotVerifiedBadge: "لم يتم التحقق",
+  apPendingReviewBadge: "في انتظار المراجعة",
+  apViewDetailsButton: "عرض التفاصيل",
+  apViewDetailsForPrefix: "عرض تفاصيل لـ ",
+  apViewDetailsSuffix: " (الميزة قادمة قريبًا).",
+  apManageProgramsTitle: "إدارة البرامج",
+  apManageProgramsDesc: "إنشاء أو تعديل أو حذف البرامج الأكاديمية. (هذه الميزة قيد التطوير).",
+  apImportantNoteLabel: "ملاحظة هامة:",
+  apProgramsStaticNote: "حاليًا، يتم تعريف البرامج بشكل ثابت في الكود. لجعلها قابلة للتعديل هنا، يجب نقلها إلى قاعدة بيانات Firestore.",
+  apFeatureComingSoon: "الميزة قادمة قريبًا.",
+  apAddProgramButtonDisabled: "إضافة برنامج جديد",
+  apBankDetailsSettingsTitle: "تفاصيل البنك والإعدادات",
+  apBankDetailsSettingsDesc: "تحديث تفاصيل الحساب البنكي للمدفوعات وإعدادات التطبيق الأخرى. (هذه الميزة قيد التطوير).",
+  apBankDetailsStaticNote: "حاليًا، يتم تعريف تفاصيل البنك بشكل ثابت في الكود. لجعلها قابلة للتعديل هنا، يجب نقلها إلى قاعدة بيانات Firestore.",
+  apUpdateBankDetailsButtonDisabled: "تحديث تفاصيل البنك",
+  apAccessDeniedTitle: "تم رفض الوصول",
+  apAccessDeniedMessage: "ليس لديك إذن لعرض هذه الصفحة. يرجى الاتصال بمسؤول إذا كنت تعتقد أن هذا خطأ.",
+  apGoHomeButton: "الذهاب إلى الصفحة الرئيسية",
+
   "programs.daycare_morning.label": "رعاية نهارية (فترة صباحية)",
   "programs.daycare_morning.description": "بيئة آمنة ورعاية للأطفال الصغار مع دمج إسلامي. التركيز على التعلم المبكر واللعب.",
   "programs.daycare_morning.termsAndConditions": "الدفع الكامل مطلوب مقدمًا. لا يوجد استرداد للأيام الفائتة. يجب على الآباء توفير الحفاضات والحليب الصناعي إذا لزم الأمر. تطبق سياسات الرعاية النهارية القياسية.",
@@ -252,5 +281,3 @@ export const ar: LocaleStrings = {
   "programs.islamic_studies_adults.description": "دورة شاملة تغطي العقيدة والفقه والسيرة والحديث للبالغين الذين يسعون إلى معرفة إسلامية أعمق.",
   "programs.islamic_studies_adults.termsAndConditions": "المشاركة الفعالة واحترام الآراء العلمية المتنوعة متوقعة. سيتم توفير بعض مواد القراءة، وقد تحتاج مواد أخرى إلى الشراء.",
 };
-
-    
