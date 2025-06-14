@@ -53,7 +53,7 @@ export const PaymentProofSchema = z.object({
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
     required_error: "Proof submission method is required.",
   }),
-  screenshot: z.any().optional(), // Changed from z.instanceof(FileList) to z.any() for SSR safety
+  screenshot: z.any().optional(), 
   screenshotDataUri: z.string().optional(),
   pdfLink: z.string().url("Invalid URL for PDF link.").optional().or(z.literal('')),
   transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional().or(z.literal('')),
@@ -73,7 +73,6 @@ export const EnrollmentFormSchema = z.object({
   loginPassword: z.string().optional(), 
 })
 .superRefine((data, ctx) => {
-    // Specific validations for paymentProof fields based on proofSubmissionType
     if (data.paymentProof) {
         const { proofSubmissionType, transactionId, screenshot, pdfLink, screenshotDataUri } = data.paymentProof;
         if (proofSubmissionType === 'transactionId') {
@@ -85,8 +84,8 @@ export const EnrollmentFormSchema = z.object({
             });
             }
         } else if (proofSubmissionType === 'screenshot') {
-            if (typeof window !== 'undefined') { // Client-side specific checks for FileList/File
-                const ssAsFileList = screenshot as FileList | undefined | null; // Cast for client-side context
+            if (typeof window !== 'undefined') { 
+                const ssAsFileList = screenshot as FileList | undefined | null; 
                 if (!ssAsFileList || ssAsFileList.length === 0) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
@@ -99,7 +98,7 @@ export const EnrollmentFormSchema = z.object({
                         path: ['paymentProof', 'screenshot'],
                         message: 'Only one screenshot can be uploaded.',
                     });
-                } else if (!(ssAsFileList[0] instanceof File)) { // File is generally available in modern Node, but FileList isn't.
+                } else if (!(ssAsFileList[0] instanceof File)) { 
                      ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'screenshot'],
@@ -107,13 +106,7 @@ export const EnrollmentFormSchema = z.object({
                     });
                 }
             } else {
-                 // Server-side context: 'screenshot' won't be a FileList.
-                 // Check if screenshotDataUri is missing, as that's what server would expect if client processed it.
-                 // However, this schema is mainly for client form validation before screenshotDataUri is generated.
-                 // A simple check for presence might be 'if (!screenshot && !screenshotDataUri)'
-                 // but 'screenshot' on server isn't meaningful as FileList.
-                 // Rely on client validation for file object; server action will check screenshotDataUri.
-                 if (!screenshotDataUri && !screenshot) { // if screenshot (placeholder for file list) and data URI are both missing
+                 if (!screenshotDataUri && !screenshot) { 
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'screenshot'],
@@ -169,7 +162,6 @@ export const EnrollmentFormSchema = z.object({
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
-// Defines the structure for the actual registration record
 export type RegistrationData = {
   parentInfo: ParentInfoData; 
   participants: EnrolledParticipantData[]; 
@@ -180,4 +172,24 @@ export type RegistrationData = {
   paymentVerified: boolean;
   paymentVerificationDetails?: any; 
   registrationDate: Date;
+};
+
+// Program related types moved from constants.ts
+export type ProgramField = 
+  | { type: 'text'; name: 'specialAttention'; label: 'Special Attention (e.g., allergies, specific needs)' }
+  | { type: 'select'; name: 'schoolGrade'; label: 'School Grade'; options: string[] }
+  | { type: 'select'; name: 'quranLevel'; label: 'Quran Level'; options: string[] };
+
+export type HafsaProgram = {
+  id: string; // Firestore document ID will be used here
+  label: string;
+  description: string;
+  price: number;
+  category: 'daycare' | 'quran_kids' | 'arabic_women';
+  ageRange?: string;
+  duration?: string;
+  schedule?: string;
+  isChildProgram: boolean; 
+  specificFields?: ProgramField[]; 
+  termsAndConditions: string; 
 };

@@ -1,95 +1,6 @@
 
-export type ProgramField = 
-  | { type: 'text'; name: 'specialAttention'; label: 'Special Attention (e.g., allergies, specific needs)' }
-  | { type: 'select'; name: 'schoolGrade'; label: 'School Grade'; options: string[] }
-  | { type: 'select'; name: 'quranLevel'; label: 'Quran Level'; options: string[] };
-
-export type HafsaProgram = {
-  id: string;
-  label: string;
-  description: string;
-  price: number;
-  category: 'daycare' | 'quran_kids' | 'arabic_women';
-  ageRange?: string;
-  duration?: string;
-  schedule?: string;
-  isChildProgram: boolean; 
-  specificFields?: ProgramField[]; 
-  termsAndConditions: string; 
-};
-
 export const SCHOOL_GRADES = ["KG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 export const QURAN_LEVELS = ["Beginner (Qaida)", "Junior (Nazr)", "Intermediate (Nazr)", "Advanced (Hifz)"];
-
-export const HAFSA_PROGRAMS: HafsaProgram[] = [
-  { 
-    id: 'daycare', 
-    label: 'Daycare Service', 
-    description: 'For babies starting from 6 months.',
-    price: 100, 
-    category: 'daycare',
-    ageRange: '6 months+',
-    isChildProgram: true,
-    specificFields: [
-      { type: 'text', name: 'specialAttention', label: 'Special Attention (e.g., allergies, headaches, specific needs)' }
-    ],
-    termsAndConditions: "Specific terms for Daycare: All items must be labeled. Parents must provide diapers and formula. Pick-up is promptly by 5 PM."
-  },
-  { 
-    id: 'quran_bootcamp', 
-    label: 'Full-Day Summer Quran Bootcamps', 
-    description: 'For kids aged 4-15, 5 days/week (2-month duration).',
-    price: 200, 
-    category: 'quran_kids',
-    ageRange: '4-15 years',
-    duration: '2 months',
-    schedule: '5 days/week',
-    isChildProgram: true,
-    specificFields: [
-      { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES },
-      { type: 'select', name: 'quranLevel', label: 'Quran Level', options: QURAN_LEVELS }
-    ],
-    termsAndConditions: "Specific terms for Quran Bootcamp: Full attendance is expected. Materials fee of Br50 is separate. Lunch is not provided."
-  },
-  { 
-    id: 'after_asr_quran', 
-    label: 'After Asr Quran Programs', 
-    description: 'For kids aged 5-18, daily (After Asr to Maghrib).',
-    price: 150, 
-    category: 'quran_kids',
-    ageRange: '5-18 years',
-    schedule: 'Daily, After Asr to Maghrib',
-    isChildProgram: true,
-    specificFields: [
-      { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES }, 
-      { type: 'select', name: 'quranLevel', label: 'Quran Level', options: QURAN_LEVELS }
-    ],
-    termsAndConditions: "Specific terms for After Asr Quran: Students must bring their own Quran. Respectful behavior is mandatory."
-  },
-  { 
-    id: 'arabic_mothers_women', 
-    label: 'Summer Arabic Training (Mothers & Women)', 
-    description: '5 days/week (After Asr to Maghrib, 2-month duration).',
-    price: 250, 
-    category: 'arabic_women',
-    schedule: '5 days/week, After Asr to Maghrib',
-    duration: '2 months',
-    isChildProgram: false, 
-    termsAndConditions: "Specific terms for Arabic Training (Mothers & Women): This program is for women only. Childcare is not provided during class hours."
-  },
-  { 
-    id: 'arabic_adult_women', 
-    label: 'Summer Arabic Training (Adult Women)', 
-    description: 'Age 15+, 5 days/week (Dhuhr to Asr, 2-month duration).',
-    price: 220, 
-    category: 'arabic_women',
-    ageRange: '15+',
-    schedule: '5 days/week, Dhuhr to Asr',
-    duration: '2 months',
-    isChildProgram: false, 
-    termsAndConditions: "Specific terms for Arabic Training (Adult Women, 15+): Punctuality is important. Course books must be purchased separately."
-  },
-];
 
 export type HafsaPaymentMethod = {
   value: string;
@@ -204,4 +115,3 @@ export const PROGRAMS_BY_LEVEL: { [level: string]: Program[] } = {
     },
   ],
 };
-

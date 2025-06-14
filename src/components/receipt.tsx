@@ -7,16 +7,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { RegistrationData } from '@/types';
+import type { RegistrationData, HafsaProgram } from '@/types';
 import { format } from 'date-fns';
-import { HAFSA_PAYMENT_METHODS, HAFSA_PROGRAMS } from '@/lib/constants';
+import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 
 interface ReceiptProps {
   data: RegistrationData;
   onBack: () => void;
+  allPrograms: HafsaProgram[]; // Changed from HAFSA_PROGRAMS to allPrograms
 }
 
-const Receipt: React.FC<ReceiptProps> = ({ data, onBack }) => {
+const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
   const handlePrint = () => {
     if (typeof window !== 'undefined') {
       window.print();
@@ -77,7 +78,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack }) => {
                     <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Enrolled Participants</h3>
                 </div>
                 {enrolledParticipants.map((enrolledItem, index) => {
-                    const program = HAFSA_PROGRAMS.find(p => p.id === enrolledItem.programId);
+                    const program = allPrograms.find(p => p.id === enrolledItem.programId); // Use allPrograms
                     const participant = enrolledItem.participantInfo;
                     return (
                         <div key={index} className="mb-3 sm:mb-4 pl-7 border-l-2 border-muted ml-2 pl-4 py-2 relative">
@@ -165,4 +166,3 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack }) => {
 };
 
 export default Receipt;
-

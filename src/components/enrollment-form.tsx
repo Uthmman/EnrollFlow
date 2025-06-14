@@ -26,13 +26,15 @@ import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Skeleton } from '@/components/ui/skeleton';
 
 
-import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
-import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData } from '@/types';
+import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
+import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData, HafsaProgram, ProgramField } from '@/types';
 import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
+import { fetchProgramsFromFirestore } from '@/lib/programService';
 
 
 const defaultParentValues: ParentInfoData = {
@@ -314,8 +316,33 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  
+  const [availablePrograms, setAvailablePrograms] = useState<HafsaProgram[]>([]);
+  const [programsLoading, setProgramsLoading] = useState<boolean>(true);
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
   const [showPasswordInDialog, setShowPasswordInDialog] = useState(false);
+
+  useEffect(() => {
+    const loadPrograms = async () => {
+      setProgramsLoading(true);
+      try {
+        const programs = await fetchProgramsFromFirestore();
+        setAvailablePrograms(programs);
+      } catch (error) {
+        console.error("Failed to load programs:", error);
+        toast({
+          title: "Error Loading Programs",
+          description: "Could not fetch program list. Please try refreshing the page.",
+          variant: "destructive",
+        });
+        setAvailablePrograms([]); // Set to empty if error
+      } finally {
+        setProgramsLoading(false);
+      }
+    };
+    loadPrograms();
+  }, [toast]);
+
 
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
@@ -349,16 +376,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   useEffect(() => {
     let total = 0;
-    if (watchedParticipants) {
+    if (watchedParticipants && availablePrograms.length > 0) {
       watchedParticipants.forEach(enrolledParticipant => {
-        const program = HAFSA_PROGRAMS.find(p => p.id === enrolledParticipant.programId);
+        const program = availablePrograms.find(p => p.id === enrolledParticipant.programId);
         if (program) {
           total += program.price;
         }
       });
     }
     setCalculatedPrice(total);
-  }, [watchedParticipants]);
+  }, [watchedParticipants, availablePrograms]);
 
   const handleAccountCreation = async () => {
     const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentPhone1', 'password', 'confirmPassword'];
@@ -378,31 +405,35 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const isValid = await trigger(['loginIdentifier', 'loginPassword']);
     if (isValid) {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       const { loginIdentifier, loginPassword } = getValues();
       const registeredParentInfo = getValues('parentInfo');
 
       let loginSuccess = false;
 
+      // Scenario 1: Login with just-registered details
       if (registeredParentInfo && registeredParentInfo.password && registeredParentInfo.parentPhone1 === loginIdentifier && registeredParentInfo.password === loginPassword) {
         loginSuccess = true;
       }
+      // Scenario 2: Login with stubbed admin credentials
       else if (loginIdentifier === "0911223344" && loginPassword === "password") {
         loginSuccess = true;
+         // If admin logs in, populate parentInfo with admin details (or fetch if real admin accounts)
          setValue('parentInfo', {
             parentFullName: 'Hafsa Admin (Stubbed)',
             parentPhone1: loginIdentifier,
-            password: loginPassword,
+            password: loginPassword, // Storing for consistency, though real auth would handle this
             confirmPassword: loginPassword,
         });
       }
+      // TODO: Add actual Firebase Auth login here in a real scenario
 
 
       if (loginSuccess) {
         toast({ title: "Login Successful!", description: "Welcome back!" });
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
-        onStageChange('accountCreated');
+        onStageChange('accountCreated'); // Ensure header updates
       } else {
         toast({ title: "Login Failed", description: "Invalid credentials. (Hint: 0911223344 / password, or use registered details if you just created an account).", variant: "destructive" });
       }
@@ -413,19 +444,29 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const handleSkipLogin = () => {
+    // Set minimal valid guest data
     setValue('parentInfo.parentFullName', 'Guest User');
-    setValue('parentInfo.parentPhone1', '0000000000'); 
-    setValue('parentInfo.password', 'guestpassword'); 
-    setValue('parentInfo.confirmPassword', 'guestpassword');
-    trigger('parentInfo');
+    setValue('parentInfo.parentPhone1', '0000000000'); // Placeholder, ensure it passes regex if strict
+    setValue('parentInfo.password', 'guestpassword'); // Placeholder
+    setValue('parentInfo.confirmPassword', 'guestpassword'); // Placeholder
+    trigger('parentInfo'); // Validate to ensure it's acceptable
 
     toast({ title: "Proceeding as Guest", description: "You can enroll participants. Account features will be limited."});
     setActiveDashboardTab('enrollments');
     setCurrentView('dashboard');
-    onStageChange('accountCreated');
+    onStageChange('accountCreated'); // Ensure header updates
   };
 
+
   const handleAddParticipantClick = () => {
+    if (programsLoading) {
+        toast({ title: "Programs Loading", description: "Please wait until programs are loaded."});
+        return;
+    }
+    if (availablePrograms.length === 0) {
+        toast({ title: "No Programs Available", description: "There are no programs to enroll in at the moment.", variant: "destructive"});
+        return;
+    }
     setProgramForNewParticipant(null);
     setCurrentView('addParticipant');
   };
@@ -576,15 +617,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const getUniqueSelectedProgramsTerms = () => {
-    if (!watchedParticipants || watchedParticipants.length === 0) {
+    if (!watchedParticipants || watchedParticipants.length === 0 || availablePrograms.length === 0) {
         return [];
     }
     const uniqueProgramIds = new Set<string>();
     const terms: { programId: string; label: string; terms: string }[] = [];
     watchedParticipants.forEach(enrolled => {
         if (!uniqueProgramIds.has(enrolled.programId)) {
-            const program = HAFSA_PROGRAMS.find(p => p.id === enrolled.programId);
-            if (program) {
+            const program = availablePrograms.find(p => p.id === enrolled.programId);
+            if (program && program.termsAndConditions) {
                 terms.push({ programId: program.id, label: program.label, terms: program.termsAndConditions });
                 uniqueProgramIds.add(program.id);
             }
@@ -597,7 +638,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 
   if (currentView === 'confirmation' && registrationData) {
-    return <Receipt data={registrationData} onBack={handleBackFromReceipt} />;
+    return <Receipt data={registrationData} onBack={handleBackFromReceipt} allPrograms={availablePrograms} />;
   }
 
   const renderAccountCreation = () => (
@@ -653,41 +694,65 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         <div>
           <h3 className="text-xl sm:text-2xl font-semibold mb-1 text-primary">Select a Program</h3>
           <p className="text-muted-foreground mb-4 text-sm">Choose a program to enroll a participant.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            {HAFSA_PROGRAMS.map(prog => {
-              let IconComponent;
-              switch(prog.category) {
-                case 'daycare': IconComponent = Baby; break;
-                case 'quran_kids': IconComponent = GraduationCap; break;
-                case 'arabic_women': IconComponent = Briefcase; break;
-                default: IconComponent = BookOpenText;
-              }
+          {programsLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                {[...Array(4)].map((_, i) => (
+                    <Card key={i} className="p-0">
+                        <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
+                            <Skeleton className="h-6 w-3/4 mb-1" />
+                            <Skeleton className="h-4 w-full" />
+                        </CardHeader>
+                        <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2 space-y-1">
+                            <Skeleton className="h-3 w-1/2" />
+                            <Skeleton className="h-3 w-2/3" />
+                        </CardContent>
+                        <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
+                            <Skeleton className="h-5 w-1/4" />
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+          )}
+          {!programsLoading && availablePrograms.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              {availablePrograms.map(prog => {
+                let IconComponent;
+                switch(prog.category) {
+                  case 'daycare': IconComponent = Baby; break;
+                  case 'quran_kids': IconComponent = GraduationCap; break;
+                  case 'arabic_women': IconComponent = Briefcase; break;
+                  default: IconComponent = BookOpenText;
+                }
 
-              return (
-                <Card
-                  key={prog.id}
-                  className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col p-0"
-                  onClick={() => setProgramForNewParticipant(prog)}
-                >
-                  <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
-                    <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
-                        <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                        <CardTitle className="text-base sm:text-lg text-primary">{prog.label}</CardTitle>
-                    </div>
-                    <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
-                    {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
-                    {prog.duration && <p><strong>Duration:</strong> {prog.duration}</p>}
-                    {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
-                  </CardContent>
-                  <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
-                    <p className="text-sm sm:text-base font-semibold text-accent">Br{prog.price.toFixed(2)}</p>
-                  </CardFooter>
-                </Card>
-              );
-            })}
-          </div>
+                return (
+                  <Card
+                    key={prog.id}
+                    className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col p-0"
+                    onClick={() => setProgramForNewParticipant(prog)}
+                  >
+                    <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
+                      <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
+                          <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                          <CardTitle className="text-base sm:text-lg text-primary">{prog.label}</CardTitle>
+                      </div>
+                      <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
+                      {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
+                      {prog.duration && <p><strong>Duration:</strong> {prog.duration}</p>}
+                      {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
+                    </CardContent>
+                    <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
+                      <p className="text-sm sm:text-base font-semibold text-accent">Br{prog.price.toFixed(2)}</p>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+           )}
+           {!programsLoading && availablePrograms.length === 0 && (
+             <p className="text-muted-foreground text-center py-4">No programs are currently available for enrollment.</p>
+           )}
            <Button type="button" variant="outline" onClick={() => { setCurrentView('dashboard'); setActiveDashboardTab('enrollments');}} className="w-full mt-4 sm:mt-6">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
           </Button>
@@ -742,7 +807,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
             {participantFields.map((field, index) => {
                 const enrolledParticipant = field as unknown as EnrolledParticipantData;
-                const program = HAFSA_PROGRAMS.find(p => p.id === enrolledParticipant.programId);
+                const program = availablePrograms.find(p => p.id === enrolledParticipant.programId);
                 return (
                 <Card key={field.id} className="p-3 mb-2 bg-background/80">
                     <div className="flex justify-between items-start">
@@ -765,43 +830,67 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 </div>
             )}
 
-            <Button type="button" variant="default" onClick={handleAddParticipantClick} className="w-full sm:w-auto">
+            <Button type="button" variant="default" onClick={handleAddParticipantClick} className="w-full sm:w-auto" disabled={programsLoading || availablePrograms.length === 0}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Participant / Enrollment
             </Button>
         </TabsContent>
 
         <TabsContent value="programs" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary mb-2">Available Programs</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                {HAFSA_PROGRAMS.map(prog => {
-                let IconComponent;
-                switch(prog.category) {
-                    case 'daycare': IconComponent = Baby; break;
-                    case 'quran_kids': IconComponent = GraduationCap; break;
-                    case 'arabic_women': IconComponent = Briefcase; break;
-                    default: IconComponent = BookOpenText;
-                }
-                return (
-                    <Card key={prog.id} className="flex flex-col p-0">
-                    <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
-                        <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
-                            <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                            <CardTitle className="text-base sm:text-lg text-primary">{prog.label}</CardTitle>
-                        </div>
-                        <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
-                        {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
-                        {prog.duration && <p><strong>Duration:</strong> {prog.duration}</p>}
-                        {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
-                    </CardContent>
-                    <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
-                        <p className="text-sm sm:text-base font-semibold text-accent">Br{prog.price.toFixed(2)}</p>
-                    </CardFooter>
-                    </Card>
-                );
-                })}
-            </div>
+             {programsLoading && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i} className="p-0">
+                            <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
+                                <Skeleton className="h-6 w-3/4 mb-1" />
+                                <Skeleton className="h-4 w-full" />
+                            </CardHeader>
+                            <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2 space-y-1">
+                                <Skeleton className="h-3 w-1/2" />
+                                <Skeleton className="h-3 w-2/3" />
+                            </CardContent>
+                            <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
+                                <Skeleton className="h-5 w-1/4" />
+                            </CardFooter>
+                        </Card>
+                    ))}
+                </div>
+            )}
+            {!programsLoading && availablePrograms.length > 0 && (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    {availablePrograms.map(prog => {
+                    let IconComponent;
+                    switch(prog.category) {
+                        case 'daycare': IconComponent = Baby; break;
+                        case 'quran_kids': IconComponent = GraduationCap; break;
+                        case 'arabic_women': IconComponent = Briefcase; break;
+                        default: IconComponent = BookOpenText;
+                    }
+                    return (
+                        <Card key={prog.id} className="flex flex-col p-0">
+                        <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
+                            <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
+                                <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                                <CardTitle className="text-base sm:text-lg text-primary">{prog.label}</CardTitle>
+                            </div>
+                            <CardDescription className="text-xs sm:text-sm">{prog.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
+                            {prog.ageRange && <p><strong>Age:</strong> {prog.ageRange}</p>}
+                            {prog.duration && <p><strong>Duration:</strong> {prog.duration}</p>}
+                            {prog.schedule && <p><strong>Schedule:</strong> {prog.schedule}</p>}
+                        </CardContent>
+                        <CardFooter className="pt-2 px-3 sm:px-4 pb-3">
+                            <p className="text-sm sm:text-base font-semibold text-accent">Br{prog.price.toFixed(2)}</p>
+                        </CardFooter>
+                        </Card>
+                    );
+                    })}
+                </div>
+            )}
+            {!programsLoading && availablePrograms.length === 0 && (
+             <p className="text-muted-foreground text-center py-4">No programs are currently available for viewing.</p>
+           )}
         </TabsContent>
 
         <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-1 sm:pt-2">
