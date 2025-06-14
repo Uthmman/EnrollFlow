@@ -11,7 +11,7 @@ interface VerificationInput {
 }
 
 interface VerificationResult extends Partial<VerifyPaymentFromScreenshotOutput> {
-  isPaymentValid: boolean; // This should align with AI's output if AI is used
+  isPaymentValid: boolean; 
   message: string;
 }
 
@@ -27,10 +27,8 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
   switch (paymentProof.proofSubmissionType) {
     case 'transactionId':
       if (paymentProof.transactionId && paymentProof.transactionId.length >= 3) {
-        // Basic validation for transaction ID, assumes ID is correct for submission purposes.
-        // Actual verification would happen backend/manually.
         return {
-          isPaymentValid: true, // Submitted, pending actual verification
+          isPaymentValid: true, 
           transactionNumber: paymentProof.transactionId,
           message: `Payment proof submitted via Transaction ID: ${paymentProof.transactionId} for ${paymentProof.paymentType}. Verification pending.`
         };
@@ -50,7 +48,7 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
         const aiInput: VerifyPaymentFromScreenshotInput = {
           paymentScreenshotDataUri: paymentProof.screenshotDataUri!,
           expectedPaymentAmount: expectedAmount,
-          transactionNumber: paymentProof.transactionId, // Can still pass if user also entered it
+          transactionNumber: paymentProof.transactionId, 
           expectedAccountName: selectedBankDetails?.accountName,
           expectedAccountNumber: selectedBankDetails?.accountNumber,
         };
@@ -58,45 +56,60 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
         const aiResult = await verifyPaymentFromScreenshot(aiInput);
 
         if (aiResult.isPaymentValid) {
-          // isPaymentValid from AI now means amount AND account match
            return {
             ...aiResult,
             isPaymentValid: true,
             message: "Payment verified successfully by AI from screenshot (amount and account match)."
           };
         } else {
-          // Construct a more detailed message if AI validation fails
-          let failureMessage = "AI verification from screenshot failed.";
-          if (aiResult.reason) {
-            failureMessage = aiResult.reason;
-          } else if (aiResult.extractedPaymentAmount !== undefined && aiResult.extractedPaymentAmount !== expectedAmount) {
-            failureMessage = `Extracted amount ${aiResult.extractedPaymentAmount} does not match expected amount ${expectedAmount}.`;
-            if (aiResult.isAccountMatch === false) {
-              failureMessage += " Additionally, account details do not match.";
+          // AI indicates payment is not valid
+          let specificReason = aiResult.reason;
+
+          if (!specificReason) { // If AI didn't provide a specific reason, try to build one
+            const amountExtracted = aiResult.extractedPaymentAmount !== undefined;
+            const amountMatchesExpected = amountExtracted && aiResult.extractedPaymentAmount === expectedAmount;
+            const amountMismatched = amountExtracted && !amountMatchesExpected;
+            
+            const accountMatchKnown = aiResult.isAccountMatch !== undefined;
+            const accountMatches = accountMatchKnown && aiResult.isAccountMatch === true;
+            const accountMismatched = accountMatchKnown && aiResult.isAccountMatch === false;
+
+            if (amountMismatched && accountMismatched) {
+              specificReason = `Amount mismatch (expected ${expectedAmount}, got ${aiResult.extractedPaymentAmount}) AND account details do not match.`;
+            } else if (amountMismatched) {
+              specificReason = `Amount mismatch: expected ${expectedAmount}, but extracted ${aiResult.extractedPaymentAmount}. Account details: ${accountMatchKnown ? (accountMatches ? 'match' : 'mismatch') : 'unknown'}.`;
+            } else if (accountMismatched) {
+              specificReason = `Account details do not match. Amount: ${amountExtracted ? (amountMatchesExpected ? 'matches' : `mismatch (expected ${expectedAmount}, got ${aiResult.extractedPaymentAmount})`) : 'not extracted'}.`;
+            } else if (!amountExtracted && !accountMatchKnown) {
+              specificReason = "AI could not extract payment amount or account details from the screenshot. Please ensure it's clear and shows all required information.";
+            } else if (amountMatchesExpected && accountMatchKnown && !accountMatches) {
+                // This case should ideally be covered by aiResult.reason if AI is thorough
+                specificReason = "Account details mismatch, although amount appears correct. Please verify recipient details in screenshot.";
+            } else if (!amountMatchesExpected && accountMatchKnown && accountMatches) {
+                 // This case should ideally be covered by aiResult.reason
+                specificReason = `Amount mismatch (expected ${expectedAmount}, got ${aiResult.extractedPaymentAmount || 'not found'}), although account details appear correct. Please verify payment amount in screenshot.`;
             }
-          } else if (aiResult.isAccountMatch === false) {
-            failureMessage = "Account details extracted from screenshot do not match expected bank details.";
+            else {
+              specificReason = "AI verification failed. Please check the screenshot clarity and ensure all required payment details (amount, recipient account) are clearly visible.";
+            }
           }
 
           return {
             ...aiResult,
             isPaymentValid: false,
-            reason: aiResult.reason || failureMessage,
-            message: failureMessage
+            reason: specificReason, 
+            message: specificReason 
           };
         }
       } catch (error) {
         console.error("AI Payment Screenshot Verification Error:", error);
-        return { isPaymentValid: false, reason: "An error occurred during AI screenshot verification.", message: "An error occurred during AI screenshot verification." };
+        return { isPaymentValid: false, reason: "An error occurred during AI screenshot verification. Please try again or use a different verification method.", message: "An error occurred during AI screenshot verification. Please try again or use a different verification method." };
       }
 
     case 'pdfLink':
       if (paymentProof.pdfLink && (paymentProof.pdfLink.startsWith('http://') || paymentProof.pdfLink.startsWith('https://'))) {
-        // For PDF links, direct AI verification isn't implemented in the current AI flow.
-        // This would typically be a manual check or require a different AI model/flow for PDF processing.
-        // We'll assume valid for submission, pending manual verification.
         return {
-          isPaymentValid: true, // Submitted, but not AI verified.
+          isPaymentValid: true, 
           message: `Payment proof submitted via PDF link: ${paymentProof.pdfLink} for ${paymentProof.paymentType}. Verification pending.`
         };
       }
