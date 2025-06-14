@@ -74,11 +74,18 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
           const aiResult = await verifyPaymentFromScreenshot(aiInput);
 
           if (aiResult.isPaymentValid) {
-            return {
-              ...aiResult,
+            // Explicitly construct the success object
+            const successResult: VerificationResult = {
               isPaymentValid: true,
-              message: "Payment verified successfully by AI from screenshot (amount and account match)."
+              message: "Payment verified successfully by AI from screenshot (amount and account match).",
+              extractedPaymentAmount: aiResult.extractedPaymentAmount,
+              transactionNumber: aiResult.transactionNumber,
+              isAccountMatch: aiResult.isAccountMatch,
+              extractedAccountName: aiResult.extractedAccountName,
+              extractedAccountNumber: aiResult.extractedAccountNumber,
+              reason: aiResult.reason, // Should be undefined or minimal on success
             };
+            return successResult;
           } else {
             let specificReason = aiResult.reason;
             if (!specificReason) {
@@ -107,12 +114,18 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
                 specificReason = "AI verification failed. Please check the screenshot clarity and ensure all required payment details (amount, recipient account) are clearly visible.";
               }
             }
-            return {
-              ...aiResult,
-              isPaymentValid: false,
-              reason: specificReason, 
-              message: specificReason 
+            // Explicitly construct the failure object too for consistency
+            const failureResult: VerificationResult = {
+                isPaymentValid: false,
+                message: specificReason || "AI verification failed.",
+                reason: specificReason || "AI verification failed.",
+                extractedPaymentAmount: aiResult.extractedPaymentAmount,
+                transactionNumber: aiResult.transactionNumber,
+                isAccountMatch: aiResult.isAccountMatch,
+                extractedAccountName: aiResult.extractedAccountName,
+                extractedAccountNumber: aiResult.extractedAccountNumber,
             };
+            return failureResult;
           }
         } catch (aiError: any) {
           console.error("AI Payment Screenshot Verification Error in action:", aiError);
@@ -143,10 +156,13 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
         };
 
       default:
+        // This should be unreachable if proofSubmissionType is correctly validated by Zod
+        // but as a fallback:
+        const exhaustiveCheck: never = paymentProof.proofSubmissionType; 
         return { 
           isPaymentValid: false, 
-          reason: `Invalid proof submission type: ${paymentProof.proofSubmissionType}`, 
-          message: `Invalid proof submission type: ${paymentProof.proofSubmissionType}` 
+          reason: `Invalid proof submission type: ${exhaustiveCheck}`, 
+          message: `Invalid proof submission type: ${exhaustiveCheck}` 
         };
     }
   } catch (error: any) {
@@ -164,3 +180,4 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
     };
   }
 }
+
