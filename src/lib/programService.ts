@@ -1,33 +1,31 @@
 
-import { collection, getDocs, query } from 'firebase/firestore'; // Removed orderBy as it's not used by default
+// This file is no longer needed as programs are loaded statically from constants.ts
+// You can delete this file if it's not used elsewhere.
+
+// Example of how it might have looked, for reference:
+/*
+import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
-import type { HafsaProgram } from '@/types';
+import type { HafsaProgram } from '@/lib/constants'; // Or from '@/types' if moved
 
 export async function fetchProgramsFromFirestore(): Promise<HafsaProgram[]> {
   if (!db) {
     console.error("Firestore is not initialized. Cannot fetch programs.");
-    return []; // Return empty or throw an error, depending on desired behavior
+    return [];
   }
   try {
     const programsCollectionRef = collection(db, 'programs');
-    // Optional: Add ordering if you have a field like 'order' or 'createdAt' in your Firestore documents
-    // const q = query(programsCollectionRef, orderBy("label")); 
-    const q = query(programsCollectionRef); // Simple query without ordering for now
+    const q = query(programsCollectionRef);
     
     const querySnapshot = await getDocs(q);
     const programs: HafsaProgram[] = [];
     querySnapshot.forEach((doc) => {
-      // Important: Ensure the data from Firestore matches the HafsaProgram type.
-      // You might need to transform data here, e.g., for Timestamp fields if you use them.
       programs.push({ id: doc.id, ...doc.data() } as HafsaProgram);
     });
     return programs;
   } catch (error) {
     console.error("Error fetching programs from Firestore:", error);
-    // Depending on your error handling strategy, you might want to:
-    // - Return an empty array
-    // - Throw the error to be caught by the caller
-    // - Return a default set of programs
-    return []; // Returning empty array for now
+    return [];
   }
 }
+*/

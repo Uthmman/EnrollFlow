@@ -7,14 +7,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { RegistrationData, HafsaProgram } from '@/types';
+import type { RegistrationData } from '@/types';
+import type { HafsaProgram } from '@/lib/constants'; // Import HafsaProgram type
 import { format } from 'date-fns';
 import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 
 interface ReceiptProps {
   data: RegistrationData;
   onBack: () => void;
-  allPrograms: HafsaProgram[];
+  allPrograms: HafsaProgram[]; // Ensure this prop is correctly typed and passed
 }
 
 const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
@@ -59,7 +60,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
         <Separator />
         <div>
             <div className="flex items-center mb-2">
-                <User className="h-5 w-5 mr-2 text-primary" /> {/* Changed Icon for consistency */}
+                <User className="h-5 w-5 mr-2 text-primary" />
                 <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Primary Account Holder</h3>
             </div>
             <div className="pl-7 space-y-0.5">

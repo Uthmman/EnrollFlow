@@ -1,27 +1,6 @@
 
 import { z } from 'zod';
 
-// Program related types
-export type ProgramField =
-  | { type: 'text'; name: 'specialAttention'; label: 'Special Attention (e.g., allergies, specific needs)' }
-  | { type: 'select'; name: 'schoolGrade'; label: 'School Grade'; options: string[] }
-  | { type: 'select'; name: 'quranLevel'; label: 'Quran Level'; options: string[] };
-
-export type HafsaProgram = {
-  id: string; // Firestore document ID will be used here
-  label: string;
-  description: string;
-  price: number;
-  category: 'daycare' | 'quran_kids' | 'arabic_women';
-  ageRange?: string;
-  duration?: string;
-  schedule?: string;
-  isChildProgram: boolean;
-  specificFields?: ProgramField[];
-  termsAndConditions: string;
-};
-
-
 // Authentication and Form related types
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^[0-9]{9,15}$/; // Basic phone regex, adjust if needed for specific formats
@@ -29,7 +8,7 @@ const phoneRegex = /^[0-9]{9,15}$/; // Basic phone regex, adjust if needed for s
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters."),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format."),
-  parentPhone1: z.string().regex(phoneRegex, "Invalid primary phone number format (e.g., 0911XXXXXX).").optional(), // Added primary phone
+  parentPhone1: z.string().regex(phoneRegex, "Invalid primary phone number format (e.g., 0911XXXXXX)."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
 }).superRefine((data, ctx) => {
@@ -88,7 +67,6 @@ export const EnrollmentFormSchema = z.object({
   paymentProof: PaymentProofSchema.optional(),
   loginEmail: z.string().regex(emailRegex, "Invalid email address format.").optional(),
   loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(),
-  otp: z.string().min(6, "OTP must be 6 digits.").optional(), // Kept for potential future use, but not active in email/pass
 })
 .superRefine((data, ctx) => {
     if (data.paymentProof) {
@@ -193,5 +171,10 @@ export type RegistrationData = {
   paymentVerified: boolean;
   paymentVerificationDetails?: any;
   registrationDate: Date;
-  firebaseUserId?: string; // Added to store Firebase User ID
+  firebaseUserId?: string;
 };
+
+// HafsaProgram and ProgramField types are now in src/lib/constants.ts
+// If you need to re-import them here for some reason, uncomment below:
+// export type { HafsaProgram, ProgramField } from '@/lib/constants';
+
