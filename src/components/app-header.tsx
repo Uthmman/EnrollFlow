@@ -12,55 +12,28 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getTranslatedText } from '@/lib/translationService';
+import { getTranslationsForLanguage } from '@/lib/translationService';
+import type { LanguageCode } from '@/locales';
 
 interface AppHeaderProps {
   showAccountIcon: boolean;
   onAccountClick?: () => void;
-  currentLanguage: string;
-  onLanguageChange: (lang: string) => void;
+  currentLanguage: LanguageCode;
+  onLanguageChange: (lang: LanguageCode) => void;
 }
 
 const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick, currentLanguage, onLanguageChange }) => {
-  // Original English strings
-  const O_HEADER_TITLE = "Hafsa Madrassa";
-  const O_CHANGE_LANGUAGE_LABEL = "Change language";
-  const O_ACCOUNT_SETTINGS_LABEL = "Account settings";
-  const O_ENGLISH_LABEL = "English";
-  const O_AMHARIC_LABEL = "Amharic (አማርኛ)";
-  const O_ARABIC_LABEL = "Arabic (العربية)";
+  const [t, setT] = useState<Record<string, string>>({});
 
-  // Translated state
-  const [tHeaderTitle, setTHeaderTitle] = useState(O_HEADER_TITLE);
-  const [tChangeLangLabel, setTChangeLangLabel] = useState(O_CHANGE_LANGUAGE_LABEL);
-  const [tAccountSettingsLabel, setTAccountSettingsLabel] = useState(O_ACCOUNT_SETTINGS_LABEL);
-  const [tEnglish, setTEnglish] = useState(O_ENGLISH_LABEL);
-  const [tAmharic, setTAmharic] = useState(O_AMHARIC_LABEL);
-  const [tArabic, setTArabic] = useState(O_ARABIC_LABEL);
-
-  const translateContent = useCallback(async (lang: string) => {
-    if (lang === 'en') {
-      setTHeaderTitle(O_HEADER_TITLE);
-      setTChangeLangLabel(O_CHANGE_LANGUAGE_LABEL);
-      setTAccountSettingsLabel(O_ACCOUNT_SETTINGS_LABEL);
-      setTEnglish(O_ENGLISH_LABEL);
-      setTAmharic(O_AMHARIC_LABEL);
-      setTArabic(O_ARABIC_LABEL);
-    } else {
-      setTHeaderTitle(await getTranslatedText(O_HEADER_TITLE, lang, 'en'));
-      setTChangeLangLabel(await getTranslatedText(O_CHANGE_LANGUAGE_LABEL, lang, 'en'));
-      setTAccountSettingsLabel(await getTranslatedText(O_ACCOUNT_SETTINGS_LABEL, lang, 'en'));
-      setTEnglish(await getTranslatedText(O_ENGLISH_LABEL, lang, 'en')); // Although "English" might not need translation always
-      setTAmharic(await getTranslatedText(O_AMHARIC_LABEL, lang, 'en'));
-      setTArabic(await getTranslatedText(O_ARABIC_LABEL, lang, 'en'));
-    }
-  }, [O_HEADER_TITLE, O_CHANGE_LANGUAGE_LABEL, O_ACCOUNT_SETTINGS_LABEL, O_ENGLISH_LABEL, O_AMHARIC_LABEL, O_ARABIC_LABEL]);
+  const loadTranslations = useCallback((lang: LanguageCode) => {
+    setT(getTranslationsForLanguage(lang));
+  }, []);
 
   useEffect(() => {
-    translateContent(currentLanguage);
-  }, [currentLanguage, translateContent]);
+    loadTranslations(currentLanguage);
+  }, [currentLanguage, loadTranslations]);
 
-  const handleLanguageSelect = (lang: string) => {
+  const handleLanguageSelect = (lang: LanguageCode) => {
     onLanguageChange(lang);
   };
 
@@ -76,31 +49,31 @@ const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick, curren
           className="h-8 w-8 rounded-md"
         />
         <h1 className="text-md sm:text-lg font-semibold text-primary truncate">
-          {tHeaderTitle}
+          {t.headerTitle || "Hafsa Madrassa"}
         </h1>
       </div>
       <div className="flex items-center gap-1 sm:gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={tChangeLangLabel}>
+            <Button variant="ghost" size="icon" aria-label={t.changeLanguageLabel || "Change language"}>
               <Languages className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => handleLanguageSelect('en')} disabled={currentLanguage === 'en'}>
-              {tEnglish}
+              {t.englishLabel || "English"}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleLanguageSelect('am')} disabled={currentLanguage === 'am'}>
-              {tAmharic}
+              {t.amharicLabel || "Amharic (አማርኛ)"}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleLanguageSelect('ar')} disabled={currentLanguage === 'ar'}>
-              {tArabic}
+              {t.arabicLabel || "Arabic (العربية)"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {showAccountIcon && (
-          <Button variant="ghost" size="icon" onClick={onAccountClick} aria-label={tAccountSettingsLabel}>
+          <Button variant="ghost" size="icon" onClick={onAccountClick} aria-label={t.accountSettingsLabel || "Account settings"}>
             <UserCog className="h-5 w-5" />
           </Button>
         )}
