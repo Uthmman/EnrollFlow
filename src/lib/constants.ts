@@ -15,7 +15,7 @@ export type HafsaProgram = {
   schedule?: string;
   isChildProgram: boolean; 
   specificFields?: ProgramField[]; 
-  termsLink?: string; 
+  termsAndConditions: string; 
 };
 
 export const SCHOOL_GRADES = ["KG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
@@ -32,7 +32,8 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     isChildProgram: true,
     specificFields: [
       { type: 'text', name: 'specialAttention', label: 'Special Attention (e.g., allergies, headaches, specific needs)' }
-    ]
+    ],
+    termsAndConditions: "Specific terms for Daycare: All items must be labeled. Parents must provide diapers and formula. Pick-up is promptly by 5 PM."
   },
   { 
     id: 'quran_bootcamp', 
@@ -47,7 +48,8 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     specificFields: [
       { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES },
       { type: 'select', name: 'quranLevel', label: 'Quran Level', options: QURAN_LEVELS }
-    ]
+    ],
+    termsAndConditions: "Specific terms for Quran Bootcamp: Full attendance is expected. Materials fee of Br50 is separate. Lunch is not provided."
   },
   { 
     id: 'after_asr_quran', 
@@ -61,7 +63,8 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     specificFields: [
       { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES }, 
       { type: 'select', name: 'quranLevel', label: 'Quran Level', options: QURAN_LEVELS }
-    ]
+    ],
+    termsAndConditions: "Specific terms for After Asr Quran: Students must bring their own Quran. Respectful behavior is mandatory."
   },
   { 
     id: 'arabic_mothers_women', 
@@ -71,7 +74,8 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     category: 'arabic_women',
     schedule: '5 days/week, After Asr to Maghrib',
     duration: '2 months',
-    isChildProgram: false, // Adult program
+    isChildProgram: false, 
+    termsAndConditions: "Specific terms for Arabic Training (Mothers & Women): This program is for women only. Childcare is not provided during class hours."
   },
   { 
     id: 'arabic_adult_women', 
@@ -82,7 +86,8 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     ageRange: '15+',
     schedule: '5 days/week, Dhuhr to Asr',
     duration: '2 months',
-    isChildProgram: false, // Adult program
+    isChildProgram: false, 
+    termsAndConditions: "Specific terms for Arabic Training (Adult Women, 15+): Punctuality is important. Course books must be purchased separately."
   },
 ];
 
@@ -199,3 +204,4 @@ export const PROGRAMS_BY_LEVEL: { [level: string]: Program[] } = {
     },
   ],
 };
+

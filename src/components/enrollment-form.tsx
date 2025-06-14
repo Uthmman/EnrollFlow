@@ -25,6 +25,8 @@ import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData } from '@/types';
@@ -573,6 +575,26 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     toast({ title: "Ready for New Enrollment", description: "Previous receipt details cleared." });
   };
 
+  const getUniqueSelectedProgramsTerms = () => {
+    if (!watchedParticipants || watchedParticipants.length === 0) {
+        return [];
+    }
+    const uniqueProgramIds = new Set<string>();
+    const terms: { programId: string; label: string; terms: string }[] = [];
+    watchedParticipants.forEach(enrolled => {
+        if (!uniqueProgramIds.has(enrolled.programId)) {
+            const program = HAFSA_PROGRAMS.find(p => p.id === enrolled.programId);
+            if (program) {
+                terms.push({ programId: program.id, label: program.label, terms: program.termsAndConditions });
+                uniqueProgramIds.add(program.id);
+            }
+        }
+    });
+    return terms;
+  };
+
+  const uniqueProgramTerms = getUniqueSelectedProgramsTerms();
+
 
   if (currentView === 'confirmation' && registrationData) {
     return <Receipt data={registrationData} onBack={handleBackFromReceipt} />;
@@ -785,26 +807,44 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary">Payment & Verification</h3>
             
-            <Card className="mb-4">
+             <Card className="mb-4">
               <CardHeader className="p-3 sm:p-4 pb-2">
                 <CardTitle className="text-md sm:text-lg">Terms and Conditions</CardTitle>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 pt-0">
-                <p className="text-xs sm:text-sm text-muted-foreground mb-3">
-                  Please read our terms and conditions carefully. Hafsa Madrassa is committed to providing quality education and services. 
-                  All fees are non-refundable once a program has commenced. Parents/guardians are responsible for ensuring timely drop-off and pick-up of participants. 
-                  Hafsa Madrassa reserves the right to modify program schedules or content with prior notice. By proceeding with enrollment and payment, 
-                  you acknowledge that you have read, understood, and agree to be bound by the full terms and conditions available on our website or upon request.
+                {uniqueProgramTerms.length > 0 ? (
+                   <Accordion type="multiple" className="w-full">
+                    {uniqueProgramTerms.map((programTerm, index) => (
+                      <AccordionItem value={`item-${index}`} key={programTerm.programId}>
+                        <AccordionTrigger className="text-sm sm:text-base text-primary hover:no-underline">
+                          Terms for {programTerm.label}
+                        </AccordionTrigger>
+                        <AccordionContent className="text-xs sm:text-sm text-muted-foreground">
+                          {programTerm.terms}
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                ) : (
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Please enroll in a program to view specific terms and conditions. General terms: Hafsa Madrassa is committed to providing quality education and services. 
+                    All fees are non-refundable once a program has commenced. Parents/guardians are responsible for ensuring timely drop-off and pick-up of participants. 
+                    Hafsa Madrassa reserves the right to modify program schedules or content with prior notice.
+                  </p>
+                )}
+                <p className="text-xs sm:text-sm text-muted-foreground mt-3">
+                  By proceeding with enrollment and payment, 
+                  you acknowledge that you have read, understood, and agree to be bound by the applicable terms and conditions for the selected programs.
                   I agree to the terms and conditions of Hafsa Madrassa.
                 </p>
-                <div>
+                <div className="mt-3">
                     <Controller
                         name="agreeToTerms"
                         control={control}
                         render={({ field }) => (
                         <div className="flex items-center space-x-2 sm:space-x-3">
                             <Checkbox id="agreeToTermsDashboard" checked={field.value} onCheckedChange={field.onChange} />
-                            <Label htmlFor="agreeToTermsDashboard" className="text-xs sm:text-sm font-normal">I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">terms and conditions</a> of Hafsa Madrassa.</Label>
+                            <Label htmlFor="agreeToTermsDashboard" className="text-xs sm:text-sm font-normal">I agree to all applicable terms and conditions of Hafsa Madrassa.</Label>
                         </div>
                         )}
                     />
