@@ -57,33 +57,16 @@ const defaultParticipantValues: ParticipantInfoData = {
 
 
 const ParentInfoFields: React.FC = () => {
-  const { control, register, formState: { errors } } = useForm<ParentInfoData>({
-    resolver: zodResolver(RHFParentInfoSchema),
-    defaultValues: defaultParentValues
-  });
+  const { register, formState: { errors } } = useFormContext<EnrollmentFormData>(); // Use useFormContext
   
-  const currentErrors = errors || {};
+  const currentErrors = errors.parentInfo || {};
   
   const title = "Primary Account Information";
   const nameLabel = "Full Name";
-  const nameField = "parentFullName";
-  const phone1Field = "parentPhone1";
-
-  const mainFormSetValue = useFormContext<EnrollmentFormData>().setValue;
-  const { watch } = useFormContext<EnrollmentFormData>(); // Watch from main form context
-
-  useEffect(() => {
-    const subscription = watch((value, { name, type }) => {
-      // Only update main form if the change originates from fields within ParentInfoSchema
-      if (name && name.startsWith('parentInfo.')) {
-        const fieldKey = name.split('.')[1] as keyof ParentInfoData;
-        if (fieldKey in defaultParentValues) { // Check if the field is part of ParentInfoData
-           mainFormSetValue(`parentInfo.${fieldKey}` as any, value.parentInfo?.[fieldKey] as any);
-        }
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [watch, mainFormSetValue]);
+  const nameField = "parentInfo.parentFullName";
+  const phone1Field = "parentInfo.parentPhone1";
+  const passwordField = "parentInfo.password";
+  const confirmPasswordField = "parentInfo.confirmPassword";
 
 
   return (
@@ -98,25 +81,25 @@ const ParentInfoFields: React.FC = () => {
         <div>
           <Label htmlFor={nameField}>{nameLabel}</Label>
           <Input id={nameField} {...register(nameField as any)} placeholder={nameLabel} />
-          {(currentErrors as any)[nameField] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[nameField].message}</p>}
+          {(currentErrors as any)?.parentFullName && <p className="text-sm text-destructive mt-1">{(currentErrors as any).parentFullName.message}</p>}
         </div>
         
         <div>
             <Label htmlFor={phone1Field}>Primary Phone Number (used for login)</Label>
             <Input id={phone1Field} {...register(phone1Field as any)} type="tel" placeholder="e.g., 0911XXXXXX" />
-            {(currentErrors as any)[phone1Field] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[phone1Field].message}</p>}
+            {(currentErrors as any)?.parentPhone1 && <p className="text-sm text-destructive mt-1">{(currentErrors as any).parentPhone1.message}</p>}
         </div>
        
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" {...register('password' as any)} type="password" placeholder="Create a password" />
-                {(currentErrors as any).password && <p className="text-sm text-destructive mt-1">{(currentErrors as any).password.message}</p>}
+                <Label htmlFor={passwordField}>Password</Label>
+                <Input id={passwordField} {...register(passwordField as any)} type="password" placeholder="Create a password" />
+                {(currentErrors as any)?.password && <p className="text-sm text-destructive mt-1">{(currentErrors as any).password.message}</p>}
             </div>
             <div>
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input id="confirmPassword" {...register('confirmPassword' as any)} type="password" placeholder="Confirm your password" />
-                {(currentErrors as any).confirmPassword && <p className="text-sm text-destructive mt-1">{(currentErrors as any).confirmPassword.message}</p>}
+                <Label htmlFor={confirmPasswordField}>Confirm Password</Label>
+                <Input id={confirmPasswordField} {...register(confirmPasswordField as any)} type="password" placeholder="Confirm your password" />
+                {(currentErrors as any)?.confirmPassword && <p className="text-sm text-destructive mt-1">{(currentErrors as any).confirmPassword.message}</p>}
             </div>
         </div>
       </CardContent>
@@ -140,16 +123,14 @@ const ParticipantDetailFields: React.FC<{
   const mainFormMethods = useFormContext<EnrollmentFormData>();
 
   useEffect(() => {
-    // Pre-fill guardian details from primary registrant when component mounts for a new participant
     const primaryRegistrantInfo = mainFormMethods.getValues('parentInfo');
     if (primaryRegistrantInfo.parentFullName) {
         setValue('guardianFullName', primaryRegistrantInfo.parentFullName);
     }
     if (primaryRegistrantInfo.parentPhone1) {
         setValue('guardianPhone1', primaryRegistrantInfo.parentPhone1);
-        setValue('guardianTelegramPhoneNumber', primaryRegistrantInfo.parentPhone1); // Also prefill telegram
+        setValue('guardianTelegramPhoneNumber', primaryRegistrantInfo.parentPhone1); 
     }
-    // Reset other fields to default, important if re-using the component
     setValue('firstName', defaultParticipantValues.firstName);
     setValue('gender', defaultParticipantValues.gender);
     setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
@@ -160,7 +141,7 @@ const ParticipantDetailFields: React.FC<{
     setValue('guardianUsePhone1ForTelegram', defaultParticipantValues.guardianUsePhone1ForTelegram);
     setValue('guardianUsePhone2ForTelegram', defaultParticipantValues.guardianUsePhone2ForTelegram);
 
-  }, [selectedProgramLabel, mainFormMethods, setValue]); // Re-run if selectedProgramLabel changes (new participant)
+  }, [selectedProgramLabel, mainFormMethods, setValue]); 
 
 
   const guardianPhone1 = watchParticipantForm('guardianPhone1');
@@ -349,6 +330,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const watchedPaymentType = watch('paymentProof.paymentType');
   const watchedProofSubmissionType = watch('paymentProof.proofSubmissionType');
 
+  const dashboardTabsConfig = [
+    { value: 'enrollments' as DashboardTab, desktopLabel: 'Manage Enrollments', mobileLabel: 'Enroll', icon: Users },
+    { value: 'programs' as DashboardTab, desktopLabel: 'View Programs', mobileLabel: 'Programs', icon: LayoutList },
+    { value: 'payment' as DashboardTab, desktopLabel: 'Payment & Submission', mobileLabel: 'Payment', icon: CreditCard },
+  ];
+
   useEffect(() => {
     let total = 0;
     if (watchedParticipants) {
@@ -364,7 +351,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const handleAccountCreation = async () => {
     const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentPhone1', 'password', 'confirmPassword'];
-    const mainFormTrigger = methods.trigger; // Ensure methods.trigger is used for the main form
+    const mainFormTrigger = methods.trigger; 
     const isValid = await mainFormTrigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
 
     if (isValid) {
@@ -386,12 +373,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
       let loginSuccess = false;
 
-      // Try login with session-registered details first
-      // Check if parentInfo exists and has a password (meaning registration was attempted/completed)
       if (registeredParentInfo && registeredParentInfo.password && registeredParentInfo.parentPhone1 === loginIdentifier && registeredParentInfo.password === loginPassword) {
         loginSuccess = true;
       } 
-      // Fallback to prototype hardcoded credentials
       else if (loginIdentifier === "0911223344" && loginPassword === "password") {
         loginSuccess = true;
          setValue('parentInfo', { 
@@ -631,28 +615,32 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as DashboardTab)} className="w-full">
-        {!isMobile && ( 
-            <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 p-0 gap-1 bg-transparent border-b rounded-none">
-                <TabsTrigger value="enrollments" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
-                    <Users className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                     <span className="hidden sm:inline">Manage Enrollments</span>
-                     <span className="sm:hidden">Enroll</span>
-                </TabsTrigger>
-                 <TabsTrigger value="programs" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
-                    <LayoutList className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                    <span className="hidden sm:inline">View Programs</span>
-                     <span className="sm:hidden">Programs</span>
-                </TabsTrigger>
-                <TabsTrigger value="payment" className="text-sm sm:text-base py-2.5 sm:py-3 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none rounded-none border-b-2 border-transparent hover:border-muted-foreground/50 transition-colors duration-150">
-                    <CreditCard className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 inline-block" /> 
-                     <span className="hidden sm:inline">Payment</span>
-                     <span className="sm:hidden">Payment</span>
-                </TabsTrigger>
-            </TabsList>
+        {!isMobile && (
+             <div className="mb-4 sm:mb-6 w-full">
+                <div className="flex items-center justify-center space-x-2 sm:space-x-3 bg-muted p-1.5 rounded-lg shadow-sm mx-auto max-w-2xl">
+                    {dashboardTabsConfig.map(tab => (
+                    <button
+                        key={tab.value}
+                        onClick={() => setActiveDashboardTab(tab.value)}
+                        className={cn(
+                        "flex-1 flex items-center justify-center gap-2 sm:gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3 rounded-md transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted text-sm sm:text-base font-medium",
+                        activeDashboardTab === tab.value
+                            ? "bg-primary text-primary-foreground shadow"
+                            : "text-muted-foreground hover:bg-background hover:text-primary"
+                        )}
+                        aria-label={tab.desktopLabel}
+                        type="button"
+                    >
+                        <tab.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span>{tab.desktopLabel}</span>
+                    </button>
+                    ))}
+                </div>
+            </div>
         )}
 
         <TabsContent value="enrollments" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
-            <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Manage Enrollments</h3>
+            <h3 className="text-xl font-semibold text-primary">Manage Enrollments</h3>
             
             {participantFields.map((field, index) => {
                 const enrolledParticipant = field as unknown as EnrolledParticipantData;
@@ -685,7 +673,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         </TabsContent>
         
         <TabsContent value="programs" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
-            <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only mb-2">Available Programs</h3>
+            <h3 className="text-xl font-semibold text-primary mb-2">Available Programs</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {HAFSA_PROGRAMS.map(prog => {
                 let IconComponent;
@@ -719,7 +707,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         </TabsContent>
 
         <TabsContent value="payment" className="space-y-4 sm:space-y-6 pt-1 sm:pt-2">
-            <h3 className="text-xl font-semibold text-primary sr-only sm:not-sr-only">Payment & Verification</h3>
+            <h3 className="text-xl font-semibold text-primary">Payment & Verification</h3>
             <div className="p-3 sm:p-4 border rounded-lg bg-primary/10">
                 <h3 className="text-base sm:text-lg font-semibold font-headline text-primary">Payment Summary</h3>
                 <p className="mt-1 sm:mt-2 text-lg sm:text-xl font-bold text-primary">Total Amount Due: ${calculatedPrice.toFixed(2)}</p>
@@ -874,25 +862,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         {isMobile && currentView === 'dashboard' && ( 
              <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 w-auto">
                 <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20">
-                    {[
-                        { value: 'enrollments', label: 'Enroll', icon: Users },
-                        { value: 'programs', label: 'Programs', icon: LayoutList },
-                        { value: 'payment', label: 'Payment', icon: CreditCard },
-                    ].map(tab => (
+                    {dashboardTabsConfig.map(tab => (
                         <button
                             key={tab.value}
-                            onClick={() => setActiveDashboardTab(tab.value as DashboardTab)}
+                            onClick={() => setActiveDashboardTab(tab.value)}
                             className={cn(
                                 "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-auto", 
                                 activeDashboardTab === tab.value 
                                     ? "bg-primary-foreground text-primary scale-105 shadow-md" 
                                     : "hover:bg-white/20"
                             )}
-                            aria-label={tab.label}
+                            aria-label={tab.mobileLabel}
                             type="button"
                         >
                             <tab.icon className="h-5 w-5 mb-0.5" />
-                            <span className="text-xs font-medium">{tab.label}</span>
+                            <span className="text-xs font-medium">{tab.mobileLabel}</span>
                         </button>
                     ))}
                 </div>
