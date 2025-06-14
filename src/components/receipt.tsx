@@ -5,7 +5,7 @@ import React from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays } from 'lucide-react';
+import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RegistrationData } from '@/types';
 import { format } from 'date-fns';
@@ -13,9 +13,10 @@ import { HAFSA_PAYMENT_METHODS, HAFSA_PROGRAMS } from '@/lib/constants';
 
 interface ReceiptProps {
   data: RegistrationData;
+  onBack: () => void;
 }
 
-const Receipt: React.FC<ReceiptProps> = ({ data }) => {
+const Receipt: React.FC<ReceiptProps> = ({ data, onBack }) => {
   const handlePrint = () => {
     if (typeof window !== 'undefined') {
       window.print();
@@ -151,8 +152,11 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
         </div>
 
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-end p-3 sm:p-4 print:hidden">
-        <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto">
+      <CardFooter className="flex flex-col sm:flex-row justify-between items-center p-3 sm:p-4 print:hidden space-y-2 sm:space-y-0 sm:space-x-2">
+        <Button onClick={onBack} variant="outline" className="w-full sm:w-auto">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+        </Button>
+        <Button onClick={handlePrint} variant="default" className="w-full sm:w-auto">
           <Printer className="mr-2 h-4 w-4" /> Print Receipt
         </Button>
       </CardFooter>

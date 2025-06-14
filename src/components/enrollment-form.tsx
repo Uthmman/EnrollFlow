@@ -27,7 +27,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
-import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
+import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData } from '@/types';
 import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
@@ -53,6 +53,15 @@ const defaultParticipantValues: ParticipantInfoData = {
   guardianTelegramPhoneNumber: '',
   guardianUsePhone1ForTelegram: false,
   guardianUsePhone2ForTelegram: false,
+};
+
+const defaultPaymentProofValues: PaymentProofData = {
+    paymentType: HAFSA_PAYMENT_METHODS[0]?.value || '',
+    proofSubmissionType: 'transactionId',
+    transactionId: '',
+    pdfLink: '',
+    screenshot: undefined,
+    screenshotDataUri: undefined,
 };
 
 
@@ -313,13 +322,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       participants: [],
       agreeToTerms: false,
       couponCode: '',
-      paymentProof: { paymentType: HAFSA_PAYMENT_METHODS[0]?.value || '', proofSubmissionType: 'transactionId' },
+      paymentProof: defaultPaymentProofValues,
       loginIdentifier: '',
       loginPassword: '',
     },
   });
 
-  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register } = methods;
+  const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register, resetField } = methods;
 
   const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
     control,
@@ -402,12 +411,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const handleSkipLogin = () => {
-    setValue('parentInfo', {
-        parentFullName: 'Guest User',
-        parentPhone1: '0000000000', // Placeholder, ensure it passes regex if strict
-        password: 'guestpassword', // Needs to meet min length for schema if strict
-        confirmPassword: 'guestpassword',
-    });
+     // Set parentInfo to guest defaults
+    setValue('parentInfo.parentFullName', 'Guest User');
+    setValue('parentInfo.parentPhone1', '0000000000'); // Placeholder that should pass basic regex
+    setValue('parentInfo.password', 'guestpassword'); // Meets min length
+    setValue('parentInfo.confirmPassword', 'guestpassword');
+
+    // Clear any validation errors that might have been set on parentInfo fields if user interacted before skipping
+    trigger('parentInfo');
+
+
     toast({ title: "Proceeding as Guest", description: "You can enroll participants. Account features will be limited."});
     setActiveDashboardTab('enrollments');
     setCurrentView('dashboard');
@@ -455,14 +468,18 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       let screenshotDataUri: string | undefined;
       if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshot && data.paymentProof.screenshot.length > 0) {
         const fileToUpload = data.paymentProof.screenshot[0];
-        screenshotDataUri = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(fileToUpload);
-        });
-        setValue('paymentProof.screenshotDataUri', screenshotDataUri);
-        if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri;
+        if (fileToUpload instanceof File) {
+            screenshotDataUri = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(fileToUpload);
+            });
+            setValue('paymentProof.screenshotDataUri', screenshotDataUri);
+            if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri;
+        } else {
+            console.warn("Screenshot field did not contain a File object at submission.");
+        }
       } else if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshotDataUri) {
         screenshotDataUri = data.paymentProof.screenshotDataUri;
       }
@@ -470,7 +487,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUri,
+            screenshotDataUri: screenshotDataUri, // Ensure this is passed
         },
         expectedAmount: calculatedPrice,
       };
@@ -522,8 +539,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
   };
 
+  const handleBackFromReceipt = () => {
+    setRegistrationData(null);
+    setValue('participants', []); // Clear participants array
+    setValue('agreeToTerms', false);
+    setValue('couponCode', '');
+    resetField('paymentProof'); // Resets paymentProof to its default value in useForm
+    // calculatedPrice will update automatically via useEffect due to participants changing
+    setCurrentView('dashboard');
+    setActiveDashboardTab('enrollments');
+    toast({ title: "Ready for New Enrollment", description: "Previous receipt details cleared." });
+  };
+
+
   if (currentView === 'confirmation' && registrationData) {
-    return <Receipt data={registrationData} />;
+    return <Receipt data={registrationData} onBack={handleBackFromReceipt} />;
   }
 
   const renderAccountCreation = () => (
@@ -641,13 +671,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as DashboardTab)} className="w-full">
         {!isMobile && (
              <div className="mb-4 sm:mb-6 w-full">
-                <div className="flex items-center justify-center space-x-2 sm:space-x-3 bg-muted p-1.5 rounded-lg shadow-sm mx-auto max-w-2xl">
+                <div className="flex items-center justify-center space-x-2 sm:space-x-3 bg-muted p-1.5 rounded-lg shadow-sm mx-auto max-w-xl"> {/* Adjusted max-w-2xl to max-w-xl or similar */}
                     {dashboardTabsConfig.map(tab => (
                     <button
                         key={tab.value}
                         onClick={() => setActiveDashboardTab(tab.value)}
                         className={cn(
-                        "flex-1 flex items-center justify-center gap-2 sm:gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3 rounded-md transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted text-sm sm:text-base font-medium",
+                        "flex-1 flex items-center justify-center gap-2 sm:gap-2.5 px-4 py-2.5 sm:px-6 sm:py-3 rounded-md transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted text-sm sm:text-base font-medium", // Increased padding
                         activeDashboardTab === tab.value
                             ? "bg-primary text-primary-foreground shadow"
                             : "text-muted-foreground hover:bg-background hover:text-primary"
@@ -983,6 +1013,4 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
-    
-
     
