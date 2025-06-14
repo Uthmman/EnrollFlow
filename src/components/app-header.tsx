@@ -22,21 +22,43 @@ interface AppHeaderProps {
 }
 
 const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick, currentLanguage, onLanguageChange }) => {
-  const [translatedHeaderTitle, setTranslatedHeaderTitle] = useState("Hafsa Madrassa");
-  const originalHeaderTitle = "Hafsa Madrassa";
+  // Original English strings
+  const O_HEADER_TITLE = "Hafsa Madrassa";
+  const O_CHANGE_LANGUAGE_LABEL = "Change language";
+  const O_ACCOUNT_SETTINGS_LABEL = "Account settings";
+  const O_ENGLISH_LABEL = "English";
+  const O_AMHARIC_LABEL = "Amharic (አማርኛ)";
+  const O_ARABIC_LABEL = "Arabic (العربية)";
 
-  const translateHeader = useCallback(async (lang: string) => {
+  // Translated state
+  const [tHeaderTitle, setTHeaderTitle] = useState(O_HEADER_TITLE);
+  const [tChangeLangLabel, setTChangeLangLabel] = useState(O_CHANGE_LANGUAGE_LABEL);
+  const [tAccountSettingsLabel, setTAccountSettingsLabel] = useState(O_ACCOUNT_SETTINGS_LABEL);
+  const [tEnglish, setTEnglish] = useState(O_ENGLISH_LABEL);
+  const [tAmharic, setTAmharic] = useState(O_AMHARIC_LABEL);
+  const [tArabic, setTArabic] = useState(O_ARABIC_LABEL);
+
+  const translateContent = useCallback(async (lang: string) => {
     if (lang === 'en') {
-      setTranslatedHeaderTitle(originalHeaderTitle);
+      setTHeaderTitle(O_HEADER_TITLE);
+      setTChangeLangLabel(O_CHANGE_LANGUAGE_LABEL);
+      setTAccountSettingsLabel(O_ACCOUNT_SETTINGS_LABEL);
+      setTEnglish(O_ENGLISH_LABEL);
+      setTAmharic(O_AMHARIC_LABEL);
+      setTArabic(O_ARABIC_LABEL);
     } else {
-      const translated = await getTranslatedText(originalHeaderTitle, lang, 'en');
-      setTranslatedHeaderTitle(translated);
+      setTHeaderTitle(await getTranslatedText(O_HEADER_TITLE, lang, 'en'));
+      setTChangeLangLabel(await getTranslatedText(O_CHANGE_LANGUAGE_LABEL, lang, 'en'));
+      setTAccountSettingsLabel(await getTranslatedText(O_ACCOUNT_SETTINGS_LABEL, lang, 'en'));
+      setTEnglish(await getTranslatedText(O_ENGLISH_LABEL, lang, 'en')); // Although "English" might not need translation always
+      setTAmharic(await getTranslatedText(O_AMHARIC_LABEL, lang, 'en'));
+      setTArabic(await getTranslatedText(O_ARABIC_LABEL, lang, 'en'));
     }
-  }, [originalHeaderTitle]);
+  }, [O_HEADER_TITLE, O_CHANGE_LANGUAGE_LABEL, O_ACCOUNT_SETTINGS_LABEL, O_ENGLISH_LABEL, O_AMHARIC_LABEL, O_ARABIC_LABEL]);
 
   useEffect(() => {
-    translateHeader(currentLanguage);
-  }, [currentLanguage, translateHeader]);
+    translateContent(currentLanguage);
+  }, [currentLanguage, translateContent]);
 
   const handleLanguageSelect = (lang: string) => {
     onLanguageChange(lang);
@@ -54,31 +76,31 @@ const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick, curren
           className="h-8 w-8 rounded-md"
         />
         <h1 className="text-md sm:text-lg font-semibold text-primary truncate">
-          {translatedHeaderTitle}
+          {tHeaderTitle}
         </h1>
       </div>
       <div className="flex items-center gap-1 sm:gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Change language">
+            <Button variant="ghost" size="icon" aria-label={tChangeLangLabel}>
               <Languages className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => handleLanguageSelect('en')} disabled={currentLanguage === 'en'}>
-              English
+              {tEnglish}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleLanguageSelect('am')} disabled={currentLanguage === 'am'}>
-              Amharic (አማርኛ)
+              {tAmharic}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleLanguageSelect('ar')} disabled={currentLanguage === 'ar'}>
-              Arabic (العربية)
+              {tArabic}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {showAccountIcon && (
-          <Button variant="ghost" size="icon" onClick={onAccountClick} aria-label="Account settings">
+          <Button variant="ghost" size="icon" onClick={onAccountClick} aria-label={tAccountSettingsLabel}>
             <UserCog className="h-5 w-5" />
           </Button>
         )}

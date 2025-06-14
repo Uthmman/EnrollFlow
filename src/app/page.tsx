@@ -14,17 +14,18 @@ export default function HomePage() {
   const [showAccountDialog, setShowAccountDialog] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState<string>('en');
 
+  // Original English strings
+  const O_WELCOME_MESSAGE = "Welcome to Hafsa Madrassa Programs";
+  const O_SUB_MESSAGE = "Begin by creating a primary account. Then, you can add participants or enroll yourself in our programs.";
+  const O_FOOTER_MESSAGE_1_PREFIX = "© ";
+  const O_FOOTER_MESSAGE_1_SUFFIX = " Hafsa Madrassa. All rights reserved.";
+  const O_FOOTER_MESSAGE_2 = "Quality Islamic Education";
+
   // Translated content states
-  const originalWelcomeMessage = "Welcome to Hafsa Madrassa Programs";
-  const originalSubMessage = "Begin by creating a primary account. Then, you can add participants or enroll yourself in our programs.";
-  const originalFooterMessage1 = `© ${new Date().getFullYear()} Hafsa Madrassa. All rights reserved.`;
-  const originalFooterMessage2 = "Quality Islamic Education";
-
-
-  const [translatedWelcomeMessage, setTranslatedWelcomeMessage] = useState(originalWelcomeMessage);
-  const [translatedSubMessage, setTranslatedSubMessage] = useState(originalSubMessage);
-  const [translatedFooter1, setTranslatedFooter1] = useState(originalFooterMessage1);
-  const [translatedFooter2, setTranslatedFooter2] = useState(originalFooterMessage2);
+  const [translatedWelcomeMessage, setTranslatedWelcomeMessage] = useState(O_WELCOME_MESSAGE);
+  const [translatedSubMessage, setTranslatedSubMessage] = useState(O_SUB_MESSAGE);
+  const [translatedFooter1, setTranslatedFooter1] = useState(`${O_FOOTER_MESSAGE_1_PREFIX}${new Date().getFullYear()}${O_FOOTER_MESSAGE_1_SUFFIX}`);
+  const [translatedFooter2, setTranslatedFooter2] = useState(O_FOOTER_MESSAGE_2);
 
 
   useEffect(() => {
@@ -41,17 +42,19 @@ export default function HomePage() {
   
   const translatePageContent = useCallback(async (lang: string) => {
     if (lang === 'en') {
-      setTranslatedWelcomeMessage(originalWelcomeMessage);
-      setTranslatedSubMessage(originalSubMessage);
-      setTranslatedFooter1(originalFooterMessage1);
-      setTranslatedFooter2(originalFooterMessage2);
+      setTranslatedWelcomeMessage(O_WELCOME_MESSAGE);
+      setTranslatedSubMessage(O_SUB_MESSAGE);
+      setTranslatedFooter1(`${O_FOOTER_MESSAGE_1_PREFIX}${new Date().getFullYear()}${O_FOOTER_MESSAGE_1_SUFFIX}`);
+      setTranslatedFooter2(O_FOOTER_MESSAGE_2);
     } else {
-      setTranslatedWelcomeMessage(await getTranslatedText(originalWelcomeMessage, lang, 'en'));
-      setTranslatedSubMessage(await getTranslatedText(originalSubMessage, lang, 'en'));
-      setTranslatedFooter1(await getTranslatedText(originalFooterMessage1, lang, 'en'));
-      setTranslatedFooter2(await getTranslatedText(originalFooterMessage2, lang, 'en'));
+      setTranslatedWelcomeMessage(await getTranslatedText(O_WELCOME_MESSAGE, lang, 'en'));
+      setTranslatedSubMessage(await getTranslatedText(O_SUB_MESSAGE, lang, 'en'));
+      const translatedPrefix = await getTranslatedText(O_FOOTER_MESSAGE_1_PREFIX, lang, 'en');
+      const translatedSuffix = await getTranslatedText(O_FOOTER_MESSAGE_1_SUFFIX, lang, 'en');
+      setTranslatedFooter1(`${translatedPrefix}${new Date().getFullYear()}${translatedSuffix}`);
+      setTranslatedFooter2(await getTranslatedText(O_FOOTER_MESSAGE_2, lang, 'en'));
     }
-  }, [originalWelcomeMessage, originalSubMessage, originalFooterMessage1, originalFooterMessage2]);
+  }, [O_WELCOME_MESSAGE, O_SUB_MESSAGE, O_FOOTER_MESSAGE_1_PREFIX, O_FOOTER_MESSAGE_1_SUFFIX, O_FOOTER_MESSAGE_2]);
 
   useEffect(() => {
     translatePageContent(currentLanguage);
@@ -98,7 +101,7 @@ export default function HomePage() {
           onStageChange={handleFormStageChange}
           showAccountDialogFromParent={showAccountDialog}
           onCloseAccountDialog={handleCloseAccountDialog}
-          currentLanguage={currentLanguage} // Pass language to form if needed for its content
+          currentLanguage={currentLanguage}
         />
 
         <footer className="mt-10 sm:mt-12 text-center text-xs sm:text-sm text-muted-foreground">
