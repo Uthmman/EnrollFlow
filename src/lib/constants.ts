@@ -5,16 +5,18 @@ export type ProgramField =
   | { type: 'select'; name: 'schoolGrade'; label: 'School Grade'; options: string[] }
   | { type: 'select'; name: 'quranLevel'; label: 'Quran Level'; options: string[] };
 
+export type HafsaProgramCategory = 'daycare' | 'quran_kids' | 'arabic_women' | 'general_islamic_studies';
+
 export type HafsaProgram = {
   id: string;
   label: string;
   description: string;
   price: number;
-  category: 'daycare' | 'quran_kids' | 'arabic_women' | 'general_islamic_studies';
+  category: HafsaProgramCategory;
   ageRange?: string;
   duration?: string;
   schedule?: string;
-  isChildProgram: boolean;
+  isChildProgram: boolean; // True if the participant is typically a child, false for adult programs like Arabic for Women
   specificFields?: ProgramField[];
   termsAndConditions: string;
 };
@@ -57,6 +59,40 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     termsAndConditions: "Consistent attendance is crucial. Materials fee of Br 200 applicable. Parents are encouraged to support home practice."
   },
   {
+    id: 'quran_bootcamp_full_day',
+    label: 'Quran Bootcamp (Full-Day)',
+    description: 'Intensive Quran memorization and Tajweed practice for dedicated students.',
+    price: 3000,
+    category: 'quran_kids', // Assuming similar to quran_kids but more intensive
+    ageRange: '7 - 15 years',
+    duration: '1 month',
+    schedule: 'Monday - Friday, Full Day',
+    isChildProgram: true,
+    specificFields: [
+      { type: 'text', name: 'specialAttention', label: 'Special Attention (e.g., allergies, specific needs)' },
+      { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES },
+      { type: 'select', name: 'quranLevel', label: 'Current Quran Level', options: QURAN_LEVELS },
+    ],
+    termsAndConditions: "Full commitment required. Limited spots. Placement test may be needed. Non-refundable after start."
+  },
+  {
+    id: 'quran_bootcamp_asr',
+    label: 'Quran Bootcamp (After Asr)',
+    description: 'Evening Quran memorization and Tajweed sessions.',
+    price: 1500,
+    category: 'quran_kids', // Assuming similar to quran_kids
+    ageRange: '7 - 15 years',
+    duration: '2 months',
+    schedule: 'Monday - Friday, After Asr',
+    isChildProgram: true,
+    specificFields: [
+      { type: 'text', name: 'specialAttention', label: 'Special Attention (e.g., allergies, specific needs)' },
+      { type: 'select', name: 'schoolGrade', label: 'School Grade', options: SCHOOL_GRADES },
+      { type: 'select', name: 'quranLevel', label: 'Current Quran Level', options: QURAN_LEVELS },
+    ],
+    termsAndConditions: "Regular attendance expected. Non-refundable after start. Home practice is key."
+  },
+  {
     id: 'arabic_women_level1',
     label: 'Arabic Language for Women (Level 1)',
     description: 'Foundational Arabic for sisters, focusing on reading, writing, and basic conversation for understanding Quran and Sunnah.',
@@ -65,10 +101,8 @@ export const HAFSA_PROGRAMS: HafsaProgram[] = [
     ageRange: '16+ years',
     duration: '4 months',
     schedule: '2 days/week, 2 hours/session',
-    isChildProgram: false,
-    specificFields: [
-       { type: 'text', name: 'specialAttention', label: 'Learning Preferences or Special Needs' },
-    ],
+    isChildProgram: false, // Participant is the trainee
+    // No specificFields here as trainee's info is collected directly in ParticipantInfo
     termsAndConditions: "This program is for women only. Commitment to all sessions is expected. Textbook purchase may be required."
   },
   {
@@ -154,6 +188,7 @@ export const LEGACY_PAYMENT_TYPES = [
 ];
 
 
+// These seem like legacy or different app's constants, might not be needed for Hafsa Madrassa
 export type Course = {
   value: string;
   label: string;
@@ -201,3 +236,7 @@ export const PROGRAMS_BY_LEVEL: { [level: string]: Program[] } = {
     },
   ],
 };
+
+// Re-exporting HafsaProgramCategory for use in types/index.ts if needed there,
+// but primary definition remains here with HAFSA_PROGRAMS.
+export type { HafsaProgramCategory as ProgramCategoryType } from './constants';

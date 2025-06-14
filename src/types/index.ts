@@ -1,5 +1,6 @@
 
 import { z } from 'zod';
+import type { ProgramCategoryType, ProgramField } from '@/lib/constants'; // Import from constants
 
 // Authentication and Form related types
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -8,7 +9,7 @@ const phoneRegex = /^[0-9]{9,15}$/; // Basic phone regex, adjust if needed for s
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters."),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format."),
-  parentPhone1: z.string().regex(phoneRegex, "Invalid primary phone number format (e.g., 0911XXXXXX)."),
+  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX)."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
 }).superRefine((data, ctx) => {
@@ -23,16 +24,24 @@ export const ParentInfoSchema = z.object({
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
 export const ParticipantInfoSchema = z.object({
-  firstName: z.string().min(2, "Participant's first name must be at least 2 characters."),
+  // For Arabic Training, firstName will be the trainee's Full Name.
+  // For Daycare/Quran, it's the child's First Name.
+  firstName: z.string().min(2, "Participant's/Trainee's first name must be at least 2 characters."),
   gender: z.enum(["male", "female"], { required_error: "Gender is required." }),
-  dateOfBirth: z.date({ required_error: "Participant's date of birth is required." }),
+  dateOfBirth: z.date({ required_error: "Date of birth is required." }),
+
+  // Program-specific fields (optional, shown based on program.category)
   specialAttention: z.string().optional(),
   schoolGrade: z.string().optional(),
   quranLevel: z.string().optional(),
-  guardianFullName: z.string().min(3, "Guardian's full name must be at least 3 characters."),
-  guardianPhone1: z.string().regex(phoneRegex, "Invalid guardian primary phone number format."),
-  guardianPhone2: z.string().regex(phoneRegex, "Invalid guardian secondary phone number format.").optional().or(z.literal('')),
-  guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Invalid guardian Telegram phone number format."),
+
+  // Guardian/Trainee Contact fields
+  // For Daycare/Quran: Guardian's details (can be pre-filled from ParentInfo).
+  // For Arabic Training: Trainee's own details.
+  guardianFullName: z.string().min(3, "Guardian's/Trainee's full name must be at least 3 characters."),
+  guardianPhone1: z.string().regex(phoneRegex, "Guardian's/Trainee's primary phone invalid."),
+  guardianPhone2: z.string().regex(phoneRegex, "Secondary phone invalid.").optional().or(z.literal('')),
+  guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Telegram phone invalid."),
   guardianUsePhone1ForTelegram: z.boolean().optional(),
   guardianUsePhone2ForTelegram: z.boolean().optional(),
 });
@@ -174,7 +183,6 @@ export type RegistrationData = {
   firebaseUserId?: string;
 };
 
-// HafsaProgram and ProgramField types are now in src/lib/constants.ts
-// If you need to re-import them here for some reason, uncomment below:
-// export type { HafsaProgram, ProgramField } from '@/lib/constants';
-
+// Re-export HafsaProgram and ProgramField if they are defined in constants.ts
+// This allows other parts of the app to import them from types/index.ts as a central point.
+export type { HafsaProgram, ProgramField, HafsaProgramCategory } from '@/lib/constants';
