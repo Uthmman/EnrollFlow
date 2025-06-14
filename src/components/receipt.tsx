@@ -5,7 +5,7 @@ import React from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft, Mail } from 'lucide-react';
+import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RegistrationData, HafsaProgram } from '@/types';
 import { format } from 'date-fns';
@@ -14,7 +14,7 @@ import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 interface ReceiptProps {
   data: RegistrationData;
   onBack: () => void;
-  allPrograms: HafsaProgram[]; 
+  allPrograms: HafsaProgram[];
 }
 
 const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
@@ -32,10 +32,10 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
     <Card className="w-full max-w-3xl mx-auto shadow-xl my-6 sm:my-8 print:shadow-none">
       <CardHeader className="text-center bg-accent/10 print:bg-transparent p-4 sm:p-6">
         <div className="flex flex-col items-center">
-          <Image 
-            src="https://placehold.co/80x80.png" 
-            alt="Hafsa Madrassa Logo" 
-            width={60} 
+          <Image
+            src="https://placehold.co/80x80.png"
+            alt="Hafsa Madrassa Logo"
+            width={60}
             height={60}
             data-ai-hint="islamic education logo"
             className="w-16 h-16 sm:w-20 sm:h-20 mb-3 sm:mb-4 rounded-full"
@@ -45,7 +45,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
         </div>
       </CardHeader>
       <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6 text-sm sm:text-base">
-        
+
         <div className="flex items-center mb-2">
             <CalendarDays className="h-5 w-5 mr-2 text-primary" />
             <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Registration Summary</h3>
@@ -59,15 +59,24 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
         <Separator />
         <div>
             <div className="flex items-center mb-2">
-                <Mail className="h-5 w-5 mr-2 text-primary" />
+                <User className="h-5 w-5 mr-2 text-primary" /> {/* Changed Icon for consistency */}
                 <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Primary Account Holder</h3>
             </div>
             <div className="pl-7 space-y-0.5">
                 <p><strong>Name:</strong> {primaryRegistrant.parentFullName}</p>
-                <p><strong>Email:</strong> {primaryRegistrant.parentEmail}</p>
+                <div className="flex items-center">
+                  <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>{primaryRegistrant.parentEmail}</span>
+                </div>
+                {primaryRegistrant.parentPhone1 && (
+                  <div className="flex items-center">
+                    <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span>{primaryRegistrant.parentPhone1}</span>
+                  </div>
+                )}
             </div>
         </div>
-        
+
         {/* Enrolled Participants */}
         {enrolledParticipants.length > 0 && (
         <>
@@ -78,7 +87,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
                     <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Enrolled Participants</h3>
                 </div>
                 {enrolledParticipants.map((enrolledItem, index) => {
-                    const program = allPrograms.find(p => p.id === enrolledItem.programId); 
+                    const program = allPrograms.find(p => p.id === enrolledItem.programId);
                     const participant = enrolledItem.participantInfo;
                     return (
                         <div key={index} className="mb-3 sm:mb-4 pl-7 border-l-2 border-muted ml-2 pl-4 py-2 relative">
@@ -94,7 +103,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
                                 {participant.schoolGrade && <p><strong>School Grade:</strong> {participant.schoolGrade}</p>}
                                 {participant.quranLevel && <p><strong>Quran Level:</strong> {participant.quranLevel}</p>}
                                 {participant.specialAttention && <p><strong>Special Attention:</strong> {participant.specialAttention}</p>}
-                                
+
                                 <div className="mt-2 pt-2 border-t border-dashed">
                                     <p className="text-xs font-medium text-muted-foreground flex items-center"><ShieldQuestion className="mr-1.5 h-3.5 w-3.5"/>Guardian Contact for {participant.firstName}:</p>
                                     <p><strong>Name:</strong> {participant.guardianFullName}</p>
@@ -110,7 +119,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
             </div>
         </>
         )}
-        
+
         <Separator />
 
         <div>
@@ -137,12 +146,12 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
             <p className="text-xs text-destructive mt-1"><strong>Reason:</strong> {data.paymentVerificationDetails.reason}</p>
           )}
         </div>
-        
+
         <div className="mt-4 sm:mt-6 p-3 sm:p-4 border-dashed border-2 border-muted rounded-lg text-center print:hidden">
-            <Image 
-                src="https://placehold.co/300x75.png" 
-                alt="Success illustration" 
-                width={250} 
+            <Image
+                src="https://placehold.co/300x75.png"
+                alt="Success illustration"
+                width={250}
                 height={62}
                 data-ai-hint="islamic pattern certificate"
                 className="mx-auto mb-2 rounded max-w-[250px] h-auto sm:max-w-[300px]"
