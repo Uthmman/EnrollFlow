@@ -1,3 +1,4 @@
+
 // This file uses server-side code.
 'use server';
 
@@ -106,8 +107,17 @@ const verifyPaymentFromScreenshotFlow = ai.defineFlow(
     inputSchema: VerifyPaymentFromScreenshotInputSchema,
     outputSchema: VerifyPaymentFromScreenshotOutputSchema,
   },
-  async input => {
+  async (input): Promise<VerifyPaymentFromScreenshotOutput> => {
     const {output} = await verifyPaymentFromScreenshotPrompt(input);
-    return output!;
+    if (!output) {
+        console.error("AI prompt 'verifyPaymentFromScreenshotPrompt' returned null or undefined output.", {input});
+        return {
+            isPaymentValid: false,
+            reason: "AI model failed to produce an output. Please ensure the screenshot is clear and legible, then try again. If the issue persists, please use a different verification method.",
+            // Optional fields will be undefined, which is valid for the schema.
+        };
+    }
+    return output;
   }
 );
+
