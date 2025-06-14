@@ -53,56 +53,71 @@ export const PaymentProofSchema = z.object({
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
     required_error: "Proof submission method is required.",
   }),
-  screenshot: z.custom<File>((val) => val instanceof File, "Screenshot file is required.").optional(),
+  screenshot: z.custom<File>((val) => val instanceof File, "A valid screenshot file is required.").optional(),
   screenshotDataUri: z.string().optional(),
   pdfLink: z.string().url("Invalid URL for PDF link.").optional().or(z.literal('')),
   transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional().or(z.literal('')),
-}).superRefine((data, ctx) => {
-  if (data.proofSubmissionType === 'transactionId' && (!data.transactionId || data.transactionId.length < 3)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['transactionId'],
-      message: 'Transaction ID is required and must be at least 3 characters.',
-    });
-  }
-  if (data.proofSubmissionType === 'screenshot' && !data.screenshot && !data.screenshotDataUri) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['screenshot'],
-      message: 'Screenshot is required for this proof type.',
-    });
-  }
-  if (data.proofSubmissionType === 'pdfLink' && (!data.pdfLink || (!data.pdfLink.startsWith('http://') && !data.pdfLink.startsWith('https://')))) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['pdfLink'],
-      message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.',
-    });
-  }
 });
 export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: ParentInfoSchema, // Simplified primary account holder info
-  participants: z.array(EnrolledParticipantSchema).optional().default([]), // All enrollments, each with their own guardian contact
+  parentInfo: ParentInfoSchema, 
+  participants: z.array(EnrolledParticipantSchema).optional().default([]), 
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
   paymentProof: PaymentProofSchema.optional(),
-  loginIdentifier: z.string().optional(), // For login tab
-  loginPassword: z.string().optional(), // For login tab
+  loginIdentifier: z.string().optional(), 
+  loginPassword: z.string().optional(), 
 })
 .superRefine((data, ctx) => {
-    if (data.participants && data.participants.length > 0 && !data.paymentProof) {
+    // Specific validations for paymentProof fields based on proofSubmissionType
+    if (data.paymentProof) {
+        const { proofSubmissionType, transactionId, screenshot, pdfLink } = data.paymentProof;
+        if (proofSubmissionType === 'transactionId') {
+            if (!transactionId || transactionId.length < 3) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof', 'transactionId'],
+                message: 'Transaction ID is required and must be at least 3 characters.',
+            });
+            }
+        } else if (proofSubmissionType === 'screenshot') {
+            if (!screenshot) { // Only check for the presence of the File object
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof', 'screenshot'],
+                message: 'Please upload a screenshot file for verification.',
+            });
+            }
+        } else if (proofSubmissionType === 'pdfLink') {
+            if (!pdfLink || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof', 'pdfLink'],
+                message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.',
+            });
+            }
+        }
+    }
+
+    // Cross-field validation: if participants are enrolled, paymentProof (and its core fields) are required.
+    const hasParticipants = data.participants && data.participants.length > 0;
+    const hasPaymentProofObject = !!data.paymentProof;
+
+    if (hasParticipants && !hasPaymentProofObject) {
        ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['paymentProof.paymentType'], 
-            message: 'Payment information is required when participants are enrolled.',
+            path: ['paymentProof', 'paymentType'], // Point to a field to make it user-actionable
+            message: 'Payment details are required when participants are enrolled.',
         });
-    }
-    if (data.paymentProof && (!data.participants || data.participants.length === 0)) {
+    } else if (hasParticipants && hasPaymentProofObject) {
+        // If paymentProof object exists, PaymentProofSchema itself ensures its internal fields like
+        // paymentType and proofSubmissionType are present and valid.
+        // No need to re-check them here unless they are conditionally required based on other top-level fields.
+    } else if (!hasParticipants && hasPaymentProofObject) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['participants'],
@@ -115,8 +130,8 @@ export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
 // Defines the structure for the actual registration record
 export type RegistrationData = {
-  parentInfo: ParentInfoData; // Simplified primary account holder
-  participants: EnrolledParticipantData[]; // Each participant has their own details + guardian details
+  parentInfo: ParentInfoData; 
+  participants: EnrolledParticipantData[]; 
   agreeToTerms: boolean;
   couponCode?: string;
   paymentProof: PaymentProofData;
