@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
 
-import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS, HafsaPaymentMethod } from '@/lib/constants';
+import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
 import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
@@ -39,6 +39,8 @@ const defaultParentValues: ParentInfoData = {
   parentPhone2: '',
   usePhone1ForTelegram: false,
   usePhone2ForTelegram: false,
+  password: '',
+  confirmPassword: '',
 };
 
 const defaultParticipantValues: ParticipantInfoData = {
@@ -57,7 +59,6 @@ const ParentInfoFields: React.FC = () => {
     defaultValues: defaultParentValues
   });
   
-  const fieldPrefix = ''; 
   const currentErrors = errors || {};
   
   const phone1 = watch(`parentPhone1`);
@@ -133,6 +134,18 @@ const ParentInfoFields: React.FC = () => {
                 </div>
             )}/>}
           </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div>
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" {...register('password' as any)} type="password" placeholder="Create a password" />
+                {(currentErrors as any).password && <p className="text-sm text-destructive mt-1">{(currentErrors as any).password.message}</p>}
+            </div>
+            <div>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input id="confirmPassword" {...register('confirmPassword' as any)} type="password" placeholder="Confirm your password" />
+                {(currentErrors as any).confirmPassword && <p className="text-sm text-destructive mt-1">{(currentErrors as any).confirmPassword.message}</p>}
+            </div>
         </div>
       </CardContent>
     </Card>
@@ -259,6 +272,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
+  const [showPasswordInDialog, setShowPasswordInDialog] = useState(false);
   
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
@@ -298,7 +312,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   }, [watchedParticipants]);
 
   const handleAccountCreation = async () => {
-    const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentPhone1', 'telegramPhoneNumber'];
+    const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentPhone1', 'telegramPhoneNumber', 'password', 'confirmPassword'];
     const mainFormTrigger = methods.trigger;
     const isValid = await mainFormTrigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
 
@@ -315,24 +329,40 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const isValid = await trigger(['loginIdentifier', 'loginPassword']);
     if (isValid) {
       setIsLoading(true);
-      // Simulate API call for login
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API
       const { loginIdentifier, loginPassword } = getValues();
+      const registeredParentInfo = getValues('parentInfo');
 
-      // STUBBED: Replace with actual login logic
-      // For prototype, using a common phone format for identifier
-      if (loginIdentifier === "0911223344" && loginPassword === "password") {
-        toast({ title: "Login Successful!", description: "Welcome back! (Stubbed)" });
-        // In a real app, you would fetch user data here and populate parentInfo, participants, etc.
-        // For this prototype, we'll just proceed to the dashboard.
-        // You might want to set some dummy parentInfo for the dialog if needed:
-        // setValue('parentInfo', { parentFullName: 'Logged In User', parentPhone1: loginIdentifier, telegramPhoneNumber: loginIdentifier});
-        
+      let loginSuccess = false;
+
+      // Try login with session-registered details first
+      if (registeredParentInfo && registeredParentInfo.parentPhone1 === loginIdentifier && registeredParentInfo.password === loginPassword) {
+        loginSuccess = true;
+      } 
+      // Fallback to prototype hardcoded credentials
+      else if (loginIdentifier === "0911223344" && loginPassword === "password") {
+        loginSuccess = true;
+         // If prototype login is successful, populate parentInfo for the dialog
+         setValue('parentInfo', { 
+            parentFullName: 'Hafsa Admin (Stubbed)', 
+            parentPhone1: loginIdentifier, 
+            telegramPhoneNumber: loginIdentifier, 
+            password: loginPassword, // Store password for dialog display
+            confirmPassword: loginPassword, 
+            parentPhone2: '', 
+            usePhone1ForTelegram: false, 
+            usePhone2ForTelegram: false 
+        });
+      }
+
+
+      if (loginSuccess) {
+        toast({ title: "Login Successful!", description: "Welcome back!" });
         setActiveDashboardTab('enrollments');
         setCurrentView('dashboard');
         onStageChange('accountCreated'); 
       } else {
-        toast({ title: "Login Failed", description: "Invalid credentials. (Hint: 0911223344 / password)", variant: "destructive" });
+        toast({ title: "Login Failed", description: "Invalid credentials. (Hint: 0911223344 / password, or use registered details if you just created an account).", variant: "destructive" });
       }
       setIsLoading(false);
     } else {
@@ -388,10 +418,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         });
         setValue('paymentProof.screenshotDataUri', screenshotDataUri); 
         if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri; 
+      } else if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshotDataUri) {
+        // If screenshotDataUri already exists (e.g. from a previous attempt or if file object is not available)
+        screenshotDataUri = data.paymentProof.screenshotDataUri;
       }
       
+      const selectedBankDetails = HAFSA_PAYMENT_METHODS.find(m => m.value === data.paymentProof?.paymentType);
       const verificationInput = {
-        paymentProof: data.paymentProof!, 
+        paymentProof: {
+            ...data.paymentProof!,
+            screenshotDataUri: screenshotDataUri, // Ensure this is passed
+        },
         expectedAmount: calculatedPrice,
       };
 
@@ -421,16 +458,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       } else {
         toast({
           title: "Payment Issue",
-          description: result.reason || result.message || "Please check your payment details and try again.",
+          description: result.message || result.reason || "Please check your payment details and try again.",
           variant: "destructive",
         });
       }
     } catch (error: any) {
       console.error("Submission error:", error);
       const errorMessage = error.message || "An unexpected error occurred. Please try again.";
-      if (error.issues) { 
-        // errorMessage.concat(error.issues.map((issue: any) => issue.message).join(' '));
-      }
       toast({
         title: "Error",
         description: errorMessage,
@@ -863,23 +897,31 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           )}
         </Card>
       </form>
-       <Dialog open={showAccountDialogFromParent} onOpenChange={onCloseAccountDialog}>
+       <Dialog open={showAccountDialogFromParent} onOpenChange={(isOpen) => { if (!isOpen) { setShowPasswordInDialog(false); } onCloseAccountDialog(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>Account Information</DialogTitle>
             <DialogDescription>
-              Details of the primary registrant. {authMode === 'login' && "(Logged In - Stubbed)"}
+              Details of the primary registrant. {authMode === 'login' && parentInfoForDialog && parentInfoForDialog.parentFullName === 'Hafsa Admin (Stubbed)' && "(Logged In - Stubbed)"}
             </DialogDescription>
           </DialogHeader>
           {parentInfoForDialog && (
             <div className="space-y-2 py-2 text-sm">
-              <p><strong>Full Name:</strong> {parentInfoForDialog.parentFullName || (authMode === 'login' ? 'Logged In User (Stubbed)' : 'N/A')}</p>
-              <p><strong>Primary Phone:</strong> {parentInfoForDialog.parentPhone1 || (authMode === 'login' ? getValues('loginIdentifier'): 'N/A')}</p>
+              <p><strong>Full Name:</strong> {parentInfoForDialog.parentFullName || 'N/A'}</p>
+              <p><strong>Primary Phone:</strong> {parentInfoForDialog.parentPhone1 || 'N/A'}</p>
               {parentInfoForDialog.parentPhone2 && <p><strong>Secondary Phone:</strong> {parentInfoForDialog.parentPhone2}</p>}
-              <p><strong>Telegram Phone:</strong> {parentInfoForDialog.telegramPhoneNumber || (authMode === 'login' ? getValues('loginIdentifier'): 'N/A')}</p>
+              <p><strong>Telegram Phone:</strong> {parentInfoForDialog.telegramPhoneNumber || 'N/A'}</p>
+              {parentInfoForDialog.password && (
+                <div className="flex items-center justify-between">
+                    <p><strong>Password:</strong> {showPasswordInDialog ? parentInfoForDialog.password : '••••••••'}</p>
+                    <Button variant="ghost" size="icon" onClick={() => setShowPasswordInDialog(!showPasswordInDialog)} className="h-7 w-7">
+                        {showPasswordInDialog ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                </div>
+              )}
             </div>
           )}
-          <Button onClick={onCloseAccountDialog} className="mt-2 w-full">Close</Button>
+          <Button onClick={() => { setShowPasswordInDialog(false); onCloseAccountDialog(); }} className="mt-2 w-full">Close</Button>
         </DialogContent>
       </Dialog>
     </FormProvider>

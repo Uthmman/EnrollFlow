@@ -10,6 +10,16 @@ export const ParentInfoSchema = z.object({
   telegramPhoneNumber: z.string().regex(phoneRegex, "Invalid Telegram phone number format."),
   usePhone1ForTelegram: z.boolean().optional(),
   usePhone2ForTelegram: z.boolean().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
+}).superRefine((data, ctx) => {
+  if (data.password !== data.confirmPassword) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['confirmPassword'],
+      message: 'Passwords do not match.',
+    });
+  }
 });
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
@@ -46,7 +56,7 @@ export const PaymentProofSchema = z.object({
       message: 'Transaction ID is required and must be at least 3 characters.',
     });
   }
-  if (data.proofSubmissionType === 'screenshot' && !data.screenshot) {
+  if (data.proofSubmissionType === 'screenshot' && !data.screenshot && !data.screenshotDataUri) { // check for screenshotDataUri if screenshot is not directly available (e.g. on resubmit)
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['screenshot'],
@@ -66,7 +76,7 @@ export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 export const EnrollmentFormSchema = z.object({
   parentInfo: ParentInfoSchema,
-  participants: z.array(EnrolledParticipantSchema).optional().default([]), // Participants are optional until payment
+  participants: z.array(EnrolledParticipantSchema).optional().default([]),
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
@@ -76,19 +86,14 @@ export const EnrollmentFormSchema = z.object({
   loginPassword: z.string().optional(),
 })
 .superRefine((data, ctx) => {
-    if (!data.parentInfo || !data.parentInfo.parentFullName) {
-        // This check is more relevant for the registration path.
-        // For login, parentInfo might be populated after successful login.
-        // We might need a more sophisticated way to handle this if we were fully implementing login.
-    }
     if (data.participants && data.participants.length > 0 && !data.paymentProof) {
        ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['paymentProof.paymentType'],
+            path: ['paymentProof.paymentType'], // Path can be generalized or kept specific
             message: 'Payment information is required when participants are enrolled.',
         });
     }
-     if (data.paymentProof && (!data.participants || data.participants.length === 0)) {
+    if (data.paymentProof && (!data.participants || data.participants.length === 0)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['participants'],
@@ -108,6 +113,7 @@ export type RegistrationData = {
   paymentProof: PaymentProofData;
   calculatedPrice: number;
   paymentVerified: boolean;
-  paymentVerificationDetails?: any; // This can be VerifyPaymentFromScreenshotOutput or similar
+  paymentVerificationDetails?: any; 
   registrationDate: Date;
 };
+
