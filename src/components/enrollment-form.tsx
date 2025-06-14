@@ -57,7 +57,7 @@ const defaultParticipantValues: ParticipantInfoData = {
 
 
 const ParentInfoFields: React.FC = () => {
-  const { register, formState: { errors } } = useFormContext<EnrollmentFormData>(); // Use useFormContext
+  const { register, formState: { errors } } = useFormContext<EnrollmentFormData>(); 
   
   const currentErrors = errors.parentInfo || {};
   
@@ -440,12 +440,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       }
 
       let screenshotDataUri: string | undefined;
-      if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshot) {
+      if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshot && data.paymentProof.screenshot.length > 0) {
+        const fileToUpload = data.paymentProof.screenshot[0];
         screenshotDataUri = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
-          reader.readAsDataURL(data.paymentProof!.screenshot as File);
+          reader.readAsDataURL(fileToUpload);
         });
         setValue('paymentProof.screenshotDataUri', screenshotDataUri); 
         if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri; 
@@ -453,7 +454,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         screenshotDataUri = data.paymentProof.screenshotDataUri;
       }
       
-      const selectedBankDetails = HAFSA_PAYMENT_METHODS.find(m => m.value === data.paymentProof?.paymentType);
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,

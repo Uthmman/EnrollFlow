@@ -53,7 +53,7 @@ export const PaymentProofSchema = z.object({
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
     required_error: "Proof submission method is required.",
   }),
-  screenshot: z.custom<File>((val) => val instanceof File, "A valid screenshot file is required.").optional(),
+  screenshot: z.any().optional(), // Changed from z.instanceof(FileList) to z.any() for SSR safety
   screenshotDataUri: z.string().optional(),
   pdfLink: z.string().url("Invalid URL for PDF link.").optional().or(z.literal('')),
   transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional().or(z.literal('')),
@@ -75,7 +75,7 @@ export const EnrollmentFormSchema = z.object({
 .superRefine((data, ctx) => {
     // Specific validations for paymentProof fields based on proofSubmissionType
     if (data.paymentProof) {
-        const { proofSubmissionType, transactionId, screenshot, pdfLink } = data.paymentProof;
+        const { proofSubmissionType, transactionId, screenshot, pdfLink, screenshotDataUri } = data.paymentProof;
         if (proofSubmissionType === 'transactionId') {
             if (!transactionId || transactionId.length < 3) {
             ctx.addIssue({
@@ -85,12 +85,41 @@ export const EnrollmentFormSchema = z.object({
             });
             }
         } else if (proofSubmissionType === 'screenshot') {
-            if (!screenshot) { // Only check for the presence of the File object
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['paymentProof', 'screenshot'],
-                message: 'Please upload a screenshot file for verification.',
-            });
+            if (typeof window !== 'undefined') { // Client-side specific checks for FileList/File
+                const ssAsFileList = screenshot as FileList | undefined | null; // Cast for client-side context
+                if (!ssAsFileList || ssAsFileList.length === 0) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'screenshot'],
+                        message: 'Please upload a screenshot file for verification.',
+                    });
+                } else if (ssAsFileList.length > 1) {
+                     ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'screenshot'],
+                        message: 'Only one screenshot can be uploaded.',
+                    });
+                } else if (!(ssAsFileList[0] instanceof File)) { // File is generally available in modern Node, but FileList isn't.
+                     ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'screenshot'],
+                        message: 'A valid screenshot file object is required.',
+                    });
+                }
+            } else {
+                 // Server-side context: 'screenshot' won't be a FileList.
+                 // Check if screenshotDataUri is missing, as that's what server would expect if client processed it.
+                 // However, this schema is mainly for client form validation before screenshotDataUri is generated.
+                 // A simple check for presence might be 'if (!screenshot && !screenshotDataUri)'
+                 // but 'screenshot' on server isn't meaningful as FileList.
+                 // Rely on client validation for file object; server action will check screenshotDataUri.
+                 if (!screenshotDataUri && !screenshot) { // if screenshot (placeholder for file list) and data URI are both missing
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'screenshot'],
+                        message: 'Screenshot is required for this submission type (ensure it is uploaded).',
+                    });
+                 }
             }
         } else if (proofSubmissionType === 'pdfLink') {
             if (!pdfLink || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) {
@@ -103,24 +132,36 @@ export const EnrollmentFormSchema = z.object({
         }
     }
 
-    // Cross-field validation: if participants are enrolled, paymentProof (and its core fields) are required.
     const hasParticipants = data.participants && data.participants.length > 0;
     const hasPaymentProofObject = !!data.paymentProof;
+    const paymentMethodSelected = !!data.paymentProof?.paymentType;
+    const proofSubmissionTypeSelected = !!data.paymentProof?.proofSubmissionType;
 
     if (hasParticipants && !hasPaymentProofObject) {
        ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['paymentProof', 'paymentType'], // Point to a field to make it user-actionable
+            path: ['paymentProof', 'paymentType'], 
             message: 'Payment details are required when participants are enrolled.',
         });
     } else if (hasParticipants && hasPaymentProofObject) {
-        // If paymentProof object exists, PaymentProofSchema itself ensures its internal fields like
-        // paymentType and proofSubmissionType are present and valid.
-        // No need to re-check them here unless they are conditionally required based on other top-level fields.
-    } else if (!hasParticipants && hasPaymentProofObject) {
+        if (!paymentMethodSelected) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof', 'paymentType'],
+                message: 'Please select a payment method.',
+            });
+        }
+        if (!proofSubmissionTypeSelected) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof', 'proofSubmissionType'],
+                message: 'Please select a proof submission method.',
+            });
+        }
+    } else if (!hasParticipants && hasPaymentProofObject && (paymentMethodSelected || proofSubmissionTypeSelected)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['participants'],
+        path: ['participants'], 
         message: 'At least one participant must be enrolled to submit payment proof.',
       });
     }
