@@ -1,12 +1,33 @@
 
 import { z } from 'zod';
 
-const phoneRegex = /^[0-9]{9,15}$/; // General phone regex, adjust as needed
+// Program related types
+export type ProgramField = 
+  | { type: 'text'; name: 'specialAttention'; label: 'Special Attention (e.g., allergies, specific needs)' }
+  | { type: 'select'; name: 'schoolGrade'; label: 'School Grade'; options: string[] }
+  | { type: 'select'; name: 'quranLevel'; label: 'Quran Level'; options: string[] };
 
-// Simplified schema for the primary account holder
+export type HafsaProgram = {
+  id: string; // Firestore document ID will be used here
+  label: string;
+  description: string;
+  price: number;
+  category: 'daycare' | 'quran_kids' | 'arabic_women';
+  ageRange?: string;
+  duration?: string;
+  schedule?: string;
+  isChildProgram: boolean; 
+  specificFields?: ProgramField[]; 
+  termsAndConditions: string; 
+};
+
+
+// Authentication and Form related types
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters."),
-  parentPhone1: z.string().regex(phoneRegex, "Invalid primary phone number format."),
+  parentEmail: z.string().regex(emailRegex, "Invalid email address format."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
 }).superRefine((data, ctx) => {
@@ -20,23 +41,17 @@ export const ParentInfoSchema = z.object({
 });
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
-// Expanded schema for each participant, now including their specific guardian's contact
 export const ParticipantInfoSchema = z.object({
-  // Participant's own details
   firstName: z.string().min(2, "Participant's first name must be at least 2 characters."),
   gender: z.enum(["male", "female"], { required_error: "Gender is required." }),
   dateOfBirth: z.date({ required_error: "Participant's date of birth is required." }),
-  
-  // Program-specific details (optional, based on program)
   specialAttention: z.string().optional(),
   schoolGrade: z.string().optional(),
   quranLevel: z.string().optional(),
-
-  // Guardian contact details for this specific participant
   guardianFullName: z.string().min(3, "Guardian's full name must be at least 3 characters."),
-  guardianPhone1: z.string().regex(phoneRegex, "Invalid guardian primary phone number format."),
-  guardianPhone2: z.string().regex(phoneRegex, "Invalid guardian secondary phone number format.").optional().or(z.literal('')),
-  guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Invalid guardian Telegram phone number format."),
+  guardianPhone1: z.string().regex(/^[0-9]{9,15}$/, "Invalid guardian primary phone number format."),
+  guardianPhone2: z.string().regex(/^[0-9]{9,15}$/, "Invalid guardian secondary phone number format.").optional().or(z.literal('')),
+  guardianTelegramPhoneNumber: z.string().regex(/^[0-9]{9,15}$/, "Invalid guardian Telegram phone number format."),
   guardianUsePhone1ForTelegram: z.boolean().optional(),
   guardianUsePhone2ForTelegram: z.boolean().optional(),
 });
@@ -69,8 +84,8 @@ export const EnrollmentFormSchema = z.object({
   }),
   couponCode: z.string().optional(),
   paymentProof: PaymentProofSchema.optional(),
-  loginIdentifier: z.string().optional(), 
-  loginPassword: z.string().optional(), 
+  loginEmail: z.string().regex(emailRegex, "Invalid email address format.").optional(), 
+  loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(), 
 })
 .superRefine((data, ctx) => {
     if (data.paymentProof) {
@@ -172,24 +187,5 @@ export type RegistrationData = {
   paymentVerified: boolean;
   paymentVerificationDetails?: any; 
   registrationDate: Date;
-};
-
-// Program related types moved from constants.ts
-export type ProgramField = 
-  | { type: 'text'; name: 'specialAttention'; label: 'Special Attention (e.g., allergies, specific needs)' }
-  | { type: 'select'; name: 'schoolGrade'; label: 'School Grade'; options: string[] }
-  | { type: 'select'; name: 'quranLevel'; label: 'Quran Level'; options: string[] };
-
-export type HafsaProgram = {
-  id: string; // Firestore document ID will be used here
-  label: string;
-  description: string;
-  price: number;
-  category: 'daycare' | 'quran_kids' | 'arabic_women';
-  ageRange?: string;
-  duration?: string;
-  schedule?: string;
-  isChildProgram: boolean; 
-  specificFields?: ProgramField[]; 
-  termsAndConditions: string; 
+  firebaseUserId?: string; // Added to store Firebase User ID
 };

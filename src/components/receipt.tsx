@@ -5,7 +5,7 @@ import React from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RegistrationData, HafsaProgram } from '@/types';
 import { format } from 'date-fns';
@@ -14,7 +14,7 @@ import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 interface ReceiptProps {
   data: RegistrationData;
   onBack: () => void;
-  allPrograms: HafsaProgram[]; // Changed from HAFSA_PROGRAMS to allPrograms
+  allPrograms: HafsaProgram[]; 
 }
 
 const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
@@ -52,19 +52,19 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
         </div>
         <div className="pl-7">
             <p><strong>Registration Date:</strong> {format(new Date(data.registrationDate), "MMMM d, yyyy HH:mm")}</p>
+            {data.firebaseUserId && <p><strong>User ID:</strong> <span className="text-xs">{data.firebaseUserId}</span></p>}
         </div>
 
         {/* Primary Account Holder Information */}
         <Separator />
         <div>
             <div className="flex items-center mb-2">
-                <User className="h-5 w-5 mr-2 text-primary" />
+                <Mail className="h-5 w-5 mr-2 text-primary" />
                 <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Primary Account Holder</h3>
             </div>
             <div className="pl-7 space-y-0.5">
                 <p><strong>Name:</strong> {primaryRegistrant.parentFullName}</p>
-                <p><strong>Primary Phone:</strong> {primaryRegistrant.parentPhone1}</p>
-                {/* Password is not shown on the receipt */}
+                <p><strong>Email:</strong> {primaryRegistrant.parentEmail}</p>
             </div>
         </div>
         
@@ -78,7 +78,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms }) => {
                     <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Enrolled Participants</h3>
                 </div>
                 {enrolledParticipants.map((enrolledItem, index) => {
-                    const program = allPrograms.find(p => p.id === enrolledItem.programId); // Use allPrograms
+                    const program = allPrograms.find(p => p.id === enrolledItem.programId); 
                     const participant = enrolledItem.participantInfo;
                     return (
                         <div key={index} className="mb-3 sm:mb-4 pl-7 border-l-2 border-muted ml-2 pl-4 py-2 relative">

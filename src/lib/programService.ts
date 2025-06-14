@@ -1,14 +1,18 @@
 
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query } from 'firebase/firestore'; // Removed orderBy as it's not used by default
 import { db } from '@/lib/firebaseConfig';
 import type { HafsaProgram } from '@/types';
 
 export async function fetchProgramsFromFirestore(): Promise<HafsaProgram[]> {
+  if (!db) {
+    console.error("Firestore is not initialized. Cannot fetch programs.");
+    return []; // Return empty or throw an error, depending on desired behavior
+  }
   try {
     const programsCollectionRef = collection(db, 'programs');
     // Optional: Add ordering if you have a field like 'order' or 'createdAt' in your Firestore documents
     // const q = query(programsCollectionRef, orderBy("label")); 
-    const q = query(programsCollectionRef);
+    const q = query(programsCollectionRef); // Simple query without ordering for now
     
     const querySnapshot = await getDocs(q);
     const programs: HafsaProgram[] = [];

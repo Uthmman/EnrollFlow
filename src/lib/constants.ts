@@ -1,5 +1,5 @@
 
-import type { HafsaProgram } from '@/types';
+// import type { HafsaProgram } from '@/types'; // HafsaProgram type is now in types/index.ts
 
 export const SCHOOL_GRADES = ["KG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 export const QURAN_LEVELS = ["Beginner (Qaida)", "Junior (Nazr)", "Intermediate (Nazr)", "Advanced (Hifz)"];
@@ -62,52 +62,7 @@ export const HAFSA_PAYMENT_METHODS: HafsaPaymentMethod[] = [
     }
 ];
 
-export const HAFSA_PROGRAMS: HafsaProgram[] = [
-  {
-    id: 'daycare_morning',
-    label: 'Daycare (Morning Session)',
-    description: 'Safe and nurturing environment for young children with Islamic values.',
-    price: 3500,
-    category: 'daycare',
-    ageRange: '1.5 - 3 years',
-    duration: 'Half-day (8 AM - 12 PM)',
-    schedule: 'Monday - Friday',
-    isChildProgram: true,
-    specificFields: [
-      { type: 'text', name: 'specialAttention', label: 'Special Attention (e.g., allergies, specific needs)' },
-    ],
-    termsAndConditions: 'Standard daycare terms: full month payment required, 1 month notice for withdrawal. Late pickup fees apply. All payments are final.'
-  },
-  {
-    id: 'quran_kids_beginner',
-    label: 'Quran for Kids (Beginner)',
-    description: 'Introduction to Qaida, Arabic alphabets, and basic surahs.',
-    price: 1500,
-    category: 'quran_kids',
-    ageRange: '4 - 7 years',
-    duration: '3 months (renewable)',
-    schedule: 'Sat & Sun, 9 AM - 11 AM',
-    isChildProgram: true,
-    specificFields: [
-      { type: 'select', name: 'quranLevel', label: 'Current Quran Level', options: QURAN_LEVELS },
-      { type: 'text', name: 'specialAttention', label: 'Special Attention' },
-    ],
-    termsAndConditions: 'Materials fee included. Regular attendance expected. Progress assessment every month. No refunds for missed classes.'
-  },
-  {
-    id: 'arabic_women_level1',
-    label: 'Arabic for Women (Level 1)',
-    description: 'Basic Arabic reading, writing, and conversation for sisters.',
-    price: 2000,
-    category: 'arabic_women',
-    ageRange: '18+ years',
-    duration: '4 months',
-    schedule: 'Mon & Wed, 6 PM - 8 PM',
-    isChildProgram: false,
-    termsAndConditions: 'For women only. Course materials provided. Minimum 5 students to start class. Fees are non-refundable after course commencement.'
-  },
-];
-
+// HAFSA_PROGRAMS array is removed. It will be fetched from Firestore.
 
 export const LEGACY_PAYMENT_TYPES = [
   { value: "screenshot", label: "Screenshot" },
@@ -163,4 +118,3 @@ export const PROGRAMS_BY_LEVEL: { [level: string]: Program[] } = {
     },
   ],
 };
-
