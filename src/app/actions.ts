@@ -22,7 +22,6 @@ async function fetchDocumentAsDataUri(url: string): Promise<string | null> {
     if (!response.ok) {
       let errorBodyText = 'Could not read error body from response.';
       try {
-        // Clone the response before attempting to read its body, as body can only be consumed once.
         const clonedResponse = response.clone();
         errorBodyText = await clonedResponse.text();
       } catch (e) {
@@ -50,13 +49,12 @@ async function fetchDocumentAsDataUri(url: string): Promise<string | null> {
             const ext = url.substring(url.lastIndexOf('.') + 1).toLowerCase();
             mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
         } else {
-            mimeType = 'application/octet-stream';
+            mimeType = 'application/octet-stream'; // Default for unknown, AI might not handle
             console.warn(`Could not infer MIME type for ${url}, using application/octet-stream. AI processing might be affected.`);
         }
     } else if (!mimeType.startsWith('application/pdf') && !mimeType.startsWith('image/')) {
-        console.warn(`Unexpected Content-Type '${mimeType}' for ${url}. AI processing might be affected if not a PDF or image.`);
+        console.warn(`Fetched content from ${url} with Content-Type '${mimeType}'. AI processing might be affected if not a PDF or image that {{media}} tag can handle.`);
     }
-
 
     return `data:${mimeType};base64,${base64String}`;
   } catch (error: any) {
@@ -65,6 +63,10 @@ async function fetchDocumentAsDataUri(url: string): Promise<string | null> {
   }
 }
 
+function getMimeTypeFromDataUri(dataUri: string): string | null {
+    const match = dataUri.match(/^data:([^;]+);base64,/);
+    return match ? match[1] : null;
+}
 
 export async function handlePaymentVerification(input: VerificationInput): Promise<VerificationResult> {
   try {
@@ -90,6 +92,7 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
     const selectedBankDetails = HAFSA_PAYMENT_METHODS.find(m => m.value === paymentProof.paymentType);
     let documentDataUriForAI: string | undefined | null;
     let requiresAiVerification = false;
+    let documentMimeType: string | null = null;
 
 
     switch (paymentProof.proofSubmissionType) {
@@ -99,19 +102,31 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
           const cbeUrl = `https://apps.cbe.com.et:100/?id=${first12Chars}80423395`;
 
           documentDataUriForAI = await fetchDocumentAsDataUri(cbeUrl);
+
           if (documentDataUriForAI) {
-            requiresAiVerification = true;
+            documentMimeType = getMimeTypeFromDataUri(documentDataUriForAI);
+            if (documentMimeType && (documentMimeType.startsWith('application/pdf') || documentMimeType.startsWith('image/'))) {
+                requiresAiVerification = true;
+            } else {
+                console.warn(`CBE URL (${cbeUrl}) returned content of type '${documentMimeType}', which is not a direct PDF/image for AI. Transaction ID: ${paymentProof.transactionId}`);
+                return {
+                    isPaymentValid: true, // Consider it submitted for manual review
+                    transactionNumber: paymentProof.transactionId,
+                    message: `CBE Transaction ID ${paymentProof.transactionId} submitted. The bank's page content (type: ${documentMimeType || 'unknown'}) could not be automatically analyzed by AI. Verification pending human review.`,
+                    reason: `Automated AI analysis of CBE link content (type: ${documentMimeType || 'unknown'}) not possible.`
+                };
+            }
           } else {
-            console.error(`Failed to fetch or process document from CBE URL: ${cbeUrl}. fetchDocumentAsDataUri returned null.`); // Explicit log
+            console.error(`Failed to fetch or process document from CBE URL: ${cbeUrl}. fetchDocumentAsDataUri returned null. Transaction ID: ${paymentProof.transactionId}`);
             return {
               isPaymentValid: false,
-              message: `System could not retrieve payment details from CBE for Transaction ID ${paymentProof.transactionId} using the automated link. This often happens due to bank system restrictions on automated access. Please try uploading a screenshot of your payment receipt instead, or verify the Transaction ID and try again later.`,
+              message: `System could not retrieve payment details from CBE for Transaction ID ${paymentProof.transactionId}. This might be due to bank system restrictions or an invalid ID. Please verify the Transaction ID or try uploading a screenshot of your payment receipt instead.`,
               reason: `Automated fetch from CBE URL (${cbeUrl}) failed.`
             };
           }
         } else if (paymentProof.transactionId && paymentProof.transactionId.length >= 3) {
-           return {
-            isPaymentValid: true,
+           return { // Non-CBE or short CBE ID
+            isPaymentValid: true, // Submitted for manual review
             transactionNumber: paymentProof.transactionId,
             message: `Payment proof submitted via Transaction ID: ${paymentProof.transactionId} for ${paymentProof.paymentType || 'selected method'}. Verification pending human review.`
           };
@@ -134,19 +149,38 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
           };
         }
         documentDataUriForAI = paymentProof.screenshotDataUri;
-        requiresAiVerification = true;
+        documentMimeType = getMimeTypeFromDataUri(documentDataUriForAI);
+         if (documentMimeType && (documentMimeType.startsWith('application/pdf') || documentMimeType.startsWith('image/'))) {
+            requiresAiVerification = true;
+        } else {
+             return {
+                isPaymentValid: false,
+                message: `Uploaded file type ('${documentMimeType || 'unknown'}') is not a supported image or PDF for AI analysis. Please upload a clear image (PNG, JPG) or PDF of your receipt.`,
+                reason: `Unsupported file type for AI analysis: ${documentMimeType || 'unknown'}`
+            };
+        }
         break;
 
       case 'pdfLink':
         if (paymentProof.pdfLink && (paymentProof.pdfLink.startsWith('http://') || paymentProof.pdfLink.startsWith('https://'))) {
             documentDataUriForAI = await fetchDocumentAsDataUri(paymentProof.pdfLink);
             if (documentDataUriForAI) {
-                requiresAiVerification = true;
+                documentMimeType = getMimeTypeFromDataUri(documentDataUriForAI);
+                if (documentMimeType && (documentMimeType.startsWith('application/pdf') || documentMimeType.startsWith('image/'))) {
+                    requiresAiVerification = true;
+                } else {
+                    console.warn(`PDF link (${paymentProof.pdfLink}) returned content of type '${documentMimeType}', which is not a direct PDF/image for AI.`);
+                     return {
+                        isPaymentValid: false, // Or true if you want to pass it for manual review
+                        message: `The content from the provided link (type: ${documentMimeType || 'unknown'}) is not a direct PDF or image that can be automatically analyzed by AI. Please provide a direct link to a PDF/image file or upload a screenshot.`,
+                        reason: `Automated AI analysis of linked content (type: ${documentMimeType || 'unknown'}) not possible.`
+                    };
+                }
             } else {
                  return {
                     isPaymentValid: false,
-                    message: `Could not retrieve or process the document from the link: ${paymentProof.pdfLink}. Please ensure the link is correct and publicly accessible. If the issue persists, try uploading a screenshot of the document instead.`,
-                    reason: `Failed to fetch or process document from PDF link.`
+                    message: `Could not retrieve or process the document from the link: ${paymentProof.pdfLink}. Please ensure the link is correct, publicly accessible, and points directly to a PDF or image file. If the issue persists, try uploading a screenshot.`,
+                    reason: `Failed to fetch or process document from PDF link: ${paymentProof.pdfLink}.`
                  };
             }
         } else {
@@ -159,8 +193,6 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
         break;
 
       default:
-        // This case should ideally not be reached if types are correct
-        // const exhaustiveCheck: never = paymentProof.proofSubmissionType;
         return {
           isPaymentValid: false,
           reason: `Invalid proof submission type: ${paymentProof.proofSubmissionType}`,
@@ -246,15 +278,16 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
           message: `AI service error: ${errorMessage}. Please try again or use a different verification method.`
         };
       }
-    } else if (!requiresAiVerification && paymentProof.proofSubmissionType === 'transactionId') {
+    } else if (!requiresAiVerification && paymentProof.proofSubmissionType === 'transactionId' && !(paymentProof.paymentType === 'cbe' && documentDataUriForAI)) {
+        // This path is for non-CBE transaction IDs or CBE IDs where fetching was skipped/failed and we didn't go to AI.
         if (paymentProof.transactionId && paymentProof.transactionId.length >=3) {
              return {
-                isPaymentValid: true,
+                isPaymentValid: true, // Submitted for manual review
                 transactionNumber: paymentProof.transactionId,
                 message: `Payment proof submitted via Transaction ID: ${paymentProof.transactionId} for ${paymentProof.paymentType || 'selected method'}. Verification pending human review.`
              };
         }
-         return {
+         return { // This case might be redundant due to earlier checks but kept for safety
             isPaymentValid: false,
             transactionNumber: paymentProof.transactionId,
             reason: `Transaction ID/Reference for ${paymentProof.paymentType || 'selected method'} is invalid.`,
@@ -262,9 +295,10 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
         };
 
     } else if (requiresAiVerification && !documentDataUriForAI) {
-        // This covers cases like failed CBE fetch or failed PDF link fetch where AI was intended.
-        // The specific error message from the switch case would have already been returned.
-        // This is a general fallback if, for some reason, those return paths were missed.
+        // This covers cases like failed CBE fetch (where it returned null and didn't hit the HTML mime type path)
+        // or failed PDF link fetch where AI was intended but document could not be obtained.
+        // The specific error message from the switch case would have ideally been returned.
+        // This is a general fallback.
         return {
             isPaymentValid: false,
             message: "Document required for AI verification could not be obtained. Please check the provided link/ID or try uploading a screenshot.",
@@ -273,6 +307,7 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
     }
 
     // Fallback for any unhandled scenarios
+    console.warn("Reached fallback in handlePaymentVerification. Input:", JSON.stringify(input));
     return {
         isPaymentValid: false,
         message: "Unable to process payment proof. Please check your submission or try a different method.",
@@ -294,3 +329,6 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
     };
   }
 }
+
+
+    
