@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Phone, Mail, ShieldQuestion } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Separator } from '@/components/ui/separator';
 
 import { HAFSA_PROGRAMS, HafsaProgram, ProgramField, HAFSA_PAYMENT_METHODS } from '@/lib/constants';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData } from '@/types';
@@ -35,10 +36,6 @@ import Receipt from '@/components/receipt';
 const defaultParentValues: ParentInfoData = {
   parentFullName: '',
   parentPhone1: '',
-  telegramPhoneNumber: '',
-  parentPhone2: '',
-  usePhone1ForTelegram: false,
-  usePhone2ForTelegram: false,
   password: '',
   confirmPassword: '',
 };
@@ -50,30 +47,39 @@ const defaultParticipantValues: ParticipantInfoData = {
   specialAttention: '',
   schoolGrade: '',
   quranLevel: '',
+  guardianFullName: '',
+  guardianPhone1: '',
+  guardianPhone2: '',
+  guardianTelegramPhoneNumber: '',
+  guardianUsePhone1ForTelegram: false,
+  guardianUsePhone2ForTelegram: false,
 };
 
 
 const ParentInfoFields: React.FC = () => {
-  const { control, register, formState: { errors }, watch, setValue } = useForm<ParentInfoData>({
+  const { control, register, formState: { errors } } = useForm<ParentInfoData>({
     resolver: zodResolver(RHFParentInfoSchema),
     defaultValues: defaultParentValues
   });
   
   const currentErrors = errors || {};
   
-  const phone1 = watch(`parentPhone1`);
-  const phone2 = watch(`parentPhone2`);
-  const title = "Primary Registrant Information";
+  const title = "Primary Account Information";
   const nameLabel = "Full Name";
   const nameField = "parentFullName";
   const phone1Field = "parentPhone1";
-  const phone2Field = "parentPhone2";
 
   const mainFormSetValue = useFormContext<EnrollmentFormData>().setValue;
+  const { watch } = useFormContext<EnrollmentFormData>(); // Watch from main form context
+
   useEffect(() => {
-    const subscription = watch((value, { name }) => {
-      if (name) {
-        mainFormSetValue(`parentInfo.${name as keyof ParentInfoData}` as any, value[name as keyof ParentInfoData] as any);
+    const subscription = watch((value, { name, type }) => {
+      // Only update main form if the change originates from fields within ParentInfoSchema
+      if (name && name.startsWith('parentInfo.')) {
+        const fieldKey = name.split('.')[1] as keyof ParentInfoData;
+        if (fieldKey in defaultParentValues) { // Check if the field is part of ParentInfoData
+           mainFormSetValue(`parentInfo.${fieldKey}` as any, value.parentInfo?.[fieldKey] as any);
+        }
       }
     });
     return () => subscription.unsubscribe();
@@ -86,7 +92,7 @@ const ParentInfoFields: React.FC = () => {
         <CardTitle className="text-lg sm:text-xl font-headline text-primary flex items-center">
           <User className="mr-2 h-5 w-5"/> {title}
         </CardTitle>
-        <CardDescription>Please provide details for the main contact person for this registration.</CardDescription>
+        <CardDescription>Details for the main account holder. This information will be used for login.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <div>
@@ -95,46 +101,12 @@ const ParentInfoFields: React.FC = () => {
           {(currentErrors as any)[nameField] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[nameField].message}</p>}
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div>
-            <Label htmlFor={phone1Field}>Primary Phone Number</Label>
+        <div>
+            <Label htmlFor={phone1Field}>Primary Phone Number (used for login)</Label>
             <Input id={phone1Field} {...register(phone1Field as any)} type="tel" placeholder="e.g., 0911XXXXXX" />
             {(currentErrors as any)[phone1Field] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[phone1Field].message}</p>}
-          </div>
-          <div>
-            <Label htmlFor={phone2Field}>Secondary Phone Number (Optional)</Label>
-            <Input id={phone2Field} {...register(phone2Field as any)} type="tel" placeholder="e.g., 0912XXXXXX" />
-            {(currentErrors as any)[phone2Field] && <p className="text-sm text-destructive mt-1">{(currentErrors as any)[phone2Field].message}</p>}
-          </div>
         </div>
-        <div>
-          <Label htmlFor={'telegramPhoneNumber'}>Telegram Phone Number</Label>
-          <Input id={'telegramPhoneNumber'} {...register('telegramPhoneNumber' as any)} type="tel" placeholder="For Telegram updates" />
-          {(currentErrors as any).telegramPhoneNumber && <p className="text-sm text-destructive mt-1">{(currentErrors as any).telegramPhoneNumber.message}</p>}
-          <div className="mt-2 space-y-1 text-sm">
-            <Controller name={`usePhone1ForTelegram` as any} control={control} render={({field}) => (
-                <div className="flex items-center gap-2">
-                    <Checkbox id={`usePhone1ForTelegram`} checked={field.value} onCheckedChange={(checked) => {
-                        field.onChange(checked);
-                        if (checked && phone1) setValue(`telegramPhoneNumber` as any, phone1);
-                        if (checked) setValue(`usePhone2ForTelegram` as any, false);
-                    }} disabled={!phone1}/>
-                    <Label htmlFor={`usePhone1ForTelegram`} className="font-normal">Use Primary Phone for Telegram</Label>
-                </div>
-            )}/>
-            {phone2 && 
-            <Controller name={`usePhone2ForTelegram` as any} control={control} render={({field}) => (
-                 <div className="flex items-center gap-2">
-                    <Checkbox id={`usePhone2ForTelegram`} checked={field.value} onCheckedChange={(checked) => {
-                        field.onChange(checked);
-                        if (checked && phone2) setValue(`telegramPhoneNumber` as any, phone2);
-                        if (checked) setValue(`usePhone1ForTelegram` as any, false);
-                    }} disabled={!phone2}/>
-                    <Label htmlFor={`usePhone2ForTelegram`} className="font-normal">Use Secondary Phone for Telegram</Label>
-                </div>
-            )}/>}
-          </div>
-        </div>
+       
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
                 <Label htmlFor="password">Password</Label>
@@ -160,10 +132,39 @@ const ParticipantDetailFields: React.FC<{
     selectedProgramLabel?: string;
 }> = ({ programSpecificFields, onSave, onCancel, isLoading, selectedProgramLabel }) => {
   
-  const { control, register, handleSubmit: handleParticipantSubmit, formState: { errors: participantErrors }, reset: resetParticipantForm } = useForm<ParticipantInfoData>({
+  const { control, register, handleSubmit: handleParticipantSubmit, formState: { errors: participantErrors }, reset: resetParticipantForm, setValue, watch: watchParticipantForm } = useForm<ParticipantInfoData>({
     resolver: zodResolver(RHFParticipantInfoSchema), 
     defaultValues: defaultParticipantValues, 
   });
+
+  const mainFormMethods = useFormContext<EnrollmentFormData>();
+
+  useEffect(() => {
+    // Pre-fill guardian details from primary registrant when component mounts for a new participant
+    const primaryRegistrantInfo = mainFormMethods.getValues('parentInfo');
+    if (primaryRegistrantInfo.parentFullName) {
+        setValue('guardianFullName', primaryRegistrantInfo.parentFullName);
+    }
+    if (primaryRegistrantInfo.parentPhone1) {
+        setValue('guardianPhone1', primaryRegistrantInfo.parentPhone1);
+        setValue('guardianTelegramPhoneNumber', primaryRegistrantInfo.parentPhone1); // Also prefill telegram
+    }
+    // Reset other fields to default, important if re-using the component
+    setValue('firstName', defaultParticipantValues.firstName);
+    setValue('gender', defaultParticipantValues.gender);
+    setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
+    setValue('specialAttention', defaultParticipantValues.specialAttention);
+    setValue('schoolGrade', defaultParticipantValues.schoolGrade);
+    setValue('quranLevel', defaultParticipantValues.quranLevel);
+    setValue('guardianPhone2', defaultParticipantValues.guardianPhone2);
+    setValue('guardianUsePhone1ForTelegram', defaultParticipantValues.guardianUsePhone1ForTelegram);
+    setValue('guardianUsePhone2ForTelegram', defaultParticipantValues.guardianUsePhone2ForTelegram);
+
+  }, [selectedProgramLabel, mainFormMethods, setValue]); // Re-run if selectedProgramLabel changes (new participant)
+
+
+  const guardianPhone1 = watchParticipantForm('guardianPhone1');
+  const guardianPhone2 = watchParticipantForm('guardianPhone2');
 
   const actualOnSave = (data: ParticipantInfoData) => {
     onSave(data);
@@ -176,8 +177,9 @@ const ParticipantDetailFields: React.FC<{
         <CardTitle className="text-lg sm:text-xl font-headline">Add Details for {selectedProgramLabel || "Program"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
+        <p className="text-sm text-primary font-medium flex items-center"><User className="mr-2 h-4 w-4" /> Participant's Information</p>
         <div>
-          <Label htmlFor="firstName">First Name</Label>
+          <Label htmlFor="firstName">Participant's First Name</Label>
           <Input id="firstName" {...register("firstName")} placeholder="Participant's First Name" />
           {participantErrors.firstName && <p className="text-sm text-destructive mt-1">{participantErrors.firstName.message}</p>}
         </div>
@@ -242,6 +244,55 @@ const ParticipantDetailFields: React.FC<{
             {(participantErrors as any)[fieldInfo.name] && <p className="text-sm text-destructive mt-1">{(participantErrors as any)[fieldInfo.name].message}</p>}
           </div>
         ))}
+
+        <Separator className="my-4" />
+        <p className="text-sm text-primary font-medium flex items-center"><ShieldQuestion className="mr-2 h-4 w-4" /> Guardian's Contact (for this participant)</p>
+         <div>
+          <Label htmlFor="guardianFullName">Guardian's Full Name</Label>
+          <Input id="guardianFullName" {...register("guardianFullName")} placeholder="Guardian's Full Name" />
+          {participantErrors.guardianFullName && <p className="text-sm text-destructive mt-1">{participantErrors.guardianFullName.message}</p>}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div>
+            <Label htmlFor="guardianPhone1">Guardian's Primary Phone</Label>
+            <Input id="guardianPhone1" {...register("guardianPhone1")} type="tel" placeholder="e.g., 0911XXXXXX" />
+            {participantErrors.guardianPhone1 && <p className="text-sm text-destructive mt-1">{participantErrors.guardianPhone1.message}</p>}
+          </div>
+          <div>
+            <Label htmlFor="guardianPhone2">Guardian's Secondary Phone (Optional)</Label>
+            <Input id="guardianPhone2" {...register("guardianPhone2")} type="tel" placeholder="e.g., 0912XXXXXX" />
+            {participantErrors.guardianPhone2 && <p className="text-sm text-destructive mt-1">{participantErrors.guardianPhone2.message}</p>}
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="guardianTelegramPhoneNumber">Guardian's Telegram Phone</Label>
+          <Input id="guardianTelegramPhoneNumber" {...register("guardianTelegramPhoneNumber")} type="tel" placeholder="For Telegram updates" />
+          {participantErrors.guardianTelegramPhoneNumber && <p className="text-sm text-destructive mt-1">{participantErrors.guardianTelegramPhoneNumber.message}</p>}
+          <div className="mt-2 space-y-1 text-sm">
+            <Controller name="guardianUsePhone1ForTelegram" control={control} render={({field}) => (
+                <div className="flex items-center gap-2">
+                    <Checkbox id="guardianUsePhone1ForTelegram" checked={field.value} onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (checked && guardianPhone1) setValue('guardianTelegramPhoneNumber', guardianPhone1);
+                        if (checked) setValue('guardianUsePhone2ForTelegram', false);
+                    }} disabled={!guardianPhone1}/>
+                    <Label htmlFor="guardianUsePhone1ForTelegram" className="font-normal">Use Guardian's Primary Phone for Telegram</Label>
+                </div>
+            )}/>
+            {guardianPhone2 && 
+            <Controller name="guardianUsePhone2ForTelegram" control={control} render={({field}) => (
+                 <div className="flex items-center gap-2">
+                    <Checkbox id="guardianUsePhone2ForTelegram" checked={field.value} onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (checked && guardianPhone2) setValue('guardianTelegramPhoneNumber', guardianPhone2);
+                        if (checked) setValue('guardianUsePhone1ForTelegram', false);
+                    }} disabled={!guardianPhone2}/>
+                    <Label htmlFor="guardianUsePhone2ForTelegram" className="font-normal">Use Guardian's Secondary Phone for Telegram</Label>
+                </div>
+            )}/>}
+          </div>
+        </div>
+
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 p-2 pt-1">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">Cancel</Button>
@@ -312,8 +363,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   }, [watchedParticipants]);
 
   const handleAccountCreation = async () => {
-    const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentPhone1', 'telegramPhoneNumber', 'password', 'confirmPassword'];
-    const mainFormTrigger = methods.trigger;
+    const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentPhone1', 'password', 'confirmPassword'];
+    const mainFormTrigger = methods.trigger; // Ensure methods.trigger is used for the main form
     const isValid = await mainFormTrigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
 
     if (isValid) {
@@ -321,7 +372,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setCurrentView('dashboard');
         onStageChange('accountCreated'); 
     } else {
-      toast({ title: "Validation Error", description: "Please check your entries in Primary Registrant Information and try again.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Please check your entries in Primary Account Information and try again.", variant: "destructive" });
     }
   };
 
@@ -329,29 +380,25 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const isValid = await trigger(['loginIdentifier', 'loginPassword']);
     if (isValid) {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
       const { loginIdentifier, loginPassword } = getValues();
       const registeredParentInfo = getValues('parentInfo');
 
       let loginSuccess = false;
 
       // Try login with session-registered details first
-      if (registeredParentInfo && registeredParentInfo.parentPhone1 === loginIdentifier && registeredParentInfo.password === loginPassword) {
+      // Check if parentInfo exists and has a password (meaning registration was attempted/completed)
+      if (registeredParentInfo && registeredParentInfo.password && registeredParentInfo.parentPhone1 === loginIdentifier && registeredParentInfo.password === loginPassword) {
         loginSuccess = true;
       } 
       // Fallback to prototype hardcoded credentials
       else if (loginIdentifier === "0911223344" && loginPassword === "password") {
         loginSuccess = true;
-         // If prototype login is successful, populate parentInfo for the dialog
          setValue('parentInfo', { 
             parentFullName: 'Hafsa Admin (Stubbed)', 
             parentPhone1: loginIdentifier, 
-            telegramPhoneNumber: loginIdentifier, 
-            password: loginPassword, // Store password for dialog display
+            password: loginPassword, 
             confirmPassword: loginPassword, 
-            parentPhone2: '', 
-            usePhone1ForTelegram: false, 
-            usePhone2ForTelegram: false 
         });
       }
 
@@ -419,7 +466,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setValue('paymentProof.screenshotDataUri', screenshotDataUri); 
         if(data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUri; 
       } else if (data.paymentProof?.proofSubmissionType === 'screenshot' && data.paymentProof?.screenshotDataUri) {
-        // If screenshotDataUri already exists (e.g. from a previous attempt or if file object is not available)
         screenshotDataUri = data.paymentProof.screenshotDataUri;
       }
       
@@ -427,7 +473,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUri, // Ensure this is passed
+            screenshotDataUri: screenshotDataUri, 
         },
         expectedAmount: calculatedPrice,
       };
@@ -617,6 +663,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     <div>
                         <p className="font-semibold text-md">{enrolledParticipant.participantInfo.firstName}</p>
                         <p className="text-xs text-muted-foreground">{program?.label || 'Unknown Program'} - ${program?.price.toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Guardian: {enrolledParticipant.participantInfo.guardianFullName} ({enrolledParticipant.participantInfo.guardianPhone1})</p>
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={() => removeParticipant(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
                         <Trash2 className="h-4 w-4" />
@@ -902,15 +949,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           <DialogHeader>
             <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>Account Information</DialogTitle>
             <DialogDescription>
-              Details of the primary registrant. {authMode === 'login' && parentInfoForDialog && parentInfoForDialog.parentFullName === 'Hafsa Admin (Stubbed)' && "(Logged In - Stubbed)"}
+              Details of the primary account holder. {authMode === 'login' && parentInfoForDialog && parentInfoForDialog.parentFullName === 'Hafsa Admin (Stubbed)' && "(Logged In - Stubbed)"}
             </DialogDescription>
           </DialogHeader>
           {parentInfoForDialog && (
             <div className="space-y-2 py-2 text-sm">
               <p><strong>Full Name:</strong> {parentInfoForDialog.parentFullName || 'N/A'}</p>
               <p><strong>Primary Phone:</strong> {parentInfoForDialog.parentPhone1 || 'N/A'}</p>
-              {parentInfoForDialog.parentPhone2 && <p><strong>Secondary Phone:</strong> {parentInfoForDialog.parentPhone2}</p>}
-              <p><strong>Telegram Phone:</strong> {parentInfoForDialog.telegramPhoneNumber || 'N/A'}</p>
               {parentInfoForDialog.password && (
                 <div className="flex items-center justify-between">
                     <p><strong>Password:</strong> {showPasswordInDialog ? parentInfoForDialog.password : '••••••••'}</p>

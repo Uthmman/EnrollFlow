@@ -5,7 +5,7 @@ import React from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Printer, User, Users, BookHeart, Gift, BookUser, CalendarDays } from 'lucide-react';
+import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RegistrationData } from '@/types';
 import { format } from 'date-fns';
@@ -24,8 +24,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
 
   const paymentMethodLabel = HAFSA_PAYMENT_METHODS.find(pm => pm.value === data.paymentProof.paymentType)?.label || data.paymentProof.paymentType;
   const primaryRegistrant = data.parentInfo;
-  const adultEnrollment = data.adultTraineeInfo;
-  const childrenEnrollments = data.children || [];
+  const enrolledParticipants = data.participants || [];
 
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl my-6 sm:my-8 print:shadow-none">
@@ -53,67 +52,56 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
             <p><strong>Registration Date:</strong> {format(new Date(data.registrationDate), "MMMM d, yyyy HH:mm")}</p>
         </div>
 
-        {/* Primary Registrant Information */}
+        {/* Primary Account Holder Information */}
         <Separator />
         <div>
             <div className="flex items-center mb-2">
                 <User className="h-5 w-5 mr-2 text-primary" />
-                <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Primary Registrant</h3>
+                <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Primary Account Holder</h3>
             </div>
             <div className="pl-7 space-y-0.5">
                 <p><strong>Name:</strong> {primaryRegistrant.parentFullName}</p>
                 <p><strong>Primary Phone:</strong> {primaryRegistrant.parentPhone1}</p>
-                {primaryRegistrant.parentPhone2 && <p><strong>Secondary Phone:</strong> {primaryRegistrant.parentPhone2}</p>}
-                <p><strong>Telegram Phone:</strong> {primaryRegistrant.telegramPhoneNumber}</p>
+                {/* Password is not shown on the receipt */}
             </div>
         </div>
-
-        {/* Adult Trainee Program (if primary registrant enrolled themselves) */}
-        {adultEnrollment && adultEnrollment.programId && (
-        <>
-            <Separator />
-            <div>
-                <div className="flex items-center mb-2">
-                    <BookUser className="h-5 w-5 mr-2 text-primary" />
-                    <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Primary Registrant's Program</h3>
-                </div>
-                <div className="pl-7 space-y-0.5">
-                    <p><strong>Program:</strong> {HAFSA_PROGRAMS.find(p => p.id === adultEnrollment.programId)?.label || 'N/A'}</p>
-                    <p><strong>Date of Birth:</strong> {format(new Date(adultEnrollment.dateOfBirth), "MMMM d, yyyy")}</p>
-                    <p><strong>Price:</strong> ${HAFSA_PROGRAMS.find(p => p.id === adultEnrollment.programId)?.price.toFixed(2) || '0.00'}</p>
-                </div>
-            </div>
-        </>
-        )}
         
-        {/* Enrolled Children */}
-        {childrenEnrollments.length > 0 && (
+        {/* Enrolled Participants */}
+        {enrolledParticipants.length > 0 && (
         <>
             <Separator />
             <div>
                 <div className="flex items-center mb-2">
                     <Users className="h-5 w-5 mr-2 text-primary" />
-                    <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Enrolled Children</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">Enrolled Participants</h3>
                 </div>
-                {childrenEnrollments.map((enrolledChild, index) => {
-                    const program = HAFSA_PROGRAMS.find(p => p.id === enrolledChild.programId);
-                    const child = enrolledChild.childInfo;
+                {enrolledParticipants.map((enrolledItem, index) => {
+                    const program = HAFSA_PROGRAMS.find(p => p.id === enrolledItem.programId);
+                    const participant = enrolledItem.participantInfo;
                     return (
                         <div key={index} className="mb-3 sm:mb-4 pl-7 border-l-2 border-muted ml-2 pl-4 py-2 relative">
                             <span className="absolute -left-[10px] top-1.5 bg-background p-0.5 rounded-full border border-muted">
                                 <User className="h-3 w-3 text-primary" />
                             </span>
-                            <h4 className="text-md sm:text-lg font-semibold mb-1">Child {index + 1}: {child.childFirstName}</h4>
+                            <h4 className="text-md sm:text-lg font-semibold mb-1">Participant {index + 1}: {participant.firstName}</h4>
                             <div className="space-y-0.5 text-xs sm:text-sm">
                                 <p><strong>Program:</strong> {program?.label || 'N/A'}</p>
                                 <p><strong>Price:</strong> ${program?.price.toFixed(2) || '0.00'}</p>
-                                <p><strong>Gender:</strong> {child.gender.charAt(0).toUpperCase() + child.gender.slice(1)}</p>
-                                <p><strong>Date of Birth:</strong> {format(new Date(child.dateOfBirth), "MMMM d, yyyy")}</p>
-                                {child.schoolGrade && <p><strong>School Grade:</strong> {child.schoolGrade}</p>}
-                                {child.quranLevel && <p><strong>Quran Level:</strong> {child.quranLevel}</p>}
-                                {child.specialAttention && <p><strong>Special Attention:</strong> {child.specialAttention}</p>}
+                                <p><strong>Gender:</strong> {participant.gender.charAt(0).toUpperCase() + participant.gender.slice(1)}</p>
+                                <p><strong>Date of Birth:</strong> {format(new Date(participant.dateOfBirth), "MMMM d, yyyy")}</p>
+                                {participant.schoolGrade && <p><strong>School Grade:</strong> {participant.schoolGrade}</p>}
+                                {participant.quranLevel && <p><strong>Quran Level:</strong> {participant.quranLevel}</p>}
+                                {participant.specialAttention && <p><strong>Special Attention:</strong> {participant.specialAttention}</p>}
+                                
+                                <div className="mt-2 pt-2 border-t border-dashed">
+                                    <p className="text-xs font-medium text-muted-foreground flex items-center"><ShieldQuestion className="mr-1.5 h-3.5 w-3.5"/>Guardian Contact for {participant.firstName}:</p>
+                                    <p><strong>Name:</strong> {participant.guardianFullName}</p>
+                                    <p><strong>Primary Phone:</strong> {participant.guardianPhone1}</p>
+                                    {participant.guardianPhone2 && <p><strong>Secondary Phone:</strong> {participant.guardianPhone2}</p>}
+                                    <p><strong>Telegram Phone:</strong> {participant.guardianTelegramPhoneNumber}</p>
+                                </div>
                             </div>
-                            {index < childrenEnrollments.length -1 && <Separator className="my-2 sm:my-3"/>}
+                            {index < enrolledParticipants.length -1 && <Separator className="my-2 sm:my-3"/>}
                         </div>
                     );
                 })}
@@ -129,14 +117,23 @@ const Receipt: React.FC<ReceiptProps> = ({ data }) => {
             <p><strong>Total Amount Paid:</strong> <span className="font-bold text-accent">${data.calculatedPrice.toFixed(2)}</span></p>
             {data.couponCode && <p><strong>Coupon Code Applied:</strong> <span className="text-accent">{data.couponCode}</span></p>}
             <p><strong>Payment Method:</strong> {paymentMethodLabel}</p>
-            {data.paymentProof.transactionId && (
+            {data.paymentProof.proofSubmissionType === 'transactionId' && data.paymentProof.transactionId && (
                <p><strong>Transaction ID/Reference:</strong> {data.paymentProof.transactionId}</p>
+            )}
+            {data.paymentProof.proofSubmissionType === 'pdfLink' && data.paymentProof.pdfLink && (
+               <p><strong>PDF Link:</strong> <a href={data.paymentProof.pdfLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View PDF</a></p>
+            )}
+             {data.paymentProof.proofSubmissionType === 'screenshot' && (
+               <p><strong>Proof Method:</strong> Screenshot Uploaded</p>
             )}
           </div>
           <div className="flex items-center mt-2 text-accent">
             <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
             <span>Payment {data.paymentVerified ? "Verified Successfully" : "Submitted for Processing"}</span>
           </div>
+          {data.paymentVerificationDetails && !data.paymentVerified && data.paymentVerificationDetails.reason && (
+            <p className="text-xs text-destructive mt-1"><strong>Reason:</strong> {data.paymentVerificationDetails.reason}</p>
+          )}
         </div>
         
         <div className="mt-4 sm:mt-6 p-3 sm:p-4 border-dashed border-2 border-muted rounded-lg text-center print:hidden">

@@ -1,15 +1,12 @@
 
 import { z } from 'zod';
 
-const phoneRegex = /^[0-9]{9,15}$/;
+const phoneRegex = /^[0-9]{9,15}$/; // General phone regex, adjust as needed
 
+// Simplified schema for the primary account holder
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters."),
   parentPhone1: z.string().regex(phoneRegex, "Invalid primary phone number format."),
-  parentPhone2: z.string().regex(phoneRegex, "Invalid secondary phone number format.").optional().or(z.literal('')),
-  telegramPhoneNumber: z.string().regex(phoneRegex, "Invalid Telegram phone number format."),
-  usePhone1ForTelegram: z.boolean().optional(),
-  usePhone2ForTelegram: z.boolean().optional(),
   password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
 }).superRefine((data, ctx) => {
@@ -23,13 +20,25 @@ export const ParentInfoSchema = z.object({
 });
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
+// Expanded schema for each participant, now including their specific guardian's contact
 export const ParticipantInfoSchema = z.object({
+  // Participant's own details
   firstName: z.string().min(2, "Participant's first name must be at least 2 characters."),
   gender: z.enum(["male", "female"], { required_error: "Gender is required." }),
   dateOfBirth: z.date({ required_error: "Participant's date of birth is required." }),
+  
+  // Program-specific details (optional, based on program)
   specialAttention: z.string().optional(),
   schoolGrade: z.string().optional(),
   quranLevel: z.string().optional(),
+
+  // Guardian contact details for this specific participant
+  guardianFullName: z.string().min(3, "Guardian's full name must be at least 3 characters."),
+  guardianPhone1: z.string().regex(phoneRegex, "Invalid guardian primary phone number format."),
+  guardianPhone2: z.string().regex(phoneRegex, "Invalid guardian secondary phone number format.").optional().or(z.literal('')),
+  guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Invalid guardian Telegram phone number format."),
+  guardianUsePhone1ForTelegram: z.boolean().optional(),
+  guardianUsePhone2ForTelegram: z.boolean().optional(),
 });
 export type ParticipantInfoData = z.infer<typeof ParticipantInfoSchema>;
 
@@ -56,7 +65,7 @@ export const PaymentProofSchema = z.object({
       message: 'Transaction ID is required and must be at least 3 characters.',
     });
   }
-  if (data.proofSubmissionType === 'screenshot' && !data.screenshot && !data.screenshotDataUri) { // check for screenshotDataUri if screenshot is not directly available (e.g. on resubmit)
+  if (data.proofSubmissionType === 'screenshot' && !data.screenshot && !data.screenshotDataUri) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['screenshot'],
@@ -75,21 +84,21 @@ export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: ParentInfoSchema,
-  participants: z.array(EnrolledParticipantSchema).optional().default([]),
+  parentInfo: ParentInfoSchema, // Simplified primary account holder info
+  participants: z.array(EnrolledParticipantSchema).optional().default([]), // All enrollments, each with their own guardian contact
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
   paymentProof: PaymentProofSchema.optional(),
-  loginIdentifier: z.string().optional(),
-  loginPassword: z.string().optional(),
+  loginIdentifier: z.string().optional(), // For login tab
+  loginPassword: z.string().optional(), // For login tab
 })
 .superRefine((data, ctx) => {
     if (data.participants && data.participants.length > 0 && !data.paymentProof) {
        ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['paymentProof.paymentType'], // Path can be generalized or kept specific
+            path: ['paymentProof.paymentType'], 
             message: 'Payment information is required when participants are enrolled.',
         });
     }
@@ -106,8 +115,8 @@ export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
 // Defines the structure for the actual registration record
 export type RegistrationData = {
-  parentInfo: ParentInfoData;
-  participants: EnrolledParticipantData[];
+  parentInfo: ParentInfoData; // Simplified primary account holder
+  participants: EnrolledParticipantData[]; // Each participant has their own details + guardian details
   agreeToTerms: boolean;
   couponCode?: string;
   paymentProof: PaymentProofData;
@@ -116,4 +125,3 @@ export type RegistrationData = {
   paymentVerificationDetails?: any; 
   registrationDate: Date;
 };
-
