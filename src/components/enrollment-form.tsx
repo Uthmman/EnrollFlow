@@ -495,7 +495,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             isPaymentValid: true,
             message: result.message || "Payment verified successfully.",
             extractedPaymentAmount: result.extractedPaymentAmount,
-            transactionNumber: result.transactionNumber || paymentProof.transactionId,
+            transactionNumber: result.transactionNumber || (data.paymentProof?.transactionId),
             isAccountMatch: result.isAccountMatch,
             extractedAccountName: result.extractedAccountName,
             extractedAccountNumber: result.extractedAccountNumber,
@@ -531,7 +531,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               message: failureMessage,
               reason: result.reason || failureMessage,
               extractedPaymentAmount: result.extractedPaymentAmount,
-              transactionNumber: result.transactionNumber || paymentProof.transactionId,
+              transactionNumber: result.transactionNumber || (data.paymentProof?.transactionId),
               isAccountMatch: result.isAccountMatch,
               extractedAccountName: result.extractedAccountName,
               extractedAccountNumber: result.extractedAccountNumber,
@@ -790,13 +790,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 <CardTitle className="text-md sm:text-lg">Terms and Conditions</CardTitle>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 pt-0">
-                <p className="text-xs sm:text-sm text-muted-foreground mb-2">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-3">
                   Please read our terms and conditions carefully. Hafsa Madrassa is committed to providing quality education and services. 
                   All fees are non-refundable once a program has commenced. Parents/guardians are responsible for ensuring timely drop-off and pick-up of participants. 
                   Hafsa Madrassa reserves the right to modify program schedules or content with prior notice. By proceeding with enrollment and payment, 
                   you acknowledge that you have read, understood, and agree to be bound by the full terms and conditions available on our website or upon request.
-                </p>
-                <p className="text-xs sm:text-sm font-medium mb-3">
                   I agree to the terms and conditions of Hafsa Madrassa.
                 </p>
                 <div>
@@ -845,47 +843,51 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             </div>
 
             {selectedMethodDetails && selectedMethodDetails.accountNumber && (
-                 <Card className="mt-4 p-3 sm:p-4 border-primary/20">
-                    <CardHeader className="p-0 pb-2 sm:pb-3">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                        {selectedMethodDetails.logoPlaceholder && (
-                            <Image
-                                src={selectedMethodDetails.logoPlaceholder}
-                                alt={`${selectedMethodDetails.label} logo`}
-                                width={24}
-                                height={24}
-                                data-ai-hint={selectedMethodDetails.dataAiHint || 'bank logo'}
-                                className="rounded h-6 w-6 object-contain"
-                            />
+                 <Card className="mt-4 p-3 sm:p-4 border-primary/20 bg-card shadow-sm rounded-lg">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      {selectedMethodDetails.logoPlaceholder && (
+                        <Image
+                          src={selectedMethodDetails.logoPlaceholder}
+                          alt={`${selectedMethodDetails.label} logo`}
+                          width={48}
+                          height={48}
+                          data-ai-hint={selectedMethodDetails.dataAiHint || 'bank logo'}
+                          className="rounded-lg h-12 w-12 object-contain flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-grow space-y-0">
+                        <p className="text-lg font-medium text-foreground">{selectedMethodDetails.label}</p>
+                        <p className="text-xl font-bold font-mono text-primary">{selectedMethodDetails.accountNumber}</p>
+                        {selectedMethodDetails.accountName && (
+                          <p className="text-sm text-muted-foreground">{selectedMethodDetails.accountName}</p>
                         )}
-                        <CardTitle className="text-md text-primary">{selectedMethodDetails.label}</CardTitle>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-1.5 p-0 text-xs sm:text-sm">
-                        {selectedMethodDetails.accountName && <p><span className="font-medium">Account Name:</span> {selectedMethodDetails.accountName}</p>}
-                        {selectedMethodDetails.accountNumber && (
-                        <div className="flex items-center justify-between">
-                            <p><span className="font-medium">Account Number:</span> <span className="font-bold font-mono">{selectedMethodDetails.accountNumber}</span></p>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                type="button"
-                                onClick={async () => {
-                                    try {
-                                    await navigator.clipboard.writeText(selectedMethodDetails.accountNumber!);
-                                    toast({ title: "Copied!", description: "Account number copied to clipboard." });
-                                    } catch (err) {
-                                    toast({ title: "Failed to copy", description: "Could not copy account number.", variant: "destructive" });
-                                    }
-                                }}
-                                className="p-1 h-auto text-xs"
-                            >
-                                <Copy className="mr-1 h-3 w-3" /> Copy
-                            </Button>
-                        </div>
-                        )}
-                        {selectedMethodDetails.additionalInstructions && <p className="text-muted-foreground italic mt-1 text-xs">{selectedMethodDetails.additionalInstructions}</p>}
-                    </CardContent>
+                      </div>
+                      {selectedMethodDetails.accountNumber && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(selectedMethodDetails.accountNumber!);
+                              toast({ title: "Copied!", description: "Account number copied to clipboard." });
+                            } catch (err) {
+                              toast({ title: "Failed to copy", description: "Could not copy account number.", variant: "destructive" });
+                            }
+                          }}
+                          className="p-1.5 sm:p-2 h-auto text-sm self-center text-primary hover:bg-primary/10 flex-shrink-0"
+                          aria-label="Copy account number"
+                        >
+                          <Copy className="mr-1 h-4 w-4 sm:mr-1.5 sm:h-4 sm:w-4" />
+                          Copy
+                        </Button>
+                      )}
+                    </div>
+                    {selectedMethodDetails.additionalInstructions && (
+                      <p className="text-xs text-muted-foreground italic mt-3 pt-3 border-t border-border/50">
+                        {selectedMethodDetails.additionalInstructions}
+                      </p>
+                    )}
                  </Card>
             )}
 
