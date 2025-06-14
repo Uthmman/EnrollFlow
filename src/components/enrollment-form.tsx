@@ -28,12 +28,12 @@ import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { db, auth } from '@/lib/firebaseConfig'; 
-import { collection, addDoc } from "firebase/firestore"; 
+import { db, auth } from '@/lib/firebaseConfig';
+import { collection, addDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 
 import { HAFSA_PAYMENT_METHODS, HAFSA_PROGRAMS, SCHOOL_GRADES, QURAN_LEVELS, type HafsaProgram } from '@/lib/constants';
-import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, ProgramField, PaymentProofData } from '@/types';
+import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, ProgramField } from '@/types';
 import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
@@ -43,10 +43,16 @@ import type { LanguageCode } from '@/locales';
 const LOCALSTORAGE_PARENT_KEY = 'enrollmentFormParentInfo_v_email_phone_v2';
 const LOCALSTORAGE_PARTICIPANTS_KEY = 'enrollmentFormParticipants_v_email_phone_v2';
 
+const O_EF_WELCOME_BACK_USER_TOAST_DESC_TPL = "Welcome back, {nameOrEmail}!";
+const O_EF_WELCOME_USER_TOAST_DESC_TPL = "Welcome {name}! You can now enroll participants.";
+const O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC_TPL = "{name} has been added for {program}.";
+const O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC_TPL = "Registration submitted, but failed to save to database: {message}. Please contact support.";
+
+
 const defaultParentValues: ParentInfoData = {
   parentFullName: '',
   parentEmail: '',
-  parentPhone1: '', // Keep for data collection
+  parentPhone1: '',
   password: '',
   confirmPassword: '',
 };
@@ -93,43 +99,44 @@ const ParticipantDetailFields: React.FC<{
   const parentAccountInfo = mainFormMethods.getValues('parentInfo');
   const [t, setT] = useState<Record<string, string>>({});
 
-  const loadTranslations = useCallback((lang: LanguageCode) => {
-    setT(getTranslationsForLanguage(lang));
+  const translateParticipantDetailFieldsContent = useCallback((lang: LanguageCode) => {
+    const translations = getTranslationsForLanguage(lang);
+    setT(translations);
   }, []);
 
   useEffect(() => {
-    loadTranslations(currentLanguage);
-  }, [currentLanguage, loadTranslations]);
+    translateParticipantDetailFieldsContent(currentLanguage);
+  }, [currentLanguage, translateParticipantDetailFieldsContent]);
 
 
   useEffect(() => {
     if (selectedProgram.category === 'arabic_women') {
         setValue('firstName', parentAccountInfo.parentFullName || '');
         setValue('guardianFullName', parentAccountInfo.parentFullName || '');
-        setValue('guardianPhone1', parentAccountInfo.parentPhone1 || ''); // Use primary account phone if arabic_women
-        setValue('guardianTelegramPhoneNumber', parentAccountInfo.parentPhone1 || ''); 
+        setValue('guardianPhone1', parentAccountInfo.parentPhone1 || '');
+        setValue('guardianTelegramPhoneNumber', parentAccountInfo.parentPhone1 || '');
         setValue('guardianUsePhone1ForTelegram', !!parentAccountInfo.parentPhone1);
         setValue('gender', 'female');
         setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
-    } else if (selectedProgram.isChildProgram) { 
+    } else if (selectedProgram.isChildProgram) {
         setValue('guardianFullName', parentAccountInfo.parentFullName || '');
         setValue('guardianPhone1', parentAccountInfo.parentPhone1 || '');
         setValue('firstName', defaultParticipantValues.firstName);
         setValue('gender', defaultParticipantValues.gender);
         setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
-    } else { // For other adult programs that are not 'arabic_women'
+    } else { 
         setValue('firstName', parentAccountInfo.parentFullName || '');
         setValue('guardianFullName', parentAccountInfo.parentFullName || '');
         setValue('guardianPhone1', parentAccountInfo.parentPhone1 || '');
         setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
         setValue('gender', defaultParticipantValues.gender);
     }
-    // Reset other fields to default
+    
     setValue('specialAttention', defaultParticipantValues.specialAttention);
     setValue('schoolGrade', defaultParticipantValues.schoolGrade);
     setValue('quranLevel', defaultParticipantValues.quranLevel);
     setValue('guardianPhone2', defaultParticipantValues.guardianPhone2);
-    // Only reset telegram if not arabic_women or parent phone not set
+    
     if (selectedProgram.category !== 'arabic_women' || !parentAccountInfo.parentPhone1) {
       setValue('guardianTelegramPhoneNumber', defaultParticipantValues.guardianTelegramPhoneNumber);
       setValue('guardianUsePhone1ForTelegram', defaultParticipantValues.guardianUsePhone1ForTelegram);
@@ -148,43 +155,43 @@ const ParticipantDetailFields: React.FC<{
   };
 
   const isArabicWomenProgram = selectedProgram.category === 'arabic_women';
-  const participantLabel = isArabicWomenProgram ? (t.pdfTraineeInfo || "Trainee's Info") : (t.pdfParticipantInfo || "Participant's Info");
-  const contactLabel = isArabicWomenProgram ? (t.pdfTraineeContactInfo || "Trainee's Contact") : (t.pdfGuardianContactInfo || "Guardian's Contact");
+  const participantLabel = isArabicWomenProgram ? (t.pdfTraineeInfo) : (t.pdfParticipantInfo);
+  const contactLabel = isArabicWomenProgram ? (t.pdfTraineeContactInfo) : (t.pdfGuardianContactInfo);
+  const programLabel = getTranslatedText(`programs.${selectedProgram.id}.label`, currentLanguage, {defaultValue: selectedProgram.label});
 
-  const programLabel = getTranslatedText(`programs.${selectedProgram.id}.label`, currentLanguage) || selectedProgram.label;
 
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline">{(t.pdfAddDetailsFor || "Add Details for ")} {programLabel}</CardTitle>
+        <CardTitle className="text-lg sm:text-xl font-headline">{t.pdfAddDetailsFor} {programLabel}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <p className="text-sm text-primary font-medium flex items-center"><User className="mr-2 h-4 w-4" /> {participantLabel}</p>
         <div>
-          <Label htmlFor="firstName">{isArabicWomenProgram ? (t.pdfTraineeFullNameLabel || "Trainee's Full Name") : (t.pdfParticipantFullNameLabel || "Participant's Full Name")}</Label>
-          <Input id="firstName" {...register("firstName")} placeholder={isArabicWomenProgram ? (t.pdfTraineeFullNameLabel || "Trainee's Full Name") : (t.pdfParticipantFullNameLabel || "Participant's Full Name")} />
-          {participantErrors.firstName && <p className="text-sm text-destructive mt-1">{participantErrors.firstName.message}</p>}
+          <Label htmlFor="firstName">{isArabicWomenProgram ? t.pdfTraineeFullNameLabel : t.pdfParticipantFullNameLabel}</Label>
+          <Input id="firstName" {...register("firstName")} placeholder={isArabicWomenProgram ? t.pdfTraineeFullNameLabel : t.pdfParticipantFullNameLabel} />
+          {participantErrors.firstName && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.firstName.message || "fallback.error", currentLanguage)}</p>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-                <Label htmlFor="gender">{t.pdfGenderLabel || "Gender"}</Label>
+                <Label htmlFor="gender">{t.pdfGenderLabel}</Label>
                 <Controller
                     name="gender"
                     control={control}
                     render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value} disabled={isArabicWomenProgram && field.value === 'female'}>
-                        <SelectTrigger id="gender"><SelectValue placeholder={t.pdfSelectGenderPlaceholder || "Select gender"} /></SelectTrigger>
+                        <SelectTrigger id="gender"><SelectValue placeholder={t.pdfSelectGenderPlaceholder} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="male">{t.pdfMaleOption || "Male"}</SelectItem>
-                            <SelectItem value="female">{t.pdfFemaleOption || "Female"}</SelectItem>
+                            <SelectItem value="male">{t.pdfMaleOption}</SelectItem>
+                            <SelectItem value="female">{t.pdfFemaleOption}</SelectItem>
                         </SelectContent>
                     </Select>
                     )}
                 />
-                {participantErrors.gender && <p className="text-sm text-destructive mt-1">{participantErrors.gender.message}</p>}
+                {participantErrors.gender && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.gender.message || "fallback.error", currentLanguage)}</p>}
             </div>
             <div>
-                <Label htmlFor="dateOfBirth">{isArabicWomenProgram ? (t.pdfTraineeDOBLabel || "Trainee's DOB") : (t.pdfParticipantDOBLabel || "Participant's DOB")}</Label>
+                <Label htmlFor="dateOfBirth">{isArabicWomenProgram ? t.pdfTraineeDOBLabel : t.pdfParticipantDOBLabel}</Label>
                 <Controller
                     name="dateOfBirth"
                     control={control}
@@ -193,7 +200,7 @@ const ParticipantDetailFields: React.FC<{
                         <PopoverTrigger asChild>
                         <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(new Date(field.value), "PPP") : <span>{t.pdfPickDatePlaceholder || "Pick a date"}</span>}
+                            {field.value ? format(new Date(field.value), "PPP") : <span>{t.pdfPickDatePlaceholder}</span>}
                         </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -202,18 +209,20 @@ const ParticipantDetailFields: React.FC<{
                     </Popover>
                     )}
                 />
-                {participantErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{participantErrors.dateOfBirth.message}</p>}
+                {participantErrors.dateOfBirth && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.dateOfBirth.message || "fallback.error", currentLanguage)}</p>}
             </div>
         </div>
 
         {selectedProgram.specificFields?.map(field => {
-            const translatedLabel = getTranslatedText(`programs.specificFields.${selectedProgram.category === 'arabic_women' && field.name === 'specialAttention' ? `arabicWomen.${field.name}` : field.name}`, currentLanguage) || field.label;
+            const specificFieldKey = `programs.specificFields.${selectedProgram.category === 'arabic_women' && field.name === 'specialAttention' ? `arabicWomen.${field.name}` : field.name}`;
+            const translatedLabel = getTranslatedText(specificFieldKey, currentLanguage, {defaultValue: field.label});
+
             if (field.name === 'specialAttention') {
                 return (
                     <div key={field.name}>
                         <Label htmlFor={field.name}>{translatedLabel}</Label>
                         <Textarea id={field.name} {...register(field.name as "specialAttention")} placeholder={translatedLabel} />
-                        {participantErrors[field.name as keyof ParticipantInfoData] && <p className="text-sm text-destructive mt-1">{participantErrors[field.name as keyof ParticipantInfoData]?.message}</p>}
+                        {participantErrors[field.name as keyof ParticipantInfoData] && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors[field.name as keyof ParticipantInfoData]?.message || "fallback.error", currentLanguage)}</p>}
                     </div>
                 )
             }
@@ -227,41 +236,41 @@ const ParticipantDetailFields: React.FC<{
                             control={control}
                             render={({ field: controllerField }) => (
                             <Select onValueChange={controllerField.onChange} value={controllerField.value}>
-                                <SelectTrigger id={field.name}><SelectValue placeholder={`${t.pdfSelectPlaceholderPrefix || "Select "}${translatedLabel.toLowerCase()}`} /></SelectTrigger>
+                                <SelectTrigger id={field.name}><SelectValue placeholder={`${t.pdfSelectPlaceholderPrefix}${translatedLabel.toLowerCase()}`} /></SelectTrigger>
                                 <SelectContent>{options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
                             </Select>
                             )}
                         />
-                        {participantErrors[field.name as keyof ParticipantInfoData] && <p className="text-sm text-destructive mt-1">{participantErrors[field.name as keyof ParticipantInfoData]?.message}</p>}
+                        {participantErrors[field.name as keyof ParticipantInfoData] && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors[field.name as keyof ParticipantInfoData]?.message || "fallback.error", currentLanguage)}</p>}
                     </div>
                  )
             }
             return null;
         })}
-        
+
         <Separator className="my-4" />
         <p className="text-sm text-primary font-medium flex items-center"><ShieldQuestion className="mr-2 h-4 w-4" /> {contactLabel}</p>
          <div>
-          <Label htmlFor="guardianFullName">{isArabicWomenProgram ? (t.pdfTraineeFullNameLabel || "Trainee's Full Name") : (t.pdfGuardianFullNameLabel || "Guardian's Full Name")}</Label>
-          <Input id="guardianFullName" {...register("guardianFullName")} placeholder={isArabicWomenProgram ? (t.pdfTraineeFullNameLabel || "Trainee's Full Name") : (t.pdfGuardianFullNameLabel || "Guardian's Full Name")} />
-          {participantErrors.guardianFullName && <p className="text-sm text-destructive mt-1">{participantErrors.guardianFullName.message}</p>}
+          <Label htmlFor="guardianFullName">{isArabicWomenProgram ? t.pdfTraineeFullNameLabel : t.pdfGuardianFullNameLabel}</Label>
+          <Input id="guardianFullName" {...register("guardianFullName")} placeholder={isArabicWomenProgram ? t.pdfTraineeFullNameLabel : t.pdfGuardianFullNameLabel} />
+          {participantErrors.guardianFullName && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.guardianFullName.message || "fallback.error", currentLanguage)}</p>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <Label htmlFor="guardianPhone1">{isArabicWomenProgram ? (t.pdfTraineePrimaryPhoneLabel || "Trainee's Primary Phone") : (t.pdfGuardianPrimaryPhoneLabel || "Guardian's Primary Phone")}</Label>
-            <Input id="guardianPhone1" {...register("guardianPhone1")} type="tel" placeholder={t.pdfPhonePlaceholder || "e.g., 0911XXXXXX"} />
-            {participantErrors.guardianPhone1 && <p className="text-sm text-destructive mt-1">{participantErrors.guardianPhone1.message}</p>}
+            <Label htmlFor="guardianPhone1">{isArabicWomenProgram ? t.pdfTraineePrimaryPhoneLabel : t.pdfGuardianPrimaryPhoneLabel}</Label>
+            <Input id="guardianPhone1" {...register("guardianPhone1")} type="tel" placeholder={t.pdfPhonePlaceholder} />
+            {participantErrors.guardianPhone1 && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.guardianPhone1.message || "fallback.error", currentLanguage)}</p>}
           </div>
           <div>
-            <Label htmlFor="guardianPhone2">{isArabicWomenProgram ? (t.pdfTraineeSecondaryPhoneLabel || "Trainee's Secondary Phone") : (t.pdfGuardianSecondaryPhoneLabel || "Guardian's Secondary Phone")}</Label>
-            <Input id="guardianPhone2" {...register("guardianPhone2")} type="tel" placeholder={t.pdfPhonePlaceholder || "e.g., 0911XXXXXX"} />
-            {participantErrors.guardianPhone2 && <p className="text-sm text-destructive mt-1">{participantErrors.guardianPhone2.message}</p>}
+            <Label htmlFor="guardianPhone2">{isArabicWomenProgram ? t.pdfTraineeSecondaryPhoneLabel : t.pdfGuardianSecondaryPhoneLabel}</Label>
+            <Input id="guardianPhone2" {...register("guardianPhone2")} type="tel" placeholder={t.pdfPhonePlaceholder} />
+            {participantErrors.guardianPhone2 && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.guardianPhone2.message || "fallback.error", currentLanguage)}</p>}
           </div>
         </div>
         <div>
-          <Label htmlFor="guardianTelegramPhoneNumber">{isArabicWomenProgram ? (t.pdfTraineeTelegramPhoneLabel || "Trainee's Telegram Phone") : (t.pdfGuardianTelegramPhoneLabel || "Guardian's Telegram Phone")}</Label>
-          <Input id="guardianTelegramPhoneNumber" {...register("guardianTelegramPhoneNumber")} type="tel" placeholder={t.pdfTelegramPlaceholder || "For Telegram updates"} />
-          {participantErrors.guardianTelegramPhoneNumber && <p className="text-sm text-destructive mt-1">{participantErrors.guardianTelegramPhoneNumber.message}</p>}
+          <Label htmlFor="guardianTelegramPhoneNumber">{isArabicWomenProgram ? t.pdfTraineeTelegramPhoneLabel : t.pdfGuardianTelegramPhoneLabel}</Label>
+          <Input id="guardianTelegramPhoneNumber" {...register("guardianTelegramPhoneNumber")} type="tel" placeholder={t.pdfTelegramPlaceholder} />
+          {participantErrors.guardianTelegramPhoneNumber && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.guardianTelegramPhoneNumber.message || "fallback.error", currentLanguage)}</p>}
           <div className="mt-2 space-y-1 text-sm">
             <Controller name="guardianUsePhone1ForTelegram" control={control} render={({field}) => (
                 <div className="flex items-center gap-2">
@@ -270,7 +279,7 @@ const ParticipantDetailFields: React.FC<{
                         if (checked && guardianPhone1) setValue('guardianTelegramPhoneNumber', guardianPhone1);
                         if (checked) setValue('guardianUsePhone2ForTelegram', false);
                     }} disabled={!guardianPhone1}/>
-                    <Label htmlFor="guardianUsePhone1ForTelegram" className="font-normal">{isArabicWomenProgram ? (t.pdfUseTraineePrimaryTelegramLabel || "Use Trainee's Primary Phone") : (t.pdfUseGuardianPrimaryTelegramLabel || "Use Guardian's Primary Phone")}</Label>
+                    <Label htmlFor="guardianUsePhone1ForTelegram" className="font-normal">{isArabicWomenProgram ? t.pdfUseTraineePrimaryTelegramLabel : t.pdfUseGuardianPrimaryTelegramLabel}</Label>
                 </div>
             )}/>
             {guardianPhone2 &&
@@ -281,7 +290,7 @@ const ParticipantDetailFields: React.FC<{
                         if (checked && guardianPhone2) setValue('guardianTelegramPhoneNumber', guardianPhone2);
                         if (checked) setValue('guardianUsePhone1ForTelegram', false);
                     }} disabled={!guardianPhone2}/>
-                    <Label htmlFor="guardianUsePhone2ForTelegram" className="font-normal">{isArabicWomenProgram ? (t.pdfUseTraineeSecondaryTelegramLabel || "Use Trainee's Secondary Phone") : (t.pdfUseGuardianSecondaryTelegramLabel || "Use Guardian's Secondary Phone")}</Label>
+                    <Label htmlFor="guardianUsePhone2ForTelegram" className="font-normal">{isArabicWomenProgram ? t.pdfUseTraineeSecondaryTelegramLabel : t.pdfUseGuardianSecondaryTelegramLabel}</Label>
                 </div>
             )}/>}
           </div>
@@ -289,9 +298,9 @@ const ParticipantDetailFields: React.FC<{
 
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 p-2 pt-1">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">{t.pdfCancelButton || "Cancel"}</Button>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">{t.pdfCancelButton}</Button>
           <Button type="button" onClick={handleParticipantSubmit(actualOnSave)} disabled={isLoading} className="w-full sm:w-auto">
-              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} {isArabicWomenProgram ? (t.pdfSaveTraineeButton || "Save Trainee") : (t.pdfSaveParticipantButton || "Save Participant")}
+              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} {isArabicWomenProgram ? t.pdfSaveTraineeButton : t.pdfSaveParticipantButton}
           </Button>
       </CardFooter>
     </Card>
@@ -317,21 +326,22 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  const [availablePrograms] = useState<HafsaProgram[]>(HAFSA_PROGRAMS); // Static programs
-  const [programsLoading] = useState<boolean>(false); // No longer fetching from Firestore
+  const [availablePrograms] = useState<HafsaProgram[]>(HAFSA_PROGRAMS);
+  const [programsLoading] = useState<boolean>(false);
 
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
   const [showPasswordInDialog, setShowPasswordInDialog] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [t, setT] = useState<Record<string, string>>({});
 
-  const loadTranslations = useCallback((lang: LanguageCode) => {
-    setT(getTranslationsForLanguage(lang));
+  const translateEnrollmentFormContent = useCallback((lang: LanguageCode) => {
+    const translations = getTranslationsForLanguage(lang);
+    setT(translations);
   }, []);
 
   useEffect(() => {
-    loadTranslations(currentLanguage);
-  }, [currentLanguage, loadTranslations]);
+    translateEnrollmentFormContent(currentLanguage);
+  }, [currentLanguage, translateEnrollmentFormContent]);
 
 
   const methods = useForm<EnrollmentFormData>({
@@ -362,34 +372,34 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   }, []);
 
   useEffect(() => {
-    if (!auth) return; 
+    if (!auth) return;
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       if (user && user.email) {
         const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
-        
+
         if (savedParentInfoRaw) {
             try {
                 const savedParentInfo = JSON.parse(savedParentInfoRaw) as ParentInfoData;
                 if (savedParentInfo.parentEmail === user.email) {
                     setValue('parentInfo.parentFullName', savedParentInfo.parentFullName);
                     setValue('parentInfo.parentEmail', savedParentInfo.parentEmail);
-                    setValue('parentInfo.parentPhone1', savedParentInfo.parentPhone1); // Restore phone
-                } else { // Logged in with different email than LS, clear LS for parent
+                    setValue('parentInfo.parentPhone1', savedParentInfo.parentPhone1);
+                } else {
                     localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
                     setValue('parentInfo.parentFullName', user.displayName || (t.efWelcomeBackUserToastDescTpl ? t.efWelcomeBackUserToastDescTpl.split(" ")[1].replace(",", "") : "User"));
                     setValue('parentInfo.parentEmail', user.email);
-                    setValue('parentInfo.parentPhone1', ''); // Clear phone
+                    setValue('parentInfo.parentPhone1', '');
                 }
-            } catch (e) { // Error parsing, clear LS and set from Firebase auth
+            } catch (e) {
                 console.error("Error parsing parent info from LS on auth change", e);
                 localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
                 setValue('parentInfo.parentFullName', user.displayName || (t.efWelcomeBackUserToastDescTpl ? t.efWelcomeBackUserToastDescTpl.split(" ")[1].replace(",", "") : "User"));
                 setValue('parentInfo.parentEmail', user.email);
                 setValue('parentInfo.parentPhone1', '');
             }
-        } else { // No LS data, set from Firebase auth
+        } else {
             setValue('parentInfo.parentFullName', user.displayName || (t.efWelcomeBackUserToastDescTpl ? t.efWelcomeBackUserToastDescTpl.split(" ")[1].replace(",", "") : "User"));
             setValue('parentInfo.parentEmail', user.email);
             setValue('parentInfo.parentPhone1', '');
@@ -407,8 +417,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             dateOfBirth: p.participantInfo.dateOfBirth ? new Date(p.participantInfo.dateOfBirth) : undefined,
                         }
                     })));
-                } else { // Participants from different email, clear them
-                    localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY); 
+                } else {
+                    localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
                     setValue('participants', []);
                 }
             } catch (e) {
@@ -418,29 +428,27 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             }
         }
 
-        if(currentView === 'accountCreation' || currentView === 'confirmation') { 
+        if(currentView === 'accountCreation' || currentView === 'confirmation') {
              setCurrentView('dashboard');
              setActiveDashboardTab('enrollments');
         }
         onStageChange('accountCreated');
-      } else { // User is null (logged out or not logged in)
-        if (currentView === 'dashboard') { 
-            // Don't automatically clear local storage here if they just logged out.
-            // Let the logout function handle clearing.
-            // Only reset form if it was previously in dashboard state.
-            setValue('parentInfo', defaultParentValues); 
-            setValue('participants', []); 
+      } else {
+        if (currentView === 'dashboard') {
+            // Let the logout function handle clearing local storage explicitly.
+            setValue('parentInfo', defaultParentValues);
+            setValue('participants', []);
             setCurrentView('accountCreation');
             onStageChange('initial');
         }
       }
     });
     return () => unsubscribe();
-  }, [auth, setValue, onStageChange, currentView, reset, t.efWelcomeBackUserToastDescTpl]); 
+  }, [auth, setValue, onStageChange, currentView, reset, t.efWelcomeBackUserToastDescTpl]);
 
 
- useEffect(() => { // For guest session loading (if user is not logged in)
-    if (typeof window !== 'undefined' && !firebaseUser) { 
+ useEffect(() => { 
+    if (typeof window !== 'undefined' && !firebaseUser) {
       try {
         const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
         const savedParticipantsRaw = localStorage.getItem(LOCALSTORAGE_PARTICIPANTS_KEY);
@@ -453,7 +461,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
            setValue('parentInfo.parentEmail', loadedParentInfo?.parentEmail || '');
            setValue('parentInfo.parentPhone1', loadedParentInfo?.parentPhone1 || '');
         }
-        
+
         if (loadedParentInfo?.parentEmail && loadedParentInfo?.password) {
           setCurrentView('dashboard');
           onStageChange('accountCreated');
@@ -473,13 +481,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
              }
            }
         }
-
       } catch (error) {
         console.error("Error loading data from localStorage:", error);
-        clearLocalStorageData();
       }
     }
-  }, [setValue, onStageChange, toast, clearLocalStorageData, firebaseUser, t.efWelcomeBackToastTitle, t.efGuestSessionLoadedToastDesc]);
+  }, [setValue, onStageChange, toast, firebaseUser, t.efWelcomeBackToastTitle, t.efGuestSessionLoadedToastDesc]);
 
 
   const watchedParticipants = watch('participants');
@@ -518,12 +524,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         const { parentFullName, parentEmail, password, parentPhone1 } = getValues('parentInfo');
         try {
             await createUserWithEmailAndPassword(auth, parentEmail, password!);
-            
+
             const currentParentInfo: ParentInfoData = { parentFullName, parentEmail, parentPhone1, password, confirmPassword: password! };
             if (typeof window !== 'undefined') {
                 localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify(currentParentInfo));
             }
-            const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, {name: parentFullName});
+            const desc = (t.efWelcomeUserToastDescTpl || O_EF_WELCOME_USER_TOAST_DESC_TPL).replace('{name}', parentFullName);
             toast({ title: t.efAccountCreatedToastTitle, description: desc });
         } catch (error: any) {
             console.error("Firebase registration error:", error);
@@ -555,13 +561,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       try {
         const userCredential = await signInWithEmailAndPassword(auth, loginEmail!, loginPassword!);
         const user = userCredential.user;
+        const currentParentInfo = getValues('parentInfo');
 
-        const currentParentInfo = getValues('parentInfo'); // Use existing values which should be set by onAuthStateChanged or guest load
-
-        if (typeof window !== 'undefined') { // Re-save to LS with current password if login was successful
+        if (typeof window !== 'undefined') {
             localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify({...currentParentInfo, password: loginPassword, confirmPassword: loginPassword }));
         }
-        const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: currentParentInfo.parentFullName || user.email!});
+        const desc = (t.efWelcomeBackUserToastDescTpl || O_EF_WELCOME_BACK_USER_TOAST_DESC_TPL).replace('{nameOrEmail}', currentParentInfo.parentFullName || user.email!);
         toast({ title: t.efLoginSuccessfulToastTitle, description: desc });
       } catch (error: any) {
         console.error("Firebase login error:", error);
@@ -607,14 +612,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     };
     appendParticipant(newEnrolledParticipant);
     const currentParentEmail = getValues('parentInfo.parentEmail');
-     if (typeof window !== 'undefined' && currentParentEmail) { 
+     if (typeof window !== 'undefined' && currentParentEmail) {
         localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify({parentEmail: currentParentEmail, data: getValues('participants')}));
     }
     setCurrentView('dashboard');
     setActiveDashboardTab('enrollments');
-    const programLabel = getTranslatedText(`programs.${programForNewParticipant.id}.label`, currentLanguage) || programForNewParticipant.label;
-    
-    const desc = getTranslatedText('efParticipantForProgramToastDescTpl', currentLanguage, {name: participantData.firstName, program: programLabel});
+    const programDisplayLabel = getTranslatedText(`programs.${programForNewParticipant.id}.label`, currentLanguage, {defaultValue: programForNewParticipant.label})
+    const desc = (t.efParticipantForProgramToastDescTpl || O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC_TPL)
+        .replace('{name}', participantData.firstName)
+        .replace('{program}', programDisplayLabel);
     toast({title: t.efParticipantAddedToastTitle, description: desc});
   };
 
@@ -674,7 +680,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       };
 
       const result = await handlePaymentVerification(verificationInput);
-      
+
       const finalRegistrationData: RegistrationData = {
         parentInfo: data.parentInfo,
         participants: data.participants || [],
@@ -688,7 +694,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         paymentVerified: result.isPaymentValid,
         paymentVerificationDetails: result,
         registrationDate: new Date(),
-        firebaseUserId: firebaseUser ? firebaseUser.uid : undefined, 
+        firebaseUserId: firebaseUser ? firebaseUser.uid : undefined,
       };
 
       if (result.isPaymentValid) {
@@ -700,12 +706,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         try {
             const firestoreReadyData = {
                 ...finalRegistrationData,
-                registrationDate: finalRegistrationData.registrationDate.toISOString(), 
-                parentInfo: { 
+                registrationDate: finalRegistrationData.registrationDate.toISOString(),
+                parentInfo: {
                     parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
                     parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
                     parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
-                    // Do NOT save password to Firestore
                 },
                 participants: finalRegistrationData.participants.map(p => ({
                     ...p,
@@ -724,13 +729,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               variant: "default",
               className: "bg-accent text-accent-foreground",
             });
-            setRegistrationData(finalRegistrationData); 
+            setRegistrationData(finalRegistrationData);
             setCurrentView('confirmation');
-            clearLocalStorageData(); 
+            clearLocalStorageData();
 
         } catch (firestoreError: any) {
             console.error("Error saving registration to Firestore:", firestoreError);
-            const desc = getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: firestoreError.message});
+            const desc = (t.efRegSubmittedDbFailToastDescTpl || O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC_TPL).replace('{message}', firestoreError.message);
             toast({
                 title: t.efSavingErrorToastTitle,
                 description: desc,
@@ -738,7 +743,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             });
             setRegistrationData(finalRegistrationData);
             setCurrentView('confirmation');
-            // Don't clear local storage if DB save failed, user might want to retry or have data for support
         }
 
       } else {
@@ -774,14 +778,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     resetField('paymentProof');
     setValue('paymentProof', defaultPaymentProofValues);
 
-    clearLocalStorageData(); 
+    clearLocalStorageData();
 
-    if (!firebaseUser) { 
+    if (!firebaseUser) {
         resetField('parentInfo');
         setValue('parentInfo', defaultParentValues);
         setCurrentView('accountCreation');
         onStageChange('initial');
-    } else { 
+    } else {
         setCurrentView('dashboard');
         setActiveDashboardTab('enrollments');
     }
@@ -798,10 +802,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         if (!uniqueProgramIds.has(enrolled.programId)) {
             const program = availablePrograms.find(p => p.id === enrolled.programId);
             if (program && program.termsAndConditions) {
-                terms.push({ 
-                    programId: program.id, 
-                    label: getTranslatedText(`programs.${program.id}.label`, currentLanguage) || program.label, 
-                    terms: getTranslatedText(`programs.${program.id}.termsAndConditions`, currentLanguage) || program.termsAndConditions 
+                terms.push({
+                    programId: program.id,
+                    label: getTranslatedText(`programs.${program.id}.label`, currentLanguage, {defaultValue: program.label}),
+                    terms: getTranslatedText(`programs.${program.id}.termsAndConditions`, currentLanguage, {defaultValue: program.termsAndConditions})
                 });
                 uniqueProgramIds.add(program.id);
             }
@@ -836,28 +840,28 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     <div>
                         <Label htmlFor="parentInfo.parentFullName">{t.efFullNameLabel}</Label>
                         <Input id="parentInfo.parentFullName" {...register("parentInfo.parentFullName")} placeholder={t.efFullNameLabel} />
-                        {errors.parentInfo?.parentFullName && <p className="text-sm text-destructive mt-1">{errors.parentInfo.parentFullName.message}</p>}
+                        {errors.parentInfo?.parentFullName && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.parentInfo.parentFullName.message || "fallback.error", currentLanguage)}</p>}
                     </div>
                     <div>
                         <Label htmlFor="parentInfo.parentEmail">{t.efEmailLoginLabel}</Label>
                         <Input id="parentInfo.parentEmail" {...register("parentInfo.parentEmail")} type="email" placeholder={t.efEmailPlaceholder} />
-                        {errors.parentInfo?.parentEmail && <p className="text-sm text-destructive mt-1">{errors.parentInfo.parentEmail.message}</p>}
+                        {errors.parentInfo?.parentEmail && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.parentInfo.parentEmail.message || "fallback.error", currentLanguage)}</p>}
                     </div>
                      <div>
                         <Label htmlFor="parentInfo.parentPhone1">{t.efPrimaryPhoneLabelEF}</Label>
                         <Input id="parentInfo.parentPhone1" {...register("parentInfo.parentPhone1")} type="tel" placeholder={t.efPhonePlaceholderEF} />
-                        {errors.parentInfo?.parentPhone1 && <p className="text-sm text-destructive mt-1">{errors.parentInfo.parentPhone1.message}</p>}
+                        {errors.parentInfo?.parentPhone1 && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.parentInfo.parentPhone1.message || "fallback.error", currentLanguage)}</p>}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
                             <Label htmlFor="parentInfo.password">{t.efPasswordLabel}</Label>
                             <Input id="parentInfo.password" {...register("parentInfo.password")} type="password" placeholder={t.efCreatePasswordPlaceholder} />
-                            {errors.parentInfo?.password && <p className="text-sm text-destructive mt-1">{errors.parentInfo.password.message}</p>}
+                            {errors.parentInfo?.password && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.parentInfo.password.message || "fallback.error", currentLanguage)}</p>}
                         </div>
                         <div>
                             <Label htmlFor="parentInfo.confirmPassword">{t.efConfirmPasswordLabel}</Label>
                             <Input id="parentInfo.confirmPassword" {...register("parentInfo.confirmPassword")} type="password" placeholder={t.efConfirmPasswordPlaceholder} />
-                            {errors.parentInfo?.confirmPassword && <p className="text-sm text-destructive mt-1">{errors.parentInfo.confirmPassword.message}</p>}
+                            {errors.parentInfo?.confirmPassword && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.parentInfo.confirmPassword.message || "fallback.error", currentLanguage)}</p>}
                         </div>
                     </div>
                 </CardContent>
@@ -878,12 +882,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 <div>
                 <Label htmlFor="loginEmail">{t.efEmailLabel}</Label>
                 <Input id="loginEmail" {...register('loginEmail')} placeholder={t.efEmailPlaceholder} type="email"/>
-                {errors.loginEmail && <p className="text-sm text-destructive mt-1">{errors.loginEmail.message}</p>}
+                {errors.loginEmail && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.loginEmail.message || "fallback.error", currentLanguage)}</p>}
                 </div>
                 <div>
                 <Label htmlFor="loginPassword">{t.efPasswordLabel}</Label>
                 <Input id="loginPassword" {...register('loginPassword')} type="password" placeholder={t.efLoginPasswordPlaceholder} />
-                {errors.loginPassword && <p className="text-sm text-destructive mt-1">{errors.loginPassword.message}</p>}
+                {errors.loginPassword && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.loginPassword.message || "fallback.error", currentLanguage)}</p>}
                 </div>
             </CardContent>
             </Card>
@@ -901,7 +905,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         <div>
           <h3 className="text-xl sm:text-2xl font-semibold mb-1 text-primary">{t.efSelectProgramTitle}</h3>
           <p className="text-muted-foreground mb-4 text-sm">{t.efChooseProgramDesc}</p>
-          {programsLoading && ( 
+          {programsLoading && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {[...Array(4)].map((_, i) => (
                     <Card key={i} className="p-0">
@@ -930,8 +934,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                   case 'arabic_women': IconComponent = Briefcase; break;
                   default: IconComponent = BookOpenText;
                 }
-                const progLabel = getTranslatedText(`programs.${prog.id}.label`, currentLanguage) || prog.label;
-                const progDesc = getTranslatedText(`programs.${prog.id}.description`, currentLanguage) || prog.description;
+                const progLabel = getTranslatedText(`programs.${prog.id}.label`, currentLanguage, {defaultValue: prog.label});
+                const progDesc = getTranslatedText(`programs.${prog.id}.description`, currentLanguage, {defaultValue: prog.description});
 
                 return (
                   <Card
@@ -1017,7 +1021,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             {participantFields.map((field, index) => {
                 const enrolledParticipant = field as unknown as EnrolledParticipantData;
                 const program = availablePrograms.find(p => p.id === enrolledParticipant.programId);
-                const progLabel = program ? (getTranslatedText(`programs.${program.id}.label`, currentLanguage) || program.label) : t.efUnknownProgramText;
+                const progLabel = program ? (getTranslatedText(`programs.${program.id}.label`, currentLanguage, {defaultValue: program.label})) : t.efUnknownProgramText;
                 return (
                 <Card key={field.id} className="p-3 mb-2 bg-background/80">
                     <div className="flex justify-between items-start">
@@ -1076,8 +1080,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         case 'arabic_women': IconComponent = Briefcase; break;
                         default: IconComponent = BookOpenText;
                     }
-                    const progLabel = getTranslatedText(`programs.${prog.id}.label`, currentLanguage) || prog.label;
-                    const progDesc = getTranslatedText(`programs.${prog.id}.description`, currentLanguage) || prog.description;
+                    const progLabel = getTranslatedText(`programs.${prog.id}.label`, currentLanguage, {defaultValue: prog.label});
+                    const progDesc = getTranslatedText(`programs.${prog.id}.description`, currentLanguage, {defaultValue: prog.description});
                     return (
                         <Card
                           key={prog.id}
@@ -1150,7 +1154,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         </div>
                         )}
                     />
-                    {errors.agreeToTerms && <p className="text-sm text-destructive mt-1">{errors.agreeToTerms.message}</p>}
+                    {errors.agreeToTerms && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.agreeToTerms.message || "fallback.error", currentLanguage)}</p>}
                 </div>
               </CardContent>
             </Card>
@@ -1165,7 +1169,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     <Input id="couponCode" {...register('couponCode')} placeholder={t.efCouponPlaceholder} className="flex-grow"/>
                     <Button type="button" variant="outline" size="sm" onClick={() => toast({title: t.efCouponAppliedToastTitle, description: t.efCouponExampleToastDesc})}>{t.efApplyButton}</Button>
                 </div>
-                 {errors.couponCode && <p className="text-sm text-destructive mt-1">{errors.couponCode.message}</p>}
+                 {errors.couponCode && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.couponCode.message || "fallback.error", currentLanguage)}</p>}
             </div>
             <div>
                 <Label htmlFor="paymentProof.paymentType" className="text-sm sm:text-base">{t.efSelectPaymentMethodLabel}</Label>
@@ -1181,7 +1185,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     </Select>
                 )}
                 />
-                {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{errors.paymentProof.paymentType.message}</p>}
+                {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.paymentType.message || "fallback.error", currentLanguage)}</p>}
             </div>
 
             {selectedMethodDetails && selectedMethodDetails.accountNumber && (
@@ -1218,7 +1222,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             }
                           }}
                           className="p-1.5 sm:p-2 h-auto text-sm self-center text-primary hover:bg-primary/10 flex-shrink-0"
-                          aria-label="Copy account number"
+                          aria-label={t.efCopyButton || "Copy account number"}
                         >
                           <Copy className="mr-1 h-4 w-4 sm:mr-1.5 sm:h-4 sm:w-4" />
                           {t.efCopyButton}
@@ -1260,13 +1264,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     </RadioGroup>
                   )}
                 />
-                {errors.paymentProof?.proofSubmissionType && <p className="text-sm text-destructive mt-1">{errors.paymentProof.proofSubmissionType.message}</p>}
+                {errors.paymentProof?.proofSubmissionType && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.proofSubmissionType.message || "fallback.error", currentLanguage)}</p>}
 
                 {watchedProofSubmissionType === 'transactionId' && (
                   <div>
                     <Label htmlFor="paymentProof.transactionId" className="text-sm">{t.efTransactionIdLabel}</Label>
                     <Input id="paymentProof.transactionId" {...register('paymentProof.transactionId')} className="mt-1 text-xs sm:text-sm" placeholder={t.efTransactionIdPlaceholder}/>
-                    {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{errors.paymentProof.transactionId.message}</p>}
+                    {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.transactionId.message || "fallback.error", currentLanguage)}</p>}
                   </div>
                 )}
                 {watchedProofSubmissionType === 'screenshot' && (
@@ -1279,7 +1283,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         className="mt-1"
                         {...register('paymentProof.screenshot')}
                     />
-                    {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{(errors.paymentProof.screenshot as any).message}</p>}
+                    {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{getTranslatedText((errors.paymentProof.screenshot as any).message || "fallback.error", currentLanguage)}</p>}
                     <p className="text-xs text-muted-foreground mt-1">
                         {t.efScreenshotDesc}
                     </p>
@@ -1289,7 +1293,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                   <div>
                     <Label htmlFor="paymentProof.pdfLink" className="text-sm">{t.efPdfLinkLabel}</Label>
                     <Input id="paymentProof.pdfLink" {...register('paymentProof.pdfLink')} className="mt-1 text-xs sm:text-sm" placeholder={t.efPdfLinkPlaceholder}/>
-                    {errors.paymentProof?.pdfLink && <p className="text-sm text-destructive mt-1">{errors.paymentProof.pdfLink.message}</p>}
+                    {errors.paymentProof?.pdfLink && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.pdfLink.message || "fallback.error", currentLanguage)}</p>}
                   </div>
                 )}
               </div>
@@ -1345,7 +1349,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                 toast({title: t.efNoEnrollmentsToastTitle, description: t.efAddParticipantBeforePaymentToastDesc, variant: "destructive"});
                                 return;
                             }
-                             if (!firebaseUser && !localStorage.getItem(LOCALSTORAGE_PARENT_KEY)) { 
+                             if (!firebaseUser && !localStorage.getItem(LOCALSTORAGE_PARENT_KEY)) {
                                 toast({title: t.efAccountRequiredToastTitle, description: t.efCreateOrLoginToastDesc, variant: "destructive"});
                                 setCurrentView('accountCreation');
                                 return;
@@ -1376,8 +1380,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>{t.efAccountInfoDialogTitle}</DialogTitle>
             <DialogDescription>
                 {firebaseUser ? `${t.efLoggedInAsPrefix}${firebaseUser.email}` :
-                 (parentInfoForDialog?.parentEmail && parentInfoForDialog.password ? `${t.efPrimaryAccountGuestPrefix}${parentInfoForDialog.parentEmail}` : 
-                  parentInfoForDialog?.parentEmail ? `${t.efPrimaryAccountIncompletePrefix}${parentInfoForDialog.parentEmail}` : 
+                 (parentInfoForDialog?.parentEmail && parentInfoForDialog.password ? `${t.efPrimaryAccountGuestPrefix}${parentInfoForDialog.parentEmail}` :
+                  parentInfoForDialog?.parentEmail ? `${t.efPrimaryAccountIncompletePrefix}${parentInfoForDialog.parentEmail}` :
                   t.efNoAccountActiveMsg)}
             </DialogDescription>
           </DialogHeader>
@@ -1387,7 +1391,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               <p><strong>{t.efDialogEmailLabel}</strong> {parentInfoForDialog?.parentEmail || firebaseUser?.email || 'N/A'}</p>
               {parentInfoForDialog?.parentPhone1 && <p><strong>{t.efDialogPhoneLabel}</strong> {parentInfoForDialog.parentPhone1}</p>}
 
-              {parentInfoForDialog?.password && !firebaseUser && ( 
+              {parentInfoForDialog?.password && !firebaseUser && (
                 <div className="flex items-center justify-between">
                     <p><strong>{t.efDialogPasswordLabel}</strong> {showPasswordInDialog ? parentInfoForDialog.password : '••••••••'}</p>
                     <Button variant="ghost" size="icon" onClick={() => setShowPasswordInDialog(!showPasswordInDialog)} className="h-7 w-7">
@@ -1402,12 +1406,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 if (auth) {
                     try {
                         await signOut(auth);
+                        clearLocalStorageData(); // Explicitly clear local storage on Firebase logout
                         toast({title: t.efLoggedOutToastTitle, description: t.efLoggedOutSuccessToastDesc});
-                        // Local storage is NOT cleared on sign out here,
-                        // allowing re-login to potentially pick up guest session if email matches
-                        // or prompt for action if it doesn't.
-                        // Form state reset will be handled by onAuthStateChanged.
                         onCloseAccountDialog();
+                        // Form state reset will be handled by onAuthStateChanged
                     } catch (error) {
                         toast({title: t.efLogoutErrorToastTitle, description: t.efLogoutFailedToastDesc, variant: "destructive"});
                     }
@@ -1422,3 +1424,5 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+
+    
