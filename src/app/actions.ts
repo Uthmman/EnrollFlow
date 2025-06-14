@@ -22,6 +22,7 @@ async function fetchDocumentAsDataUri(url: string): Promise<string | null> {
     if (!response.ok) {
       let errorBodyText = 'Could not read error body from response.';
       try {
+        // Clone the response before attempting to read its body, as body can only be consumed once.
         const clonedResponse = response.clone();
         errorBodyText = await clonedResponse.text();
       } catch (e) {
@@ -101,15 +102,16 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
           if (documentDataUriForAI) {
             requiresAiVerification = true;
           } else {
+            console.error(`Failed to fetch or process document from CBE URL: ${cbeUrl}. fetchDocumentAsDataUri returned null.`); // Explicit log
             return {
               isPaymentValid: false,
-              message: `Could not automatically retrieve payment details from CBE for Transaction ID ${paymentProof.transactionId}. This can occur with some bank systems. Please try uploading a screenshot of your payment receipt instead, or verify the Transaction ID and try again later.`,
-              reason: `Failed to fetch or process document from CBE URL for transaction ID.`
+              message: `System could not retrieve payment details from CBE for Transaction ID ${paymentProof.transactionId} using the automated link. This often happens due to bank system restrictions on automated access. Please try uploading a screenshot of your payment receipt instead, or verify the Transaction ID and try again later.`,
+              reason: `Automated fetch from CBE URL (${cbeUrl}) failed.`
             };
           }
         } else if (paymentProof.transactionId && paymentProof.transactionId.length >= 3) {
            return {
-            isPaymentValid: true, 
+            isPaymentValid: true,
             transactionNumber: paymentProof.transactionId,
             message: `Payment proof submitted via Transaction ID: ${paymentProof.transactionId} for ${paymentProof.paymentType || 'selected method'}. Verification pending human review.`
           };
@@ -157,11 +159,12 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
         break;
 
       default:
-        const exhaustiveCheck: never = paymentProof.proofSubmissionType;
+        // This case should ideally not be reached if types are correct
+        // const exhaustiveCheck: never = paymentProof.proofSubmissionType;
         return {
           isPaymentValid: false,
-          reason: `Invalid proof submission type: ${exhaustiveCheck}`,
-          message: `Invalid proof submission type: ${exhaustiveCheck}`
+          reason: `Invalid proof submission type: ${paymentProof.proofSubmissionType}`,
+          message: `Invalid proof submission type: ${paymentProof.proofSubmissionType}`
         };
     }
 
@@ -177,7 +180,7 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
 
         const aiResult = await verifyPaymentFromScreenshot(aiInput);
 
-        if (aiResult.isPaymentValid) {
+         if (aiResult.isPaymentValid) {
           const successResult: VerificationResult = {
             isPaymentValid: true,
             message: `Payment verified successfully by AI from ${paymentProof.proofSubmissionType} (amount and account match).`,
@@ -246,12 +249,12 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
     } else if (!requiresAiVerification && paymentProof.proofSubmissionType === 'transactionId') {
         if (paymentProof.transactionId && paymentProof.transactionId.length >=3) {
              return {
-                isPaymentValid: true, 
+                isPaymentValid: true,
                 transactionNumber: paymentProof.transactionId,
                 message: `Payment proof submitted via Transaction ID: ${paymentProof.transactionId} for ${paymentProof.paymentType || 'selected method'}. Verification pending human review.`
              };
         }
-         return { 
+         return {
             isPaymentValid: false,
             transactionNumber: paymentProof.transactionId,
             reason: `Transaction ID/Reference for ${paymentProof.paymentType || 'selected method'} is invalid.`,
@@ -291,6 +294,3 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
     };
   }
 }
-    
-
-    
