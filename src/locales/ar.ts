@@ -63,6 +63,7 @@ export const ar: LocaleStrings = {
   efValidationErrorToastTitle: "خطأ في التحقق",
   efCheckEntriesToastDesc: "يرجى التحقق من إدخالاتك والمحاولة مرة أخرى.",
   efLoginSuccessfulToastTitle: "تم تسجيل الدخول بنجاح!",
+  efAdminRedirectToastDesc: "جاري التوجيه إلى لوحة الإدارة...",
   efWelcomeBackUserToastDescTpl: "مرحبًا بعودتك، {nameOrEmail}!",
   efLoginFailedToastTitle: "فشل تسجيل الدخول",
   efInvalidEmailPasswordToastDesc: "بريد إلكتروني أو كلمة مرور غير صالحة. يرجى المحاولة مرة أخرى.",

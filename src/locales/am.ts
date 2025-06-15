@@ -63,6 +63,7 @@ export const am: LocaleStrings = {
   efValidationErrorToastTitle: "የማረጋገጫ ስህተት",
   efCheckEntriesToastDesc: "እባክዎ ያስገቡትን መረጃ ያረጋግጡ እና እንደገና ይሞክሩ።",
   efLoginSuccessfulToastTitle: "በተሳካ ሁኔታ ገብተዋል!",
+  efAdminRedirectToastDesc: "ወደ አስተዳዳሪ ፓነል በመምራት ላይ...",
   efWelcomeBackUserToastDescTpl: "እንኳን ደህና መጡ፣ {nameOrEmail}!",
   efLoginFailedToastTitle: "መግባት አልተሳካም",
   efInvalidEmailPasswordToastDesc: "የተሳሳተ ኢሜይል ወይም የይለፍ ቃል። እባክዎ እንደገና ይሞክሩ።",

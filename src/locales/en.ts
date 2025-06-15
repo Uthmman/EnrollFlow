@@ -70,6 +70,7 @@ export const en = {
   efValidationErrorToastTitle: "Validation Error",
   efCheckEntriesToastDesc: "Please check your entries and try again.",
   efLoginSuccessfulToastTitle: "Login Successful!",
+  efAdminRedirectToastDesc: "Redirecting to admin panel...",
   efWelcomeBackUserToastDescTpl: "Welcome back, {nameOrEmail}!",
   efLoginFailedToastTitle: "Login Failed",
   efInvalidEmailPasswordToastDesc: "Invalid email or password. Please try again.",

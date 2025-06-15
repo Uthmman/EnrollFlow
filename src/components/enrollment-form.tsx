@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
 import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -313,6 +314,8 @@ interface EnrollmentFormProps {
 
 type DashboardTab = 'enrollments' | 'programs' | 'payment';
 
+const ADMIN_EMAIL_FROM_ENV = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAccountDialogFromParent, onCloseAccountDialog, currentLanguage }) => {
   const [currentView, setCurrentView] = useState<'accountCreation' | 'dashboard' | 'addParticipant' | 'confirmation'>('accountCreation');
   const [activeDashboardTab, setActiveDashboardTab] = useState<DashboardTab>('enrollments');
@@ -322,6 +325,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const router = useRouter();
 
   const [availablePrograms, setAvailablePrograms] = useState<HafsaProgram[]>([]);
   const [programsLoading, setProgramsLoading] = useState<boolean>(true);
@@ -464,8 +468,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 setValue('participants', []);
             }
         }
-
-        if(currentView === 'accountCreation' || currentView === 'confirmation') {
+        
+        const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
+        if (user.email === effectiveAdminEmail && router && typeof router.push === 'function' && !window.location.pathname.startsWith('/admin')) {
+          // Only redirect if not already on an admin path.
+          // This condition for router and router.push is a safeguard.
+          console.log(`[EnrollmentForm] Admin user ${user.email} detected on non-admin page, redirecting to /admin.`);
+          router.push('/admin');
+        } else if (currentView === 'accountCreation' || currentView === 'confirmation') {
              setCurrentView('dashboard');
              setActiveDashboardTab('enrollments');
         }
@@ -479,7 +489,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       }
     });
     return () => unsubscribe();
-  }, [auth, setValue, onStageChange, currentView, reset, clearLocalStorageData, currentLanguage, getValues]);
+  }, [auth, setValue, onStageChange, currentView, reset, clearLocalStorageData, currentLanguage, getValues, router]); // Added router
 
 
  useEffect(() => {
@@ -566,6 +576,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             }
             const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, {name: parentFullName});
             toast({ title: t.efAccountCreatedToastTitle || "Account Created!", description: desc });
+            // User will be picked up by onAuthStateChanged, which handles view transitions
         } catch (error: any) {
             console.error("Firebase registration error:", error);
             let errorMessage = t.efRegistrationFailedToastDesc || "Registration failed.";
@@ -601,8 +612,18 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         if (typeof window !== 'undefined') {
             localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify({...currentParentInfo, parentEmail: user.email!, password: loginPassword, confirmPassword: loginPassword }));
         }
-        const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: currentParentInfo.parentFullName || user.email! });
-        toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
+        
+        const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
+        if (user && user.email === effectiveAdminEmail) {
+          console.log(`[EnrollmentForm] Admin user ${user.email} logged in successfully. Redirecting to /admin.`);
+          toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, { defaultValue: "Redirecting to admin panel..."}) });
+          router.push('/admin');
+          // No need to call onStageChange or setCurrentView here for admin
+        } else {
+          const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: currentParentInfo.parentFullName || user.email! });
+          toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
+          // For non-admin, onAuthStateChanged will handle setting user and view transitions
+        }
       } catch (error: any) {
         console.error("Firebase login error:", error);
         let errorMessage = t.efInvalidEmailPasswordToastDesc || "Invalid credentials.";
@@ -826,8 +847,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         if (typeof window !== 'undefined') {
           localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
         }
-        setCurrentView('dashboard');
-        setActiveDashboardTab('enrollments');
+        // If the user is an admin, redirect to admin panel after completing a registration for someone else
+        const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
+        if (firebaseUser.email === effectiveAdminEmail) {
+          router.push('/admin');
+        } else {
+          setCurrentView('dashboard');
+          setActiveDashboardTab('enrollments');
+        }
     }
     toast({ title: t.efReadyNewEnrollmentToastTitle || "Ready for New Enrollment", description: t.efPreviousEnrollmentClearedToastDesc || "Previous enrollment cleared." });
   };
