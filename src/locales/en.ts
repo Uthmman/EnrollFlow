@@ -256,24 +256,47 @@ export const en = {
   apVerifiedBadge: "Verified",
   apNotVerifiedBadge: "Not Verified",
   apPendingReviewBadge: "Pending Review",
-  apViewDetailsButton: "View Details",
+  apViewDetailsButton: "View Details", // Kept for potential future use, though direct edit/delete is added.
   apViewDetailsForPrefix: "View details for ",
   apViewDetailsSuffix: " (feature coming soon).",
   apManageProgramsTitle: "Manage Programs",
-  apManageProgramsDesc: "Create, edit, or delete academic programs. (This feature is under development).",
+  apManageProgramsDesc: "Create, edit, or delete academic programs. (This feature is under development).", // Old desc
+  apManageProgramsDescAdmin: "View, add, edit, or delete academic programs.", // New desc for admin page
   apImportantNoteLabel: "Important Note:",
   apProgramsStaticNote: "Currently, programs are defined statically in the code. To make them editable here, they need to be migrated to the Firestore database.",
   apProgramsFirestoreNote: "Program data is now stored in the 'programs' collection in Firestore. Future updates will allow editing here.",
   apFeatureComingSoon: "Feature coming soon.",
-  apAddProgramButtonDisabled: "Add New Program",
+  apAddProgramButtonDisabled: "Add New Program", // Old button text
   apBankDetailsSettingsTitle: "Bank Details & Settings",
-  apBankDetailsSettingsDesc: "Update bank account details for payments and other application settings. (This feature is under development).",
+  apBankDetailsSettingsDesc: "Update bank account details for payments and other application settings. (This feature is under development).", // Old desc
+  apBankDetailsSettingsDescAdmin: "View, add, edit, or delete bank account details for payments.", // New desc for admin page
   apBankDetailsStaticNote: "Currently, bank details are defined statically in the code. To make them editable here, they need to be migrated to the Firestore database.",
   apBankDetailsFirestoreNote: "Bank details are now stored in the 'paymentMethods' collection in Firestore. Future updates will allow editing here.",
-  apUpdateBankDetailsButtonDisabled: "Update Bank Details",
+  apUpdateBankDetailsButtonDisabled: "Update Bank Details", // Old button text
   apAccessDeniedTitle: "Access Denied",
   apAccessDeniedMessage: "You do not have permission to view this page. Please contact an administrator if you believe this is an error.",
   apGoHomeButton: "Go to Homepage",
+
+  // New keys for admin page enhancements
+  apAddProgramButton: "Add Program",
+  apAddBankDetailButton: "Add Bank Detail",
+  apEditButton: "Edit",
+  apDeleteButton: "Delete",
+  apProgramNameHeader: "Program Name",
+  apProgramPriceHeader: "Price",
+  apBankNameHeader: "Bank Name",
+  apAccountNameHeader: "Account Name",
+  apAccountNumberHeader: "Account Number",
+  apLoadingPrograms: "Loading programs...",
+  apFetchProgramsError: "Failed to fetch programs:",
+  apNoProgramsAdmin: "No programs found. Add one to get started.",
+  apLoadingBankDetails: "Loading bank details...",
+  apFetchPaymentMethodsError: "Failed to fetch payment methods:",
+  apNoBankDetailsAdmin: "No bank details found. Add one to get started.",
+  apConfirmDeleteMessage: "Are you sure you want to delete this", // Generic part
+  apThisIsPlaceholder: "This is a placeholder action.",
+  apActionPlaceholder: "Action not implemented yet.",
+  apAddButton: "Add New",
 
 
   // Program translations (example keys - you'll need one for each program's label, desc, terms)
@@ -298,3 +321,6 @@ export const en = {
 };
 
 export type LocaleStrings = typeof en;
+
+
+    

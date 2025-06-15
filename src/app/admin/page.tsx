@@ -5,15 +5,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { db } from '@/lib/firebaseConfig';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import type { RegistrationData } from '@/types';
+import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types';
+import { fetchProgramsFromFirestore } from '@/lib/programService';
+import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
-import { Loader2, Users, Edit3, Settings, AlertTriangle, ShieldCheck, ShieldAlert, Banknote } from 'lucide-react';
+import { Loader2, Users, Edit3, Settings, AlertTriangle, ShieldCheck, ShieldAlert, Banknote, Edit, Trash2, PlusCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getTranslationsForLanguage as getTranslations } from '@/lib/translationService'; 
+import { getTranslationsForLanguage as getTranslations } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
 
 interface RegistrationRow extends RegistrationData {
@@ -24,9 +26,13 @@ const AdminPage = () => {
   const { isAdmin, isAdminLoading } = useAdminAuth();
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(true);
+  const [programs, setPrograms] = useState<HafsaProgram[]>([]);
+  const [isLoadingPrograms, setIsLoadingPrograms] = useState(true);
+  const [paymentMethods, setPaymentMethods] = useState<HafsaPaymentMethod[]>([]);
+  const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [currentLanguage] = useState<LanguageCode>('en'); 
+  const [currentLanguage] = useState<LanguageCode>('en');
   const [t, setT] = useState<Record<string, string>>({});
 
   const loadTranslations = useCallback(() => {
@@ -40,19 +46,26 @@ const AdminPage = () => {
 
   useEffect(() => {
     if (isAdmin) {
-      const fetchRegistrations = async () => {
+      const fetchAllData = async () => {
         setIsLoadingRegistrations(true);
+        setIsLoadingPrograms(true);
+        setIsLoadingPaymentMethods(true);
         setError(null);
+
         if (!db) {
-          setError(t['apDbNotInitError'] || "Database not initialized. Cannot fetch registrations.");
+          setError(t['apDbNotInitError'] || "Database not initialized.");
           setIsLoadingRegistrations(false);
+          setIsLoadingPrograms(false);
+          setIsLoadingPaymentMethods(false);
           return;
         }
+
         try {
+          // Fetch Registrations
           const registrationsCol = collection(db, 'registrations');
-          const q = query(registrationsCol, orderBy('registrationDate', 'desc'));
-          const snapshot = await getDocs(q);
-          const fetchedRegistrations = snapshot.docs.map(doc => {
+          const regQuery = query(registrationsCol, orderBy('registrationDate', 'desc'));
+          const regSnapshot = await getDocs(regQuery);
+          const fetchedRegistrations = regSnapshot.docs.map(doc => {
             const data = doc.data() as RegistrationData;
             let regDate = data.registrationDate;
             if (regDate && typeof (regDate as any).toDate === 'function') {
@@ -60,22 +73,43 @@ const AdminPage = () => {
             } else if (typeof regDate === 'string') {
               regDate = new Date(regDate);
             }
-
-            return { 
-              id: doc.id, 
+            return {
+              id: doc.id,
               ...data,
-              registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date() 
+              registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date()
             } as RegistrationRow;
           });
           setRegistrations(fetchedRegistrations);
         } catch (err: any) {
           console.error("Error fetching registrations:", err);
-          setError(t['apFetchRegError'] || `Failed to fetch registrations: ${err.message}`);
+          setError(prev => prev ? `${prev}\n${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}` : `${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}`);
         } finally {
           setIsLoadingRegistrations(false);
         }
+
+        // Fetch Programs
+        try {
+          const fetchedPrograms = await fetchProgramsFromFirestore();
+          setPrograms(fetchedPrograms);
+        } catch (err: any) {
+          console.error("Error fetching programs:", err);
+          setError(prev => prev ? `${prev}\n${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}` : `${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}`);
+        } finally {
+          setIsLoadingPrograms(false);
+        }
+
+        // Fetch Payment Methods
+        try {
+          const fetchedPaymentMethods = await fetchPaymentMethodsFromFirestore();
+          setPaymentMethods(fetchedPaymentMethods);
+        } catch (err: any) {
+          console.error("Error fetching payment methods:", err);
+          setError(prev => prev ? `${prev}\n${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}` : `${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}`);
+        } finally {
+          setIsLoadingPaymentMethods(false);
+        }
       };
-      fetchRegistrations();
+      fetchAllData();
     }
   }, [isAdmin, t]);
 
@@ -88,7 +122,28 @@ const AdminPage = () => {
   }
 
   if (!isAdmin) {
-    return null; 
+    return null;
+  }
+
+  const handleEdit = (type: string, id: string) => {
+    alert(`${t['apEditButton'] || 'Edit'} ${type} with ID: ${id}. ${t['apFeatureComingSoon'] || 'Feature coming soon.'}`);
+  };
+
+  const handleDelete = (type: string, id: string, name?: string) => {
+    let message = `${t['apConfirmDeleteMessage'] || 'Are you sure you want to delete this'} ${type}`;
+    if (name) {
+        message += ` "${name}"?`;
+    } else {
+        message += ` with ID ${id}?`;
+    }
+    message += ` (${t['apThisIsPlaceholder'] || 'This is a placeholder action.'})`;
+    if (confirm(message)) {
+      alert(`${t['apDeleteButton'] || 'Delete'} ${type} with ID: ${id} - ${t['apActionPlaceholder'] || 'Action not implemented yet.'}`);
+    }
+  };
+
+  const handleAdd = (type: string) => {
+    alert(`${t['apAddButton'] || 'Add New'} ${type}. ${t['apFeatureComingSoon'] || 'Feature coming soon.'}`);
   }
 
   return (
@@ -113,11 +168,11 @@ const AdminPage = () => {
             </CardHeader>
             <CardContent>
               {isLoadingRegistrations && <div className="flex justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
-              {error && <p className="text-destructive p-4 text-center">{error}</p>}
+              {error && !isLoadingRegistrations && <p className="text-destructive p-4 text-center">{error.includes('registrations') ? error : (t['apFetchRegError'] || 'Failed to fetch registrations')}</p>}
               {!isLoadingRegistrations && !error && registrations.length === 0 && (
                 <p className="text-muted-foreground p-4 text-center">{t['apNoRegistrationsFound'] || "No registrations found."}</p>
               )}
-              {!isLoadingRegistrations && !error && registrations.length > 0 && (
+              {!isLoadingRegistrations && registrations.length > 0 && (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -150,16 +205,21 @@ const AdminPage = () => {
                               </Badge>
                             ) : (
                                <Badge variant="destructive">
-                                <ShieldAlert className="mr-1 h-3.5 w-3.5" /> 
-                                {reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("human review") 
-                                  ? (t['apPendingReviewBadge'] || "Pending Review") 
+                                <ShieldAlert className="mr-1 h-3.5 w-3.5" />
+                                {reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("human review")
+                                  ? (t['apPendingReviewBadge'] || "Pending Review")
                                   : (t['apNotVerifiedBadge'] || "Not Verified")}
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => alert(t['apViewDetailsForPrefix'] + reg.id + t['apViewDetailsSuffix'])}>
-                              {t['apViewDetailsButton'] || "View Details"}
+                          <TableCell className="space-x-1">
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEdit('registration', reg.id)}>
+                              <Edit className="h-3.5 w-3.5" />
+                              <span className="sr-only">{t['apEditButton'] || 'Edit'}</span>
+                            </Button>
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleDelete('registration', reg.id, reg.parentInfo.parentFullName)}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              <span className="sr-only">{t['apDeleteButton'] || 'Delete'}</span>
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -174,36 +234,89 @@ const AdminPage = () => {
 
         <TabsContent value="programs">
           <Card>
-            <CardHeader>
-              <CardTitle>{t['apManageProgramsTitle'] || "Manage Programs"}</CardTitle>
-              <CardDescription>
-                {t['apManageProgramsDesc'] || "Create, edit, or delete academic programs. (This feature is under development)."}
-                <br />
-                <strong>{t['apImportantNoteLabel'] || "Important Note:"}</strong> {t['apProgramsFirestoreNote'] || "Program data is now stored in the 'programs' collection in Firestore. Future updates will allow editing here."}
-              </CardDescription>
+            <CardHeader className="flex flex-row justify-between items-center">
+              <div>
+                <CardTitle>{t['apManageProgramsTitle'] || "Manage Programs"}</CardTitle>
+                <CardDescription>{t['apManageProgramsDescAdmin'] || "View, add, edit, or delete academic programs."}</CardDescription>
+              </div>
+              <Button onClick={() => handleAdd('program')}>
+                <PlusCircle className="mr-2 h-4 w-4" /> {t['apAddProgramButton'] || "Add Program"}
+              </Button>
             </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center min-h-[200px]">
-              <Edit3 className="h-16 w-16 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">{t['apFeatureComingSoon'] || "Program management features coming soon."}</p>
-              <Button className="mt-4" disabled>{t['apAddProgramButtonDisabled'] || "Add New Program"}</Button>
+            <CardContent>
+              {isLoadingPrograms && <div className="flex justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+              {error && !isLoadingPrograms && <p className="text-destructive p-4 text-center">{error.includes('programs') ? error : (t['apFetchProgramsError'] || 'Failed to fetch programs')}</p>}
+              {!isLoadingPrograms && !error && programs.length === 0 && (
+                <p className="text-muted-foreground p-4 text-center">{t['apNoProgramsAdmin'] || "No programs found. Add one to get started."}</p>
+              )}
+              {!isLoadingPrograms && programs.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {programs.map((program) => (
+                    <Card key={program.id}>
+                      <CardHeader>
+                        <CardTitle className="text-lg">{program.label}</CardTitle>
+                        <CardDescription>Br{program.price.toFixed(2)} - {program.category}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="text-sm">
+                        <p className="truncate">{program.description}</p>
+                      </CardContent>
+                      <CardFooter className="flex justify-end space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => handleEdit('program', program.id)}>
+                          <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDelete('program', program.id, program.label)}>
+                          <Trash2 className="mr-1 h-4 w-4 text-destructive" /> {t['apDeleteButton'] || "Delete"}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="settings">
           <Card>
-            <CardHeader>
-              <CardTitle>{t['apBankDetailsSettingsTitle'] || "Bank Details & Settings"}</CardTitle>
-              <CardDescription>
-                {t['apBankDetailsSettingsDesc'] || "Update bank account details for payments and other application settings. (This feature is under development)."}
-                <br />
-                <strong>{t['apImportantNoteLabel'] || "Important Note:"}</strong> {t['apBankDetailsFirestoreNote'] || "Bank details are now stored in the 'paymentMethods' collection in Firestore. Future updates will allow editing here."}
-              </CardDescription>
+            <CardHeader className="flex flex-row justify-between items-center">
+              <div>
+                <CardTitle>{t['apBankDetailsSettingsTitle'] || "Bank Details & Settings"}</CardTitle>
+                <CardDescription>{t['apBankDetailsSettingsDescAdmin'] || "View, add, edit, or delete bank account details for payments."}</CardDescription>
+              </div>
+              <Button onClick={() => handleAdd('bankDetail')}>
+                <PlusCircle className="mr-2 h-4 w-4" /> {t['apAddBankDetailButton'] || "Add Bank Detail"}
+              </Button>
             </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center min-h-[200px]">
-              <Banknote className="h-16 w-16 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">{t['apFeatureComingSoon'] || "Bank details management features coming soon."}</p>
-              <Button className="mt-4" disabled>{t['apUpdateBankDetailsButtonDisabled'] || "Update Bank Details"}</Button>
+            <CardContent>
+              {isLoadingPaymentMethods && <div className="flex justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+              {error && !isLoadingPaymentMethods && <p className="text-destructive p-4 text-center">{error.includes('payment methods') ? error : (t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods')}</p>}
+              {!isLoadingPaymentMethods && !error && paymentMethods.length === 0 && (
+                <p className="text-muted-foreground p-4 text-center">{t['apNoBankDetailsAdmin'] || "No bank details found. Add one to get started."}</p>
+              )}
+              {!isLoadingPaymentMethods && paymentMethods.length > 0 && (
+                <div className="space-y-4">
+                  {paymentMethods.map((method) => (
+                    <Card key={method.value}>
+                      <CardHeader>
+                        <CardTitle className="text-lg">{method.label}</CardTitle>
+                        {method.accountNumber && <CardDescription>{t['apAccountNumberHeader'] || "Account Number"}: {method.accountNumber}</CardDescription>}
+                      </CardHeader>
+                      <CardContent className="text-sm">
+                        {method.accountName && <p>{t['apAccountNameHeader'] || "Account Name"}: {method.accountName}</p>}
+                        {method.additionalInstructions && <p className="mt-1 text-xs italic">{method.additionalInstructions}</p>}
+                      </CardContent>
+                      <CardFooter className="flex justify-end space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => handleEdit('bankDetail', method.value)}>
+                          <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDelete('bankDetail', method.value, method.label)}>
+                          <Trash2 className="mr-1 h-4 w-4 text-destructive" /> {t['apDeleteButton'] || "Delete"}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -213,3 +326,5 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
+
+    

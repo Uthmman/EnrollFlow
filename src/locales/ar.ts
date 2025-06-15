@@ -252,6 +252,7 @@ export const ar: LocaleStrings = {
   apViewDetailsSuffix: " (الميزة قادمة قريبًا).",
   apManageProgramsTitle: "إدارة البرامج",
   apManageProgramsDesc: "إنشاء أو تعديل أو حذف البرامج الأكاديمية. (هذه الميزة قيد التطوير).",
+  apManageProgramsDescAdmin: "عرض أو إضافة أو تعديل أو حذف البرامج الأكاديمية.",
   apImportantNoteLabel: "ملاحظة هامة:",
   apProgramsStaticNote: "حاليًا، يتم تعريف البرامج بشكل ثابت في الكود. لجعلها قابلة للتعديل هنا، يجب نقلها إلى قاعدة بيانات Firestore.",
   apProgramsFirestoreNote: "يتم الآن تخزين بيانات البرنامج في مجموعة 'programs' في Firestore. ستسمح التحديثات المستقبلية بالتعديل هنا.",
@@ -259,12 +260,33 @@ export const ar: LocaleStrings = {
   apAddProgramButtonDisabled: "إضافة برنامج جديد",
   apBankDetailsSettingsTitle: "تفاصيل البنك والإعدادات",
   apBankDetailsSettingsDesc: "تحديث تفاصيل الحساب البنكي للمدفوعات وإعدادات التطبيق الأخرى. (هذه الميزة قيد التطوير).",
+  apBankDetailsSettingsDescAdmin: "عرض أو إضافة أو تعديل أو حذف تفاصيل الحساب البنكي للمدفوعات.",
   apBankDetailsStaticNote: "حاليًا، يتم تعريف تفاصيل البنك بشكل ثابت في الكود. لجعلها قابلة للتعديل هنا، يجب نقلها إلى قاعدة بيانات Firestore.",
   apBankDetailsFirestoreNote: "يتم الآن تخزين تفاصيل البنك في مجموعة 'paymentMethods' في Firestore. ستسمح التحديثات المستقبلية بالتعديل هنا.",
   apUpdateBankDetailsButtonDisabled: "تحديث تفاصيل البنك",
   apAccessDeniedTitle: "تم رفض الوصول",
   apAccessDeniedMessage: "ليس لديك إذن لعرض هذه الصفحة. يرجى الاتصال بمسؤول إذا كنت تعتقد أن هذا خطأ.",
   apGoHomeButton: "الذهاب إلى الصفحة الرئيسية",
+  apAddProgramButton: "إضافة برنامج",
+  apAddBankDetailButton: "إضافة تفاصيل بنكية",
+  apEditButton: "تعديل",
+  apDeleteButton: "حذف",
+  apProgramNameHeader: "اسم البرنامج",
+  apProgramPriceHeader: "السعر",
+  apBankNameHeader: "اسم البنك",
+  apAccountNameHeader: "اسم الحساب",
+  apAccountNumberHeader: "رقم الحساب",
+  apLoadingPrograms: "جاري تحميل البرامج...",
+  apFetchProgramsError: "فشل تحميل البرامج:",
+  apNoProgramsAdmin: "لم يتم العثور على برامج. أضف واحدًا للبدء.",
+  apLoadingBankDetails: "جاري تحميل تفاصيل البنك...",
+  apFetchPaymentMethodsError: "فشل تحميل طرق الدفع:",
+  apNoBankDetailsAdmin: "لم يتم العثور على تفاصيل بنكية. أضف واحدة للبدء.",
+  apConfirmDeleteMessage: "هل أنت متأكد أنك تريد حذف هذا",
+  apThisIsPlaceholder: "هذا إجراء نائب.",
+  apActionPlaceholder: "الإجراء لم يتم تنفيذه بعد.",
+  apAddButton: "إضافة جديد",
+
 
   "programs.daycare_morning.label": "رعاية نهارية (فترة صباحية)",
   "programs.daycare_morning.description": "بيئة آمنة ورعاية للأطفال الصغار مع دمج إسلامي. التركيز على التعلم المبكر واللعب.",
@@ -285,3 +307,6 @@ export const ar: LocaleStrings = {
   "programs.islamic_studies_adults.description": "دورة شاملة تغطي العقيدة والفقه والسيرة والحديث للبالغين الذين يسعون إلى معرفة إسلامية أعمق.",
   "programs.islamic_studies_adults.termsAndConditions": "المشاركة الفعالة واحترام الآراء العلمية المتنوعة متوقعة. سيتم توفير بعض مواد القراءة، وقد تحتاج مواد أخرى إلى الشراء.",
 };
+
+
+    
