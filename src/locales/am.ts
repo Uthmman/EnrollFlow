@@ -7,9 +7,9 @@ export const am: LocaleStrings = {
   changeLanguageLabel: "ቋንቋ ቀይር",
   accountSettingsLabel: "የመለያ ቅንብሮች",
   adminPanelLabel: "የአስተዳዳሪ ፓነል",
-  englishLabel: "እንግሊዝኛ",
+  englishLabel: "English",
   amharicLabel: "አማርኛ",
-  arabicLabel: "አረብኛ",
+  arabicLabel: "العربية",
   welcomeMessage: "እንኳን ወደ ሀፍሳ መድረሳ ፕሮግራሞች በደህና መጡ",
   subMessage: "በመጀመሪያ ዋና መለያ በመፍጠር ይጀምሩ። ከዚያ ተሳታፊዎችን ማከል ወይም በፕሮግራሞቻችን መመዝገብ ይችላሉ።",
   footerMessage1Prefix: "© ",
@@ -228,12 +228,17 @@ export const am: LocaleStrings = {
 
   apAdminPanelTitle: "የአስተዳዳሪ ፓነል",
   apAdminPanelSubtitle: "ምዝገባዎችን፣ ፕሮግራሞችን፣ እና የክፍያ ቅንብሮችን ያስተዳድሩ።",
+  apVerifyingAdminAccess: "የአስተዳዳሪ መዳረሻ በማረጋገጥ ላይ...",
+  apAccessDeniedMessageAdminPage: "ይህን ገጽ ለማየት ፈቃድ የለዎትም። አስተዳዳሪ ከሆኑ እባክዎ በትክክለኛው የአስተዳዳሪ መለያ መግባትዎን ያረጋግጡ።",
   apStudentsTab: "ተማሪዎች",
   apProgramsTab: "ፕሮግራሞች",
   apBankAccountsTab: "የባንክ ሂሳቦች",
   apStudentsListTitle: "የተማሪ ምዝገባዎች",
   apStudentsListDesc: "ሁሉንም የተማሪ ምዝገባዎች እና የክፍያ ሁኔታቸውን ይመልከቱ እና ያስተዳድሩ።",
   apDbNotInitError: "ዳታቤዝ አልተጀመረም። ምዝገባዎችን መጫን አይቻልም።",
+  apRegistrationsText: "ምዝገባዎች",
+  apProgramsText: "ፕሮግራሞች",
+  apPaymentMethodsText: "የክፍያ ዘዴዎች",
   apFetchRegError: "ምዝገባዎችን መጫን አልተሳካም፦",
   apNoRegistrationsFound: "ምንም የተማሪ ምዝገባዎች አልተገኙም።",
   apParentNameHeader: "የወላጅ ስም",
@@ -324,8 +329,8 @@ export const am: LocaleStrings = {
   apSuccessfully: "በተሳካ ሁኔታ።",
   apSaveErrorTitle: "የማስቀመጥ ስህተት",
   apDeleteErrorTitle: "የመሰረዝ ስህተት",
+  apAdminAccountDialogTitle: "የአስተዳዳሪ መለያ",
+  apNotLoggedIn: "አልገቡም",
 
   "fallback.error": "የተሳሳተ ግቤት ወይም የጎደለ መረጃ።"
 };
-
-    

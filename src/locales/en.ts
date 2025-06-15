@@ -238,12 +238,17 @@ export const en = {
   // Admin Page
   apAdminPanelTitle: "Admin Panel",
   apAdminPanelSubtitle: "Manage enrollments, programs, and payment settings.",
+  apVerifyingAdminAccess: "Verifying admin access...",
+  apAccessDeniedMessageAdminPage: "You do not have permission to view this page. If you are an admin, please ensure you are logged in with the correct admin account.",
   apStudentsTab: "Students",
   apProgramsTab: "Programs",
   apBankAccountsTab: "Bank Accounts",
   apStudentsListTitle: "Student Enrollments",
   apStudentsListDesc: "View and manage all student enrollments and their payment status.",
   apDbNotInitError: "Database not initialized. Cannot fetch registrations.",
+  apRegistrationsText: "registrations", // helper for error messages
+  apProgramsText: "programs", // helper for error messages
+  apPaymentMethodsText: "payment methods", // helper for error messages
   apFetchRegError: "Failed to fetch registrations:",
   apNoRegistrationsFound: "No student enrollments found.",
   apParentNameHeader: "Parent Name",
@@ -262,8 +267,8 @@ export const en = {
   apFeatureComingSoon: "Feature coming soon.",
   apBankAccountsSettingsTitle: "Manage Bank Accounts",
   apBankAccountsSettingsDescAdmin: "Add, edit, or delete bank account details used for payments.",
-  apAccessDeniedTitle: "Access Denied",
-  apAccessDeniedMessage: "You do not have permission to view this page. Please contact an administrator if you believe this is an error.",
+  apAccessDeniedTitle: "Access Denied", // Used by access-denied page
+  apAccessDeniedMessage: "You do not have permission to view this page. Please contact an administrator if you believe this is an error.", // Used by access-denied page
   apGoHomeButton: "Go to Homepage",
   apAddProgramButton: "Add Program",
   apAddBankDetailButton: "Add Bank Account",
@@ -334,12 +339,11 @@ export const en = {
   apSuccessfully: "successfully.",
   apSaveErrorTitle: "Save Error",
   apDeleteErrorTitle: "Deletion Error",
-
+  apAdminAccountDialogTitle: "Admin Account",
+  apNotLoggedIn: "Not logged in",
 
   // Fallback for errors/missing keys
   "fallback.error": "Invalid input or missing information."
 };
 
 export type LocaleStrings = typeof en;
-
-    

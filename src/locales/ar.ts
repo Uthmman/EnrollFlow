@@ -7,8 +7,8 @@ export const ar: LocaleStrings = {
   changeLanguageLabel: "تغيير اللغة",
   accountSettingsLabel: "إعدادات الحساب",
   adminPanelLabel: "لوحة الإدارة",
-  englishLabel: "الإنجليزية",
-  amharicLabel: "الأمهرية",
+  englishLabel: "English",
+  amharicLabel: "አማርኛ",
   arabicLabel: "العربية",
   welcomeMessage: "مرحباً بكم في برامج مدرسة حفصة",
   subMessage: "ابدأ بإنشاء حساب أساسي. ثم يمكنك إضافة مشاركين أو تسجيل نفسك في برامجنا.",
@@ -228,12 +228,17 @@ export const ar: LocaleStrings = {
 
   apAdminPanelTitle: "لوحة الإدارة",
   apAdminPanelSubtitle: "إدارة التسجيلات والبرامج وإعدادات الدفع.",
+  apVerifyingAdminAccess: "جاري التحقق من وصول المسؤول...",
+  apAccessDeniedMessageAdminPage: "ليس لديك إذن لعرض هذه الصفحة. إذا كنت مسؤولاً، فيرجى التأكد من تسجيل الدخول باستخدام حساب المسؤول الصحيح.",
   apStudentsTab: "الطلاب",
   apProgramsTab: "البرامج",
   apBankAccountsTab: "الحسابات البنكية",
   apStudentsListTitle: "تسجيلات الطلاب",
   apStudentsListDesc: "عرض وإدارة جميع تسجيلات الطلاب وحالة دفعهم.",
   apDbNotInitError: "لم يتم تهيئة قاعدة البيانات. لا يمكن جلب التسجيلات.",
+  apRegistrationsText: "تسجيلات",
+  apProgramsText: "البرامج",
+  apPaymentMethodsText: "طرق الدفع",
   apFetchRegError: "فشل جلب التسجيلات:",
   apNoRegistrationsFound: "لم يتم العثور على تسجيلات طلاب.",
   apParentNameHeader: "اسم ولي الأمر",
@@ -324,8 +329,8 @@ export const ar: LocaleStrings = {
   apSuccessfully: "بنجاح.",
   apSaveErrorTitle: "خطأ في الحفظ",
   apDeleteErrorTitle: "خطأ في الحذف",
+  apAdminAccountDialogTitle: "حساب المسؤول",
+  apNotLoggedIn: "لم يتم تسجيل الدخول",
 
   "fallback.error": "إدخال غير صالح أو معلومات مفقودة."
 };
-
-    
