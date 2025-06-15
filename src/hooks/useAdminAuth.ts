@@ -6,9 +6,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebaseConfig';
 import { useRouter } from 'next/navigation';
 
-// THIS IS A PLACEHOLDER - REPLACE WITH YOUR ACTUAL ADMIN EMAIL FOR TESTING
-// For production, use Firebase Custom Claims or an admins collection in Firestore.
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@example.com';
+const ADMIN_EMAIL_FROM_ENV = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
 export function useAdminAuth(redirectTo = "/admin/access-denied") {
   const [user, loading, error] = useAuthState(auth);
@@ -17,13 +15,21 @@ export function useAdminAuth(redirectTo = "/admin/access-denied") {
   const router = useRouter();
 
   useEffect(() => {
+    if (ADMIN_EMAIL_FROM_ENV) {
+      console.log(`[useAdminAuth] NEXT_PUBLIC_ADMIN_EMAIL is set to: "${ADMIN_EMAIL_FROM_ENV}"`);
+    } else {
+      console.warn("[useAdminAuth] NEXT_PUBLIC_ADMIN_EMAIL environment variable is NOT SET. Defaulting to 'admin@example.com'. Please set it in your .env.local file.");
+    }
+    const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
+
     if (loading) {
+      console.log("[useAdminAuth] Auth state loading...");
       setIsAdminLoading(true);
       return;
     }
 
     if (error) {
-      console.error("Auth error in useAdminAuth:", error);
+      console.error("[useAdminAuth] Auth error:", error);
       setIsAdmin(false);
       setIsAdminLoading(false);
       if (redirectTo) router.push(redirectTo);
@@ -31,12 +37,19 @@ export function useAdminAuth(redirectTo = "/admin/access-denied") {
     }
 
     if (user) {
-      const isAdminUser = user.email === ADMIN_EMAIL;
+      console.log(`[useAdminAuth] User authenticated. Email: "${user.email}"`);
+      console.log(`[useAdminAuth] Comparing with admin email: "${effectiveAdminEmail}"`);
+      const isAdminUser = user.email === effectiveAdminEmail;
       setIsAdmin(isAdminUser);
+      console.log(`[useAdminAuth] isAdminUser determined as: ${isAdminUser}`);
       if (!isAdminUser && redirectTo) {
+        console.log(`[useAdminAuth] User is not admin. Redirecting to ${redirectTo}`);
         router.push(redirectTo);
+      } else if (isAdminUser) {
+        console.log("[useAdminAuth] User is admin. Access granted to admin page.");
       }
     } else {
+      console.log("[useAdminAuth] No user authenticated. Redirecting.");
       setIsAdmin(false);
       if (redirectTo) router.push(redirectTo);
     }

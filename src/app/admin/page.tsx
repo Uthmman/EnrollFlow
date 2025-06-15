@@ -26,7 +26,7 @@ interface RegistrationRow extends RegistrationData {
 }
 
 const AdminPage = () => {
-  const { isAdmin, isAdminLoading } = useAdminAuth();
+  const { isAdmin, isAdminLoading, user } = useAdminAuth();
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(true);
   const [programs, setPrograms] = useState<HafsaProgram[]>([]);
@@ -42,6 +42,10 @@ const AdminPage = () => {
   const [currentLanguage] = useState<LanguageCode>('en'); // Admin page default to English for now
   const [t, setT] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    console.log(`[AdminPage] Auth state: isAdminLoading=${isAdminLoading}, isAdmin=${isAdmin}, user=${user?.email}`);
+  }, [isAdmin, isAdminLoading, user]);
+
   const loadTranslations = useCallback(() => {
     setT(getTranslations(currentLanguage));
   }, [currentLanguage]);
@@ -51,6 +55,7 @@ const AdminPage = () => {
   }, [loadTranslations]);
 
   const fetchAllData = useCallback(async () => {
+    console.log("[AdminPage] fetchAllData called");
     setIsLoadingRegistrations(true);
     setIsLoadingPrograms(true);
     setIsLoadingPaymentMethods(true);
@@ -83,6 +88,7 @@ const AdminPage = () => {
         } as RegistrationRow;
       });
       setRegistrations(fetchedRegistrations);
+      console.log("[AdminPage] Fetched registrations:", fetchedRegistrations.length);
     } catch (err: any) {
       console.error("[AdminPage] Error fetching registrations:", err.message, err.stack ? err.stack : '', err);
       setError(prev => prev ? `${prev}\n${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}` : `${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}`);
@@ -93,6 +99,7 @@ const AdminPage = () => {
     try {
       const fetchedPrograms = await fetchProgramsFromFirestore();
       setPrograms(fetchedPrograms);
+      console.log("[AdminPage] Fetched programs:", fetchedPrograms.length);
     } catch (err: any) {
       console.error("[AdminPage] Error fetching programs:", err.message, err.stack ? err.stack : '', err);
       setError(prev => prev ? `${prev}\n${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}` : `${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}`);
@@ -103,6 +110,7 @@ const AdminPage = () => {
     try {
       const fetchedPaymentMethods = await fetchPaymentMethodsFromFirestore();
       setPaymentMethods(fetchedPaymentMethods);
+      console.log("[AdminPage] Fetched payment methods:", fetchedPaymentMethods.length);
     } catch (err: any) {
       console.error("[AdminPage] Error fetching payment methods:", err.message, err.stack ? err.stack : '', err);
       setError(prev => prev ? `${prev}\n${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}` : `${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}`);
@@ -113,7 +121,10 @@ const AdminPage = () => {
 
   useEffect(() => {
     if (isAdmin) {
+      console.log("[AdminPage] isAdmin is true, calling fetchAllData");
       fetchAllData();
+    } else {
+      console.log("[AdminPage] isAdmin is false or user not loaded, not calling fetchAllData");
     }
   }, [isAdmin, fetchAllData]);
 
@@ -121,12 +132,22 @@ const AdminPage = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-2">Verifying admin access...</p>
       </div>
     );
   }
 
   if (!isAdmin) {
-    return null; 
+    // This should ideally be handled by useAdminAuth redirect, but as a fallback:
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
+            <ShieldAlert className="h-16 w-16 text-destructive mb-6" />
+            <h1 className="text-3xl font-bold text-destructive mb-3">Access Denied</h1>
+            <p className="text-lg text-muted-foreground mb-8 text-center max-w-md">
+                You do not have permission to view this page. If you are an admin, please ensure you are logged in with the correct admin account.
+            </p>
+        </div>
+    );
   }
 
   const handleAddProgram = () => {
@@ -188,17 +209,16 @@ const AdminPage = () => {
             termsAndConditions: data.arTerms || '',
           },
         },
-        // specificFields will be managed separately for now or via direct JSON/Firestore editing
       };
 
-      await setDoc(doc(db, "programs", data.id), programToSave);
+      await setDoc(doc(db, "programs", data.id), programToSave, { merge: true }); // Use merge: true for updates
       toast({ 
         title: editingProgram ? (t['apProgramUpdatedTitle'] || "Program Updated") : (t['apProgramAddedTitle'] || "Program Added"), 
         description: `${t['apProgramPrefix'] || "Program"} "${data.enLabel}" ${editingProgram ? (t['apUpdatedSuccess'] || "updated") : (t['apAddedSuccess'] || "added")} ${t['apSuccessfully'] || "successfully."}` 
       });
       setShowAddProgramDialog(false);
       setEditingProgram(null);
-      await fetchAllData(); // Refresh the list
+      await fetchAllData(); 
     } catch (error: any) {
       console.error("Error saving program:", error);
       toast({ title: t['apSaveErrorTitle'] || "Save Error", description: error.message, variant: "destructive" });
@@ -219,7 +239,6 @@ const AdminPage = () => {
     }
     message += ` (${t['apThisIsPlaceholder'] || 'This is a placeholder action for now.'})`;
     if (window.confirm(message)) {
-      // Placeholder: Implement actual deletion logic here
       console.log(`Would delete registration: ${registrationId}`);
       toast({ title: t['apActionPlaceholderTitle'] || "Action Placeholder", description: `${t['apDeleteButton'] || 'Delete'} ${t['apRegistrationSingular'] || 'registration'} for ID: ${registrationId} - ${t['apActionNotImplemented'] || 'Functionality not fully implemented yet.'}` });
     }
@@ -243,7 +262,6 @@ const AdminPage = () => {
     }
     message += ` (${t['apThisIsPlaceholder'] || 'This is a placeholder action for now.'})`;
     if (window.confirm(message)) {
-      // Placeholder: Implement actual deletion logic here
       console.log(`Would delete bank detail: ${bankDetailId}`);
       toast({ title: t['apActionPlaceholderTitle'] || "Action Placeholder", description: `${t['apDeleteButton'] || 'Delete'} ${t['apBankDetailSingular'] || 'Bank Account'} ID: ${bankDetailId} - ${t['apActionNotImplemented'] || 'Functionality not fully implemented yet.'}` });
     }
@@ -434,7 +452,7 @@ const AdminPage = () => {
 
       <Dialog open={showAddProgramDialog} onOpenChange={(isOpen) => {
         setShowAddProgramDialog(isOpen);
-        if (!isOpen) setEditingProgram(null);
+        if (!isOpen) setEditingProgram(null); // Reset editing state when dialog closes
       }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -445,10 +463,10 @@ const AdminPage = () => {
           </DialogHeader>
           <AddProgramForm
             onSubmit={handleSaveProgram}
-            initialData={editingProgram}
+            initialData={editingProgram} // Pass editingProgram here
             onCancel={() => {
               setShowAddProgramDialog(false);
-              setEditingProgram(null);
+              setEditingProgram(null); // Clear editing state on cancel
             }}
             currentLanguage={currentLanguage}
           />
@@ -460,5 +478,3 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
-
-    
