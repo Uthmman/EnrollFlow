@@ -151,6 +151,7 @@ export const ar: LocaleStrings = {
   efCouponExampleToastDesc: "(مثال: خصم 10٪ - لا يعمل بعد)",
   efSelectPaymentMethodLabel: "اختر طريقة الدفع (البنك)",
   efChoosePaymentMethodPlaceholder: "اختر طريقة الدفع",
+  efNoPaymentMethodsConfigured: "لم يتم تكوين أي طرق دفع. يرجى الاتصال بالمسؤول.",
   efCopiedToastTitle: "تم النسخ!",
   efAccountCopiedToastDesc: "تم نسخ رقم الحساب إلى الحافظة.",
   efCopyFailedToastTitle: "فشل النسخ",
@@ -183,6 +184,8 @@ export const ar: LocaleStrings = {
   efDialogPasswordLabel: "كلمة المرور:",
   efDialogLogoutButton: "تسجيل الخروج",
   efDialogCloseButton: "إغلاق",
+  efLoadDataErrorToastDesc: "فشل تحميل البيانات الأولية من الخادم. قد تكون بعض الميزات غير متوفرة.",
+
   rRegistrationConfirmedTitle: "تم تأكيد التسجيل!",
   rThankYouDesc: "شكراً لتسجيلك في مدرسة حفصة.",
   rRegistrationSummaryTitle: "ملخص التسجيل",
@@ -223,7 +226,6 @@ export const ar: LocaleStrings = {
   rBackToDashboardButton: "العودة إلى لوحة التحكم",
   rPrintReceiptButton: "طباعة الإيصال",
 
-  // Admin Page
   apAdminPanelTitle: "لوحة الإدارة",
   apAdminPanelSubtitle: "إدارة التسجيلات والبرامج والإعدادات.",
   apStudentsTab: "الطلاب المسجلون",
@@ -252,11 +254,13 @@ export const ar: LocaleStrings = {
   apManageProgramsDesc: "إنشاء أو تعديل أو حذف البرامج الأكاديمية. (هذه الميزة قيد التطوير).",
   apImportantNoteLabel: "ملاحظة هامة:",
   apProgramsStaticNote: "حاليًا، يتم تعريف البرامج بشكل ثابت في الكود. لجعلها قابلة للتعديل هنا، يجب نقلها إلى قاعدة بيانات Firestore.",
+  apProgramsFirestoreNote: "يتم الآن تخزين بيانات البرنامج في مجموعة 'programs' في Firestore. ستسمح التحديثات المستقبلية بالتعديل هنا.",
   apFeatureComingSoon: "الميزة قادمة قريبًا.",
   apAddProgramButtonDisabled: "إضافة برنامج جديد",
   apBankDetailsSettingsTitle: "تفاصيل البنك والإعدادات",
   apBankDetailsSettingsDesc: "تحديث تفاصيل الحساب البنكي للمدفوعات وإعدادات التطبيق الأخرى. (هذه الميزة قيد التطوير).",
   apBankDetailsStaticNote: "حاليًا، يتم تعريف تفاصيل البنك بشكل ثابت في الكود. لجعلها قابلة للتعديل هنا، يجب نقلها إلى قاعدة بيانات Firestore.",
+  apBankDetailsFirestoreNote: "يتم الآن تخزين تفاصيل البنك في مجموعة 'paymentMethods' في Firestore. ستسمح التحديثات المستقبلية بالتعديل هنا.",
   apUpdateBankDetailsButtonDisabled: "تحديث تفاصيل البنك",
   apAccessDeniedTitle: "تم رفض الوصول",
   apAccessDeniedMessage: "ليس لديك إذن لعرض هذه الصفحة. يرجى الاتصال بمسؤول إذا كنت تعتقد أن هذا خطأ.",

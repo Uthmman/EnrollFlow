@@ -151,6 +151,7 @@ export const am: LocaleStrings = {
   efCouponExampleToastDesc: "(ምሳሌ፦ 10% ቅናሽ - ገና አይሰራም)",
   efSelectPaymentMethodLabel: "የክፍያ ዘዴ (ባንክ) ይምረጡ",
   efChoosePaymentMethodPlaceholder: "የክፍያ ዘዴ ይምረጡ",
+  efNoPaymentMethodsConfigured: "ምንም የክፍያ ዘዴዎች አልተዋቀሩም። እባክዎ አስተዳዳሪን ያነጋግሩ።",
   efCopiedToastTitle: "ተቀድቷል!",
   efAccountCopiedToastDesc: "የመለያ ቁጥር ወደ ቅንጥብ ሰሌዳ ተቀድቷል።",
   efCopyFailedToastTitle: "መቅዳት አልተሳካም",
@@ -183,6 +184,8 @@ export const am: LocaleStrings = {
   efDialogPasswordLabel: "የይለፍ ቃል፦",
   efDialogLogoutButton: "ውጣ",
   efDialogCloseButton: "ዝጋ",
+  efLoadDataErrorToastDesc: "ከአገልጋዩ የመጀመሪያ መረጃ መጫን አልተሳካም። አንዳንድ ባህሪያት ላይገኙ ይችላሉ።",
+
   rRegistrationConfirmedTitle: "ምዝገባ ተረጋግጧል!",
   rThankYouDesc: "ለሀፍሳ መድረሳ ስለተመዘገቡ እናመሰግናለን።",
   rRegistrationSummaryTitle: "የምዝገባ ማጠቃለያ",
@@ -223,7 +226,6 @@ export const am: LocaleStrings = {
   rBackToDashboardButton: "ወደ ዳሽቦርድ ተመለስ",
   rPrintReceiptButton: "ደረሰኝ ያትሙ",
 
-  // Admin Page
   apAdminPanelTitle: "የአስተዳዳሪ ፓነል",
   apAdminPanelSubtitle: "ምዝገባዎችን፣ ፕሮግራሞችን፣ እና ቅንብሮችን ያስተዳድሩ።",
   apStudentsTab: "የተመዘገቡ ተማሪዎች",
@@ -252,11 +254,13 @@ export const am: LocaleStrings = {
   apManageProgramsDesc: "የትምህርት ፕሮግራሞችን ይፍጠሩ፣ ያርትዑ፣ ወይም ይሰርዙ። (ይህ ባህሪ በመገንባት ላይ ነው)።",
   apImportantNoteLabel: "ጠቃሚ ማስታወሻ፦",
   apProgramsStaticNote: "በአሁኑ ሰዓት ፕሮግራሞች በኮዱ ውስጥ በቋሚነት ተገልጸዋል። እዚህ እንዲስተካከሉ ለማድረግ ወደ Firestore ዳታቤዝ መዛወር አለባቸው።",
+  apProgramsFirestoreNote: "የፕሮግራም መረጃ አሁን በFirestore 'programs' ስብስብ ውስጥ ተቀምጧል። የወደፊት ዝመናዎች እዚህ ማስተካከል ያስችላሉ።",
   apFeatureComingSoon: "ባህሪ በቅርቡ ይመጣል።",
   apAddProgramButtonDisabled: "አዲስ ፕሮግራም አክል",
   apBankDetailsSettingsTitle: "የባንክ ዝርዝሮች እና ቅንብሮች",
   apBankDetailsSettingsDesc: "ለክፍያዎች የባንክ መለያ ዝርዝሮችን እና ሌሎች የመተግበሪያ ቅንብሮችን ያዘምኑ። (ይህ ባህሪ በመገንባት ላይ ነው)።",
   apBankDetailsStaticNote: "በአሁኑ ሰዓት የባንክ ዝርዝሮች በኮዱ ውስጥ በቋሚነት ተገልጸዋል። እዚህ እንዲስተካከሉ ለማድረግ ወደ Firestore ዳታቤዝ መዛወር አለባቸው።",
+  apBankDetailsFirestoreNote: "የባንክ ዝርዝሮች አሁን በFirestore 'paymentMethods' ስብስብ ውስጥ ተቀምጠዋል። የወደፊት ዝመናዎች እዚህ ማስተካከል ያስችላሉ።",
   apUpdateBankDetailsButtonDisabled: "የባንክ ዝርዝሮችን አዘምን",
   apAccessDeniedTitle: "መዳረሻ ተከልክሏል",
   apAccessDeniedMessage: "ይህን ገጽ ለማየት ፈቃድ የለዎትም። ይህ ስህተት ነው ብለው ካመኑ እባክዎ አስተዳዳሪን ያነጋግሩ።",

@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getTranslationsForLanguage as getTranslations } from '@/lib/translationService'; // Alias to avoid conflict
+import { getTranslationsForLanguage as getTranslations } from '@/lib/translationService'; 
 import type { LanguageCode } from '@/locales';
 
 interface RegistrationRow extends RegistrationData {
@@ -26,7 +26,6 @@ const AdminPage = () => {
   const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // For simplicity, hardcoding language for admin panel text. Could be made dynamic.
   const [currentLanguage] = useState<LanguageCode>('en'); 
   const [t, setT] = useState<Record<string, string>>({});
 
@@ -55,7 +54,6 @@ const AdminPage = () => {
           const snapshot = await getDocs(q);
           const fetchedRegistrations = snapshot.docs.map(doc => {
             const data = doc.data() as RegistrationData;
-            // Ensure registrationDate is a Date object if it's a Firestore Timestamp
             let regDate = data.registrationDate;
             if (regDate && typeof (regDate as any).toDate === 'function') {
               regDate = (regDate as any).toDate();
@@ -66,7 +64,7 @@ const AdminPage = () => {
             return { 
               id: doc.id, 
               ...data,
-              registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date() // Fallback if invalid
+              registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date() 
             } as RegistrationRow;
           });
           setRegistrations(fetchedRegistrations);
@@ -90,7 +88,6 @@ const AdminPage = () => {
   }
 
   if (!isAdmin) {
-    // The useAdminAuth hook handles redirection, but this is a fallback.
     return null; 
   }
 
@@ -182,7 +179,7 @@ const AdminPage = () => {
               <CardDescription>
                 {t['apManageProgramsDesc'] || "Create, edit, or delete academic programs. (This feature is under development)."}
                 <br />
-                <strong>{t['apImportantNoteLabel'] || "Important Note:"}</strong> {t['apProgramsStaticNote'] || "Currently, programs are defined statically in the code. To make them editable here, they need to be migrated to the Firestore database."}
+                <strong>{t['apImportantNoteLabel'] || "Important Note:"}</strong> {t['apProgramsFirestoreNote'] || "Program data is now stored in the 'programs' collection in Firestore. Future updates will allow editing here."}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center min-h-[200px]">
@@ -200,7 +197,7 @@ const AdminPage = () => {
               <CardDescription>
                 {t['apBankDetailsSettingsDesc'] || "Update bank account details for payments and other application settings. (This feature is under development)."}
                 <br />
-                <strong>{t['apImportantNoteLabel'] || "Important Note:"}</strong> {t['apBankDetailsStaticNote'] || "Currently, bank details are defined statically in the code. To make them editable here, they need to be migrated to the Firestore database."}
+                <strong>{t['apImportantNoteLabel'] || "Important Note:"}</strong> {t['apBankDetailsFirestoreNote'] || "Bank details are now stored in the 'paymentMethods' collection in Firestore. Future updates will allow editing here."}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center min-h-[200px]">
@@ -216,5 +213,3 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
-
-    

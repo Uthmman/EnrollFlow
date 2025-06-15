@@ -8,21 +8,22 @@ import { Separator } from '@/components/ui/separator';
 import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RegistrationData } from '@/types';
-import type { HafsaProgram } from '@/lib/constants';
+import type { HafsaProgram, HafsaPaymentMethod } from '@/lib/constants'; // Updated to import HafsaPaymentMethod
 import { format } from 'date-fns';
-import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
+// HAFSA_PAYMENT_METHODS removed from here, will be passed as prop
 import { getTranslationsForLanguage, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
 
 interface ReceiptProps {
   data: RegistrationData;
   onBack: () => void;
-  allPrograms: HafsaProgram[]; // Expecting static programs list
+  allPrograms: HafsaProgram[];
+  paymentMethods: HafsaPaymentMethod[]; // Added to pass fetched payment methods
   currentLanguage: LanguageCode;
 }
 
 
-const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, currentLanguage }) => {
+const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, paymentMethods, currentLanguage }) => {
   const [t, setT] = useState<Record<string, string>>({});
 
   const loadTranslations = useCallback((lang: LanguageCode) => {
@@ -40,7 +41,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, currentLan
     }
   };
 
-  const paymentMethodLabel = HAFSA_PAYMENT_METHODS.find(pm => pm.value === data.paymentProof.paymentType)?.label || data.paymentProof.paymentType;
+  const paymentMethodLabel = paymentMethods.find(pm => pm.value === data.paymentProof.paymentType)?.label || data.paymentProof.paymentType;
   const primaryRegistrant = data.parentInfo;
   const enrolledParticipants = data.participants || [];
 
@@ -103,7 +104,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, currentLan
                 {enrolledParticipants.map((enrolledItem, index) => {
                     const program = allPrograms.find(p => p.id === enrolledItem.programId);
                     const participant = enrolledItem.participantInfo;
-                    const programLabel = program ? (getTranslatedText(`programs.${program.id}.label`, currentLanguage) || program.label) : (t.rNaText || "N/A");
+                    const programLabel = program ? (getTranslatedText(`programs.${program.id}.label`, currentLanguage, {defaultValue: program.label})) : (t.rNaText || "N/A");
                     return (
                         <div key={index} className="mb-3 sm:mb-4 pl-7 border-l-2 border-muted ml-2 pl-4 py-2 relative">
                             <span className="absolute -left-[10px] top-1.5 bg-background p-0.5 rounded-full border border-muted">
@@ -113,7 +114,7 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, currentLan
                             <div className="space-y-0.5 text-xs sm:text-sm">
                                 <p><strong>{t.rProgramLabel}</strong> {programLabel}</p>
                                 <p><strong>{t.rPriceLabel}</strong> Br{program?.price.toFixed(2) || '0.00'}</p>
-                                <p><strong>{t.rGenderLabel}</strong> {participant.gender.charAt(0).toUpperCase() + participant.gender.slice(1)}</p>
+                                <p><strong>{t.rGenderLabel}</strong> {getTranslatedText(participant.gender === "male" ? "pdfMaleOption" : "pdfFemaleOption", currentLanguage, {defaultValue: participant.gender.charAt(0).toUpperCase() + participant.gender.slice(1)})}</p>
                                 <p><strong>{t.rDOBLabel}</strong> {format(new Date(participant.dateOfBirth), "MMMM d, yyyy")}</p>
                                 {participant.schoolGrade && <p><strong>{t.rSchoolGradeLabel}</strong> {participant.schoolGrade}</p>}
                                 {participant.quranLevel && <p><strong>{t.rQuranLevelLabel}</strong> {participant.quranLevel}</p>}
@@ -159,6 +160,9 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, currentLan
           </div>
           {data.paymentVerificationDetails && !data.paymentVerified && data.paymentVerificationDetails.reason && (
             <p className="text-xs text-destructive mt-1"><strong>{t.rReasonLabel}</strong> {data.paymentVerificationDetails.reason}</p>
+          )}
+           {data.paymentVerificationDetails && data.paymentVerificationDetails.message && data.paymentVerificationDetails.message !== data.paymentVerificationDetails.reason && (
+            <p className="text-xs text-muted-foreground mt-1">{data.paymentVerificationDetails.message}</p>
           )}
         </div>
 

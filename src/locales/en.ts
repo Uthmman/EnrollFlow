@@ -157,6 +157,7 @@ export const en = {
   efCouponExampleToastDesc: "(Example: 10% off - not functional yet)",
   efSelectPaymentMethodLabel: "Select Payment Method (Bank)",
   efChoosePaymentMethodPlaceholder: "Choose payment method",
+  efNoPaymentMethodsConfigured: "No payment methods are configured. Please contact admin.",
   efCopiedToastTitle: "Copied!",
   efAccountCopiedToastDesc: "Account number copied to clipboard.",
   efCopyFailedToastTitle: "Failed to copy",
@@ -189,6 +190,8 @@ export const en = {
   efDialogPasswordLabel: "Password:",
   efDialogLogoutButton: "Logout",
   efDialogCloseButton: "Close",
+  efLoadDataErrorToastDesc: "Failed to load initial data from the server. Some features might be unavailable.",
+
 
   // Receipt
   rRegistrationConfirmedTitle: "Registration Confirmed!",
@@ -260,11 +263,13 @@ export const en = {
   apManageProgramsDesc: "Create, edit, or delete academic programs. (This feature is under development).",
   apImportantNoteLabel: "Important Note:",
   apProgramsStaticNote: "Currently, programs are defined statically in the code. To make them editable here, they need to be migrated to the Firestore database.",
+  apProgramsFirestoreNote: "Program data is now stored in the 'programs' collection in Firestore. Future updates will allow editing here.",
   apFeatureComingSoon: "Feature coming soon.",
   apAddProgramButtonDisabled: "Add New Program",
   apBankDetailsSettingsTitle: "Bank Details & Settings",
   apBankDetailsSettingsDesc: "Update bank account details for payments and other application settings. (This feature is under development).",
   apBankDetailsStaticNote: "Currently, bank details are defined statically in the code. To make them editable here, they need to be migrated to the Firestore database.",
+  apBankDetailsFirestoreNote: "Bank details are now stored in the 'paymentMethods' collection in Firestore. Future updates will allow editing here.",
   apUpdateBankDetailsButtonDisabled: "Update Bank Details",
   apAccessDeniedTitle: "Access Denied",
   apAccessDeniedMessage: "You do not have permission to view this page. Please contact an administrator if you believe this is an error.",

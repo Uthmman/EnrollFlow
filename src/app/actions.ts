@@ -3,7 +3,7 @@
 
 import { verifyPaymentFromScreenshot, VerifyPaymentFromScreenshotInput, VerifyPaymentFromScreenshotOutput } from '@/ai/flows/payment-verification';
 import type { PaymentProofData } from '@/types';
-import { HAFSA_PAYMENT_METHODS } from '@/lib/constants';
+import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService'; // Import the service function
 
 interface VerificationInput {
   paymentProof: PaymentProofData;
@@ -88,8 +88,19 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
         reason: "Proof submission type not specified."
       };
     }
+    
+    // Fetch payment methods from Firestore
+    const paymentMethods = await fetchPaymentMethodsFromFirestore();
+    if (!paymentMethods || paymentMethods.length === 0) {
+        console.error("No payment methods found in Firestore or failed to fetch.");
+        return {
+            isPaymentValid: false,
+            message: "System error: Payment methods configuration not found. Please contact support.",
+            reason: "Payment methods configuration missing."
+        };
+    }
 
-    const selectedBankDetails = HAFSA_PAYMENT_METHODS.find(m => m.value === paymentProof.paymentType);
+    const selectedBankDetails = paymentMethods.find(m => m.value === paymentProof.paymentType);
     let documentDataUriForAI: string | undefined | null;
     let requiresAiVerification = false;
     let documentMimeType: string | null = null;
@@ -329,6 +340,3 @@ export async function handlePaymentVerification(input: VerificationInput): Promi
     };
   }
 }
-
-
-    

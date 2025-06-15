@@ -32,8 +32,10 @@ import { db, auth } from '@/lib/firebaseConfig';
 import { collection, addDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 
-import { HAFSA_PAYMENT_METHODS, HAFSA_PROGRAMS, SCHOOL_GRADES, QURAN_LEVELS, type HafsaProgram } from '@/lib/constants';
-import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, ProgramField } from '@/types';
+import { SCHOOL_GRADES, QURAN_LEVELS, type HafsaProgram, type HafsaPaymentMethod } from '@/lib/constants';
+import { fetchProgramsFromFirestore } from '@/lib/programService';
+import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
+import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData } from '@/types';
 import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
@@ -42,12 +44,6 @@ import type { LanguageCode } from '@/locales';
 
 const LOCALSTORAGE_PARENT_KEY = 'enrollmentFormParentInfo_v_email_phone_v2';
 const LOCALSTORAGE_PARTICIPANTS_KEY = 'enrollmentFormParticipants_v_email_phone_v2';
-
-const O_EF_WELCOME_BACK_USER_TOAST_DESC_TPL = "Welcome back, {nameOrEmail}!";
-const O_EF_WELCOME_USER_TOAST_DESC_TPL = "Welcome {name}! You can now enroll participants.";
-const O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC_TPL = "{name} has been added for {program}.";
-const O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC_TPL = "Registration submitted, but failed to save to database: {message}. Please contact support.";
-
 
 const defaultParentValues: ParentInfoData = {
   parentFullName: '',
@@ -72,8 +68,8 @@ const defaultParticipantValues: ParticipantInfoData = {
   guardianUsePhone2ForTelegram: false,
 };
 
-const defaultPaymentProofValues: PaymentProofData = {
-    paymentType: HAFSA_PAYMENT_METHODS[0]?.value || '',
+const defaultPaymentProofValues: FormPaymentProofData = {
+    paymentType: '', 
     proofSubmissionType: 'transactionId',
     transactionId: '',
     pdfLink: '',
@@ -100,8 +96,8 @@ const ParticipantDetailFields: React.FC<{
   const [t, setT] = useState<Record<string, string>>({});
 
   const translateParticipantDetailFieldsContent = useCallback((lang: LanguageCode) => {
-    const translations = getTranslationsForLanguage(lang);
-    setT(translations);
+    const newTranslations = getTranslationsForLanguage(lang);
+    setT(newTranslations);
   }, []);
 
   useEffect(() => {
@@ -155,15 +151,16 @@ const ParticipantDetailFields: React.FC<{
   };
 
   const isArabicWomenProgram = selectedProgram.category === 'arabic_women';
+
+  const programSpecificFieldsLabel = getTranslatedText(`programs.${selectedProgram.id}.label`, currentLanguage, {defaultValue: selectedProgram.label});
   const participantLabel = isArabicWomenProgram ? (t.pdfTraineeInfo) : (t.pdfParticipantInfo);
   const contactLabel = isArabicWomenProgram ? (t.pdfTraineeContactInfo) : (t.pdfGuardianContactInfo);
-  const programLabel = getTranslatedText(`programs.${selectedProgram.id}.label`, currentLanguage, {defaultValue: selectedProgram.label});
 
 
   return (
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
-        <CardTitle className="text-lg sm:text-xl font-headline">{t.pdfAddDetailsFor} {programLabel}</CardTitle>
+        <CardTitle className="text-lg sm:text-xl font-headline">{t.pdfAddDetailsFor} {programSpecificFieldsLabel}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4 p-2 pt-1">
         <p className="text-sm text-primary font-medium flex items-center"><User className="mr-2 h-4 w-4" /> {participantLabel}</p>
@@ -326,23 +323,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  const [availablePrograms] = useState<HafsaProgram[]>(HAFSA_PROGRAMS);
-  const [programsLoading] = useState<boolean>(false);
+  const [availablePrograms, setAvailablePrograms] = useState<HafsaProgram[]>([]);
+  const [programsLoading, setProgramsLoading] = useState<boolean>(true);
+  const [paymentMethods, setPaymentMethods] = useState<HafsaPaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState<boolean>(true);
+
 
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
   const [showPasswordInDialog, setShowPasswordInDialog] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [t, setT] = useState<Record<string, string>>({});
-
-  const translateEnrollmentFormContent = useCallback((lang: LanguageCode) => {
-    const translations = getTranslationsForLanguage(lang);
-    setT(translations);
-  }, []);
-
-  useEffect(() => {
-    translateEnrollmentFormContent(currentLanguage);
-  }, [currentLanguage, translateEnrollmentFormContent]);
-
 
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
@@ -359,6 +349,42 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register, resetField } = methods;
 
+
+  const translateEnrollmentFormContent = useCallback((lang: LanguageCode) => {
+    const newTranslations = getTranslationsForLanguage(lang);
+    setT(newTranslations);
+  }, []);
+
+  useEffect(() => {
+    translateEnrollmentFormContent(currentLanguage);
+  }, [currentLanguage, translateEnrollmentFormContent]);
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setProgramsLoading(true);
+      setPaymentMethodsLoading(true);
+      try {
+        const fetchedPrograms = await fetchProgramsFromFirestore();
+        setAvailablePrograms(fetchedPrograms);
+
+        const fetchedPaymentMethods = await fetchPaymentMethodsFromFirestore();
+        setPaymentMethods(fetchedPaymentMethods);
+        if (fetchedPaymentMethods.length > 0 && !getValues('paymentProof.paymentType')) {
+           setValue('paymentProof.paymentType', fetchedPaymentMethods[0].value);
+        }
+
+      } catch (error) {
+        console.error("Error loading initial data:", error);
+        toast({ title: t.efErrorToastTitle || "Error", description: t.efLoadDataErrorToastDesc || "Failed to load initial data.", variant: "destructive" });
+      } finally {
+        setProgramsLoading(false);
+        setPaymentMethodsLoading(false);
+      }
+    };
+    loadInitialData();
+  }, [toast, currentLanguage, setValue, getValues, t.efErrorToastTitle, t.efLoadDataErrorToastDesc]); // Ensure all dependencies relying on `t` also depend on `currentLanguage`
+
+
   const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
     control,
     name: "participants",
@@ -368,8 +394,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     if (typeof window !== 'undefined') {
       localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
       localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+      setValue('parentInfo', defaultParentValues);
+      setValue('participants', []);
     }
-  }, []);
+  }, [setValue]);
 
   useEffect(() => {
     if (!auth) return;
@@ -388,19 +416,19 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     setValue('parentInfo.parentPhone1', savedParentInfo.parentPhone1);
                 } else {
                     localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-                    setValue('parentInfo.parentFullName', user.displayName || (t.efWelcomeBackUserToastDescTpl ? t.efWelcomeBackUserToastDescTpl.split(" ")[1].replace(",", "") : "User"));
+                    setValue('parentInfo.parentFullName', user.displayName || (getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: "User"}).split(" ")[1].replace(",", "")));
                     setValue('parentInfo.parentEmail', user.email);
                     setValue('parentInfo.parentPhone1', '');
                 }
             } catch (e) {
                 console.error("Error parsing parent info from LS on auth change", e);
                 localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-                setValue('parentInfo.parentFullName', user.displayName || (t.efWelcomeBackUserToastDescTpl ? t.efWelcomeBackUserToastDescTpl.split(" ")[1].replace(",", "") : "User"));
+                setValue('parentInfo.parentFullName', user.displayName || (getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: "User"}).split(" ")[1].replace(",", "")));
                 setValue('parentInfo.parentEmail', user.email);
                 setValue('parentInfo.parentPhone1', '');
             }
         } else {
-            setValue('parentInfo.parentFullName', user.displayName || (t.efWelcomeBackUserToastDescTpl ? t.efWelcomeBackUserToastDescTpl.split(" ")[1].replace(",", "") : "User"));
+            setValue('parentInfo.parentFullName', user.displayName || (getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: "User"}).split(" ")[1].replace(",", "")));
             setValue('parentInfo.parentEmail', user.email);
             setValue('parentInfo.parentPhone1', '');
         }
@@ -435,16 +463,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         onStageChange('accountCreated');
       } else {
         if (currentView === 'dashboard') {
-            // Let the logout function handle clearing local storage explicitly.
-            setValue('parentInfo', defaultParentValues);
-            setValue('participants', []);
+            clearLocalStorageData(); 
+            // No need to setValue here again, clearLocalStorageData handles it
             setCurrentView('accountCreation');
             onStageChange('initial');
         }
       }
     });
     return () => unsubscribe();
-  }, [auth, setValue, onStageChange, currentView, reset, t.efWelcomeBackUserToastDescTpl]);
+  }, [auth, setValue, onStageChange, currentView, reset, clearLocalStorageData, currentLanguage]);
 
 
  useEffect(() => { 
@@ -466,7 +493,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           setCurrentView('dashboard');
           onStageChange('accountCreated');
           setActiveDashboardTab('enrollments');
-          toast({ title: t.efWelcomeBackToastTitle, description: t.efGuestSessionLoadedToastDesc });
+          toast({ title: t.efWelcomeBackToastTitle || "Welcome Back!", description: t.efGuestSessionLoadedToastDesc || "Guest session loaded." });
 
            if (savedParticipantsRaw) {
              const localParticipants = JSON.parse(savedParticipantsRaw) as {parentEmail: string, data: EnrolledParticipantData[]};
@@ -485,7 +512,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         console.error("Error loading data from localStorage:", error);
       }
     }
-  }, [setValue, onStageChange, toast, firebaseUser, t.efWelcomeBackToastTitle, t.efGuestSessionLoadedToastDesc]);
+  }, [setValue, onStageChange, toast, firebaseUser, currentLanguage, t.efWelcomeBackToastTitle, t.efGuestSessionLoadedToastDesc]);
 
 
   const watchedParticipants = watch('participants');
@@ -513,7 +540,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const handleAccountCreation = async () => {
     if (!auth) {
-        toast({ title: t.efAuthErrorToastTitle, description: t.efAuthInitFailedToastDesc, variant: "destructive"});
+        toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive"});
         return;
     }
     const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentEmail', 'parentPhone1', 'password', 'confirmPassword'];
@@ -529,28 +556,28 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             if (typeof window !== 'undefined') {
                 localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify(currentParentInfo));
             }
-            const desc = (t.efWelcomeUserToastDescTpl || O_EF_WELCOME_USER_TOAST_DESC_TPL).replace('{name}', parentFullName);
-            toast({ title: t.efAccountCreatedToastTitle, description: desc });
+            const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, {name: parentFullName});
+            toast({ title: t.efAccountCreatedToastTitle || "Account Created!", description: desc });
         } catch (error: any) {
             console.error("Firebase registration error:", error);
-            let errorMessage = t.efRegistrationFailedToastDesc;
+            let errorMessage = t.efRegistrationFailedToastDesc || "Registration failed.";
             if (error.code === 'auth/email-already-in-use') {
-                errorMessage = t.efEmailInUseToastDesc;
+                errorMessage = t.efEmailInUseToastDesc || "Email already in use.";
             } else if (error.code === 'auth/weak-password') {
-                errorMessage = t.efWeakPasswordToastDesc;
+                errorMessage = t.efWeakPasswordToastDesc || "Password too weak.";
             }
-            toast({ title: t.efRegistrationErrorToastTitle, description: errorMessage, variant: "destructive" });
+            toast({ title: t.efRegistrationErrorToastTitle || "Registration Error", description: errorMessage, variant: "destructive" });
         } finally {
             setIsLoading(false);
         }
     } else {
-      toast({ title: t.efValidationErrorToastTitle, description: t.efCheckEntriesToastDesc, variant: "destructive" });
+      toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efCheckEntriesToastDesc || "Check entries.", variant: "destructive" });
     }
   };
 
   const handleLoginAttempt = async () => {
     if (!auth) {
-        toast({ title: t.efAuthErrorToastTitle, description: t.efAuthInitFailedToastDesc, variant: "destructive"});
+        toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive"});
         return;
     }
     const isValid = await trigger(['loginEmail', 'loginPassword']);
@@ -564,32 +591,32 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         const currentParentInfo = getValues('parentInfo');
 
         if (typeof window !== 'undefined') {
-            localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify({...currentParentInfo, password: loginPassword, confirmPassword: loginPassword }));
+            localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify({...currentParentInfo, parentEmail: user.email!, password: loginPassword, confirmPassword: loginPassword }));
         }
-        const desc = (t.efWelcomeBackUserToastDescTpl || O_EF_WELCOME_BACK_USER_TOAST_DESC_TPL).replace('{nameOrEmail}', currentParentInfo.parentFullName || user.email!);
-        toast({ title: t.efLoginSuccessfulToastTitle, description: desc });
+        const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: currentParentInfo.parentFullName || user.email! });
+        toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
       } catch (error: any) {
         console.error("Firebase login error:", error);
-        let errorMessage = t.efInvalidEmailPasswordToastDesc;
+        let errorMessage = t.efInvalidEmailPasswordToastDesc || "Invalid credentials.";
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            errorMessage = t.efInvalidEmailPasswordToastDesc;
+            errorMessage = t.efInvalidEmailPasswordToastDesc || "Invalid credentials.";
         }
-        toast({ title: t.efLoginFailedToastTitle, description: errorMessage, variant: "destructive" });
+        toast({ title: t.efLoginFailedToastTitle || "Login Failed", description: errorMessage, variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
     } else {
-      toast({ title: t.efValidationErrorToastTitle, description: t.efFillEmailPasswordToastDesc, variant: "destructive" });
+      toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efFillEmailPasswordToastDesc || "Fill email/password.", variant: "destructive" });
     }
   };
 
   const handleAddParticipantClick = () => {
     if (programsLoading) {
-        toast({ title: t.efProgramsLoadingToastTitle, description: t.efWaitProgramsLoadedToastDesc});
+        toast({ title: t.efProgramsLoadingToastTitle || "Programs Loading", description: t.efWaitProgramsLoadedToastDesc || "Wait for programs."});
         return;
     }
     if (availablePrograms.length === 0) {
-        toast({ title: t.efNoProgramsToastTitle, description: t.efNoProgramsDesc, variant: "destructive"});
+        toast({ title: t.efNoProgramsToastTitle || "No Programs", description: t.efNoProgramsDesc || "No programs available.", variant: "destructive"});
         return;
     }
     setProgramForNewParticipant(null);
@@ -603,7 +630,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const handleSaveParticipant = (participantData: ParticipantInfoData) => {
     if (!programForNewParticipant) {
-        toast({ title: t.efErrorToastTitle, description: t.efNoProgramSelectedToastDesc, variant: "destructive" });
+        toast({ title: t.efErrorToastTitle || "Error", description: t.efNoProgramSelectedToastDesc || "No program selected.", variant: "destructive" });
         return;
     }
     const newEnrolledParticipant: EnrolledParticipantData = {
@@ -618,10 +645,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setCurrentView('dashboard');
     setActiveDashboardTab('enrollments');
     const programDisplayLabel = getTranslatedText(`programs.${programForNewParticipant.id}.label`, currentLanguage, {defaultValue: programForNewParticipant.label})
-    const desc = (t.efParticipantForProgramToastDescTpl || O_EF_PARTICIPANT_FOR_PROGRAM_TOAST_DESC_TPL)
-        .replace('{name}', participantData.firstName)
-        .replace('{program}', programDisplayLabel);
-    toast({title: t.efParticipantAddedToastTitle, description: desc});
+    const desc = getTranslatedText('efParticipantForProgramToastDescTpl', currentLanguage, {name: participantData.firstName, program: programDisplayLabel});
+    toast({title: t.efParticipantAddedToastTitle || "Participant Added", description: desc});
   };
 
   const handleRemoveParticipant = (index: number) => {
@@ -637,14 +662,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setIsLoading(true);
     try {
       if (data.participants && data.participants.length > 0 && !data.paymentProof) {
-        toast({ title: t.efPaymentInfoMissingToastTitle, description: t.efProvidePaymentDetailsToastDesc, variant: "destructive" });
+        toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
         setIsLoading(false);
         setActiveDashboardTab('payment');
         return;
       }
 
       if (data.paymentProof && !data.paymentProof.proofSubmissionType) {
-        toast({ title: t.efProofSubmissionMissingToastTitle, description: t.efSelectProofMethodToastDesc, variant: "destructive" });
+        toast({ title: t.efProofSubmissionMissingToastTitle || "Proof Submission Missing", description: t.efSelectProofMethodToastDesc || "Select proof method.", variant: "destructive" });
         setIsLoading(false);
         setActiveDashboardTab('payment');
         await trigger('paymentProof.proofSubmissionType');
@@ -670,6 +695,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             screenshotDataUriForAI = data.paymentProof.screenshotDataUri;
          }
       }
+      
+      const selectedBankDetails = paymentMethods.find(m => m.value === data.paymentProof?.paymentType);
 
       const verificationInput = {
         paymentProof: {
@@ -677,6 +704,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             screenshotDataUri: screenshotDataUriForAI,
         },
         expectedAmount: calculatedPrice,
+        expectedAccountName: selectedBankDetails?.accountName,
+        expectedAccountNumber: selectedBankDetails?.accountNumber,
       };
 
       const result = await handlePaymentVerification(verificationInput);
@@ -699,7 +728,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
       if (result.isPaymentValid) {
         if (!db) {
-            toast({ title: t.efDbErrorToastTitle, description: t.efFirestoreInitFailedToastDesc, variant: "destructive" });
+            toast({ title: t.efDbErrorToastTitle || "DB Error", description: t.efFirestoreInitFailedToastDesc || "Firestore not initialized.", variant: "destructive" });
             setIsLoading(false);
             return;
         }
@@ -724,8 +753,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             console.log("Registration data saved to Firestore:", firestoreReadyData);
 
             toast({
-              title: t.efPaymentSubmittedSavedToastTitle,
-              description: result.message || t.efPaymentVerifiedSavedToastDesc,
+              title: t.efPaymentSubmittedSavedToastTitle || "Payment Submitted & Saved",
+              description: result.message || (t.efPaymentVerifiedSavedToastDesc || "Payment verified and saved."),
               variant: "default",
               className: "bg-accent text-accent-foreground",
             });
@@ -735,9 +764,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
         } catch (firestoreError: any) {
             console.error("Error saving registration to Firestore:", firestoreError);
-            const desc = (t.efRegSubmittedDbFailToastDescTpl || O_EF_REG_SUBMITTED_DB_FAIL_TOAST_DESC_TPL).replace('{message}', firestoreError.message);
+            const desc = getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: firestoreError.message});
             toast({
-                title: t.efSavingErrorToastTitle,
+                title: t.efSavingErrorToastTitle || "Saving Error",
                 description: desc,
                 variant: "destructive",
             });
@@ -746,21 +775,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         }
 
       } else {
-        let failureMessage = result.message || t.efPaymentVerificationFailedToastDesc;
+        let failureMessage = result.message || (t.efPaymentVerificationFailedToastDesc || "Payment verification failed.");
         if (result.reason && result.reason !== result.message) {
             failureMessage += ` Reason: ${result.reason}`;
         }
         toast({
-          title: t.efPaymentIssueToastTitle,
+          title: t.efPaymentIssueToastTitle || "Payment Issue",
           description: failureMessage,
           variant: "destructive",
         });
       }
     } catch (error: any) {
       console.error("Submission error:", error);
-      const errorMessage = error.message || t.efUnexpectedErrorToastDesc;
+      const errorMessage = error.message || (t.efUnexpectedErrorToastDesc || "Unexpected error.");
       toast({
-        title: t.efErrorToastTitle,
+        title: t.efErrorToastTitle || "Error",
         description: errorMessage,
         variant: "destructive",
       });
@@ -776,20 +805,23 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setValue('agreeToTerms', false);
     setValue('couponCode', '');
     resetField('paymentProof');
-    setValue('paymentProof', defaultPaymentProofValues);
+    setValue('paymentProof', {...defaultPaymentProofValues, paymentType: paymentMethods[0]?.value || '' });
 
-    clearLocalStorageData();
 
     if (!firebaseUser) {
-        resetField('parentInfo');
-        setValue('parentInfo', defaultParentValues);
+        clearLocalStorageData(); 
+        // resetField('parentInfo'); // Handled by clearLocalStorageData
+        // setValue('parentInfo', defaultParentValues); // Handled by clearLocalStorageData
         setCurrentView('accountCreation');
         onStageChange('initial');
     } else {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+        }
         setCurrentView('dashboard');
         setActiveDashboardTab('enrollments');
     }
-    toast({ title: t.efReadyNewEnrollmentToastTitle, description: t.efPreviousEnrollmentClearedToastDesc });
+    toast({ title: t.efReadyNewEnrollmentToastTitle || "Ready for New Enrollment", description: t.efPreviousEnrollmentClearedToastDesc || "Previous enrollment cleared." });
   };
 
   const getUniqueSelectedProgramsTerms = () => {
@@ -818,7 +850,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 
   if (currentView === 'confirmation' && registrationData) {
-    return <Receipt data={registrationData} onBack={handleBackFromReceipt} allPrograms={availablePrograms} currentLanguage={currentLanguage} />;
+    return <Receipt data={registrationData} onBack={handleBackFromReceipt} allPrograms={availablePrograms} paymentMethods={paymentMethods} currentLanguage={currentLanguage} />;
   }
 
   const renderAccountCreation = () => (
@@ -987,7 +1019,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     </div>
   );
 
-  const selectedMethodDetails = HAFSA_PAYMENT_METHODS.find(m => m.value === watchedPaymentType);
+  const selectedMethodDetails = paymentMethods.find(m => m.value === watchedPaymentType);
 
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as DashboardTab)} className="w-full">
@@ -1021,7 +1053,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             {participantFields.map((field, index) => {
                 const enrolledParticipant = field as unknown as EnrolledParticipantData;
                 const program = availablePrograms.find(p => p.id === enrolledParticipant.programId);
-                const progLabel = program ? (getTranslatedText(`programs.${program.id}.label`, currentLanguage, {defaultValue: program.label})) : t.efUnknownProgramText;
+                const progLabel = program ? (getTranslatedText(`programs.${program.id}.label`, currentLanguage, {defaultValue: program.label})) : (t.efUnknownProgramText || "Unknown Program");
                 return (
                 <Card key={field.id} className="p-3 mb-2 bg-background/80">
                     <div className="flex justify-between items-start">
@@ -1167,24 +1199,30 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 <Label htmlFor="couponCode">{t.efCouponCodeLabel}</Label>
                 <div className="flex items-center gap-2 mt-1">
                     <Input id="couponCode" {...register('couponCode')} placeholder={t.efCouponPlaceholder} className="flex-grow"/>
-                    <Button type="button" variant="outline" size="sm" onClick={() => toast({title: t.efCouponAppliedToastTitle, description: t.efCouponExampleToastDesc})}>{t.efApplyButton}</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => toast({title: t.efCouponAppliedToastTitle || "Coupon Applied!", description: t.efCouponExampleToastDesc || "Example discount"})}>{t.efApplyButton}</Button>
                 </div>
                  {errors.couponCode && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.couponCode.message || "fallback.error", currentLanguage)}</p>}
             </div>
             <div>
                 <Label htmlFor="paymentProof.paymentType" className="text-sm sm:text-base">{t.efSelectPaymentMethodLabel}</Label>
-                <Controller
-                name="paymentProof.paymentType"
-                control={control}
-                render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger id="paymentProof.paymentType" className="mt-1"><SelectValue placeholder={t.efChoosePaymentMethodPlaceholder} /></SelectTrigger>
-                    <SelectContent>
-                        {HAFSA_PAYMENT_METHODS.map(method => <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
+                {paymentMethodsLoading ? (
+                    <Skeleton className="h-10 w-full mt-1" />
+                ) : paymentMethods.length > 0 ? (
+                    <Controller
+                    name="paymentProof.paymentType"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || paymentMethods[0]?.value} >
+                        <SelectTrigger id="paymentProof.paymentType" className="mt-1"><SelectValue placeholder={t.efChoosePaymentMethodPlaceholder} /></SelectTrigger>
+                        <SelectContent>
+                            {paymentMethods.map(method => <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>)}
+                        </SelectContent>
+                        </Select>
+                    )}
+                    />
+                ) : (
+                    <p className="text-sm text-muted-foreground mt-1">{t.efNoPaymentMethodsConfigured || "No payment methods configured."}</p>
                 )}
-                />
                 {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.paymentType.message || "fallback.error", currentLanguage)}</p>}
             </div>
 
@@ -1216,9 +1254,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                           onClick={async () => {
                             try {
                               await navigator.clipboard.writeText(selectedMethodDetails.accountNumber!);
-                              toast({ title: t.efCopiedToastTitle, description: t.efAccountCopiedToastDesc });
+                              toast({ title: t.efCopiedToastTitle || "Copied!", description: t.efAccountCopiedToastDesc || "Account copied." });
                             } catch (err) {
-                              toast({ title: t.efCopyFailedToastTitle, description: t.efCopyAccountFailedToastDesc, variant: "destructive" });
+                              toast({ title: t.efCopyFailedToastTitle || "Copy Failed", description: t.efCopyAccountFailedToastDesc || "Could not copy.", variant: "destructive" });
                             }
                           }}
                           className="p-1.5 sm:p-2 h-auto text-sm self-center text-primary hover:bg-primary/10 flex-shrink-0"
@@ -1346,27 +1384,28 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         type="button"
                         onClick={() => {
                             if (participantFields.length === 0 ) {
-                                toast({title: t.efNoEnrollmentsToastTitle, description: t.efAddParticipantBeforePaymentToastDesc, variant: "destructive"});
+                                toast({title: t.efNoEnrollmentsToastTitle || "No Enrollments", description: t.efAddParticipantBeforePaymentToastDesc || "Add participant first.", variant: "destructive"});
                                 return;
                             }
                              if (!firebaseUser && !localStorage.getItem(LOCALSTORAGE_PARENT_KEY)) {
-                                toast({title: t.efAccountRequiredToastTitle, description: t.efCreateOrLoginToastDesc, variant: "destructive"});
+                                toast({title: t.efAccountRequiredToastTitle || "Account Required", description: t.efCreateOrLoginToastDesc || "Create or login first.", variant: "destructive"});
                                 setCurrentView('accountCreation');
                                 return;
                             }
                             setActiveDashboardTab('payment')
                         }}
-                        disabled={isLoading || (participantFields.length === 0)}
+                        disabled={isLoading || (participantFields.length === 0) || paymentMethodsLoading}
                         className="w-full sm:ml-auto sm:w-auto"
                     >
+                        {paymentMethodsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         {t.efProceedToPaymentButton} <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 ) : (
                     <Button type="submit"
-                        disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType')}
+                        disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType') || paymentMethodsLoading}
                         className="w-full sm:ml-auto sm:w-auto"
                     >
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                        {isLoading || paymentMethodsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                         {t.efSubmitRegistrationButtonPrefix}{calculatedPrice.toFixed(2)})
                     </Button>
                 )}
@@ -1406,12 +1445,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 if (auth) {
                     try {
                         await signOut(auth);
-                        clearLocalStorageData(); // Explicitly clear local storage on Firebase logout
-                        toast({title: t.efLoggedOutToastTitle, description: t.efLoggedOutSuccessToastDesc});
+                        clearLocalStorageData(); 
+                        toast({title: t.efLoggedOutToastTitle || "Logged Out", description: t.efLoggedOutSuccessToastDesc || "Successfully logged out."});
                         onCloseAccountDialog();
-                        // Form state reset will be handled by onAuthStateChanged
                     } catch (error) {
-                        toast({title: t.efLogoutErrorToastTitle, description: t.efLogoutFailedToastDesc, variant: "destructive"});
+                        toast({title: t.efLogoutErrorToastTitle || "Logout Error", description: t.efLogoutFailedToastDesc || "Failed to log out.", variant: "destructive"});
                     }
                 }
              }} variant="outline" className="mt-2 w-full">{t.efDialogLogoutButton}</Button>
@@ -1425,4 +1463,3 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 export default EnrollmentForm;
 
-    
