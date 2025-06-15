@@ -1,0 +1,180 @@
+
+[
+  {
+    "id": "daycare_morning",
+    "price": 2500,
+    "category": "daycare",
+    "ageRange": "1.5 - 3 years",
+    "duration": "Half-day (8 AM - 12 PM)",
+    "schedule": "Monday - Friday",
+    "isChildProgram": true,
+    "specificFields": [
+      { "type": "text", "name": "specialAttention", "labelKey": "programs.specificFields.specialAttention" }
+    ],
+    "translations": {
+      "en": {
+        "label": "Daycare (Morning Session)",
+        "description": "Safe and nurturing environment for young children with Islamic integration. Focus on early learning and play.",
+        "termsAndConditions": "Full payment required upfront. No refunds for missed days. Parents must provide diapers and formula if needed. Standard daycare policies apply."
+      },
+      "am": {
+        "label": "የህጻናት ማቆያ (የጠዋት ክፍለ ጊዜ)",
+        "description": "ለታዳጊ ህጻናት ከኢስላማዊ ውህደት ጋር ደህንነቱ የተጠበቀ እና አሳዳጊ አካባቢ። በመጀመሪያ ደረጃ ትምህርት እና ጨዋታ ላይ ያተኩራል።",
+        "termsAndConditions": "ሙሉ ክፍያ አስቀድሞ ያስፈልጋል። ለቀሩ ቀናት ገንዘብ አይመለስም። ወላጆች አስፈላጊ ከሆነ ዳይፐር እና ፎርሙላ ማቅረብ አለባቸው። መደበኛ የህጻናት ማቆያ ፖሊሲዎች ተፈጻሚ ይሆናሉ።"
+      },
+      "ar": {
+        "label": "رعاية نهارية (فترة صباحية)",
+        "description": "بيئة آمنة ورعاية للأطفال الصغار مع دمج إسلامي. التركيز على التعلم المبكر واللعب.",
+        "termsAndConditions": "الدفع الكامل مطلوب مقدمًا. لا يوجد استرداد للأيام الفائتة. يجب على الآباء توفير الحفاضات والحليب الصناعي إذا لزم الأمر. تطبق سياسات الرعاية النهارية القياسية."
+      }
+    }
+  },
+  {
+    "id": "quran_kids_beginner",
+    "price": 1500,
+    "category": "quran_kids",
+    "ageRange": "4 - 7 years",
+    "duration": "1 hour, 3 times/week",
+    "schedule": "Mon, Wed, Fri (4 PM - 5 PM)",
+    "isChildProgram": true,
+    "specificFields": [
+      { "type": "text", "name": "specialAttention", "labelKey": "programs.specificFields.specialAttention" },
+      { "type": "select", "name": "quranLevel", "labelKey": "programs.specificFields.quranLevel" }
+    ],
+    "translations": {
+      "en": {
+        "label": "Kids Quran (Beginner - Qaida)",
+        "description": "Introduction to Arabic alphabet, basic Tajweed, and memorization of short Surahs. Engaging and fun learning methods.",
+        "termsAndConditions": "Consistent attendance is crucial. Materials fee of Br 200 applicable. Parents are encouraged to support home practice."
+      },
+      "am": {
+        "label": "የልጆች ቁርአን (ጀማሪ - ቃኢዳ)",
+        "description": "የአረብኛ ፊደላት መግቢያ፣ መሰረታዊ ተጅዊድ፣ እና የአጫጭር ሱራዎች መሀፈዝ። አሳታፊ እና አዝናኝ የመማር ዘዴዎች።",
+        "termsAndConditions": "ወጥ የሆነ ክትትል ወሳኝ ነው። የብር 200 የማቴሪያል ክፍያ ተፈጻሚ ይሆናል። ወላጆች የቤት ልምምድን እንዲደግፉ ይበረታታሉ።"
+      },
+      "ar": {
+        "label": "قرآن للأطفال (مبتدئ - القاعدة)",
+        "description": "مقدمة في الأبجدية العربية، التجويد الأساسي، وحفظ السور القصيرة. طرق تعليمية جذابة وممتعة.",
+        "termsAndConditions": "الحضور المنتظم أمر بالغ الأهمية. تطبق رسوم مواد بقيمة 200. يتم تشجيع الآباء على دعم الممارسة المنزلية."
+      }
+    }
+  },
+  {
+    "id": "quran_bootcamp_full_day",
+    "price": 4000,
+    "category": "quran_kids",
+    "ageRange": "8 - 15 years",
+    "duration": "Full-day (9 AM - 4 PM)",
+    "schedule": "Monday - Friday (Seasonal)",
+    "isChildProgram": true,
+    "specificFields": [
+      { "type": "select", "name": "quranLevel", "labelKey": "programs.specificFields.quranLevel" },
+      { "type": "text", "name": "specialAttention", "labelKey": "programs.specificFields.specialAttention" }
+    ],
+    "translations": {
+      "en": {
+        "label": "Quran Bootcamp (Full-Day)",
+        "description": "Intensive Quran memorization and Tajweed practice for dedicated students.",
+        "termsAndConditions": "Full commitment required. Limited spots. Placement test may be needed. Non-refundable after start."
+      },
+      "am": {
+        "label": "የቁርአን ቡትካምፕ (ሙሉ ቀን)",
+        "description": "ለቁርጠኛ ተማሪዎች ከፍተኛ የቁርአን መሀፈዝ እና የተጅዊድ ልምምድ።",
+        "termsAndConditions": "ሙሉ ቁርጠኝነት ያስፈልጋል። የተወሰነ ቦታ። የምደባ ፈተና ሊያስፈልግ ይችላል። ከጀመረ በኋላ የማይመለስ።"
+      },
+      "ar": {
+        "label": "معسكر القرآن (يوم كامل)",
+        "description": "حفظ مكثف للقرآن وممارسة التجويد للطلاب المتفانين.",
+        "termsAndConditions": "الالتزام الكامل مطلوب. أماكن محدودة. قد تكون هناك حاجة لاختبار تحديد المستوى. غير قابل للاسترداد بعد البدء."
+      }
+    }
+  },
+  {
+    "id": "quran_bootcamp_asr",
+    "price": 1800,
+    "category": "quran_kids",
+    "ageRange": "7 - 14 years",
+    "duration": "1.5 hours, 5 times/week",
+    "schedule": "Monday - Friday (After Asr prayer)",
+    "isChildProgram": true,
+    "specificFields": [
+      { "type": "select", "name": "quranLevel", "labelKey": "programs.specificFields.quranLevel" },
+      { "type": "text", "name": "specialAttention", "labelKey": "programs.specificFields.specialAttention" }
+    ],
+    "translations": {
+      "en": {
+        "label": "Quran Bootcamp (After Asr)",
+        "description": "Evening Quran memorization and Tajweed sessions.",
+        "termsAndConditions": "Regular attendance expected. Non-refundable after start. Home practice is key."
+      },
+      "am": {
+        "label": "የቁርአን ቡትካምፕ (ከአስር በኋላ)",
+        "description": "የማታ የቁርአን መሀፈዝ እና የተጅዊድ ክፍለ ጊዜዎች።",
+        "termsAndConditions": "መደበኛ ክትትል ይጠበቃል። ከጀመረ በኋላ የማይመለስ። የቤት ልምምድ ቁልፍ ነው።"
+      },
+      "ar": {
+        "label": "معسكر القرآن (بعد العصر)",
+        "description": "جلسات مسائية لحفظ القرآن وممارسة التجويد.",
+        "termsAndConditions": "الحضور المنتظم متوقع. غير قابل للاسترداد بعد البدء. الممارسة المنزلية هي المفتاح."
+      }
+    }
+  },
+  {
+    "id": "arabic_women_level1",
+    "price": 2000,
+    "category": "arabic_women",
+    "ageRange": "16+ years",
+    "duration": "2 hours, 2 times/week",
+    "schedule": "Tue, Thu (10 AM - 12 PM)",
+    "isChildProgram": false,
+    "specificFields": [
+      { "type": "text", "name": "specialAttention", "labelKey": "programs.specificFields.arabicWomen.specialAttention" }
+    ],
+    "translations": {
+      "en": {
+        "label": "Arabic Language for Women (Level 1)",
+        "description": "Foundational Arabic for sisters, focusing on reading, writing, and basic conversation for understanding Quran and Sunnah.",
+        "termsAndConditions": "This program is for women only. Commitment to all sessions is expected. Textbook purchase may be required."
+      },
+      "am": {
+        "label": "የአረብኛ ቋንቋ ለሴቶች (ደረጃ 1)",
+        "description": "ለእህቶች መሰረታዊ አረብኛ፣ ቁርአንን እና ሱንናን ለመረዳት በንባብ፣ በጽሁፍ እና በመሰረታዊ ውይይት ላይ ያተኩራል።",
+        "termsAndConditions": "ይህ ፕሮግራም ለሴቶች ብቻ ነው። ለሁሉም ክፍለ ጊዜዎች ቁርጠኝነት ይጠበቃል። የመማሪያ መጽሀፍ ግዢ ሊያስፈልግ ይችላል።"
+      },
+      "ar": {
+        "label": "اللغة العربية للنساء (المستوى الأول)",
+        "description": "اللغة العربية الأساسية للأخوات، مع التركيز على القراءة والكتابة والمحادثة الأساسية لفهم القرآن والسنة.",
+        "termsAndConditions": "هذا البرنامج للنساء فقط. الالتزام بجميع الجلسات متوقع. قد يكون شراء الكتاب المدرسي مطلوبًا."
+      }
+    }
+  },
+  {
+    "id": "islamic_studies_adults",
+    "price": 2200,
+    "category": "general_islamic_studies",
+    "ageRange": "18+ years",
+    "duration": "1.5 hours, 2 times/week",
+    "schedule": "Sat, Sun (Morning)",
+    "isChildProgram": false,
+    "specificFields": [],
+    "translations": {
+      "en": {
+        "label": "General Islamic Studies (Adults)",
+        "description": "Comprehensive course covering Aqeedah, Fiqh, Seerah, and Hadith for adults seeking deeper Islamic knowledge.",
+        "termsAndConditions": "Active participation and respect for diverse scholarly opinions are expected. Some reading materials will be provided, others may need to be purchased."
+      },
+      "am": {
+        "label": "አጠቃላይ ኢስላማዊ ጥናቶች (ለአዋቂዎች)",
+        "description": "ጥልቅ ኢስላማዊ እውቀት ለሚሹ አዋቂዎች አቂዳ፣ ፊቅህ፣ ሲራ እና ሀዲስን የሚሸፍን አጠቃላይ ኮርስ።",
+        "termsAndConditions": "ንቁ ተሳትፎ እና ለተለያዩ የሊቃውንት አስተያየቶች መከበር ይጠበቃል። አንዳንድ የንባብ ማቴሪያሎች ይቀርባሉ፣ ሌሎች መግዛት ሊያስፈልጋቸው ይችላል።"
+      },
+      "ar": {
+        "label": "دراسات إسلامية عامة (للبالغين)",
+        "description": "دورة شاملة تغطي العقيدة والفقه والسيرة والحديث للبالغين الذين يسعون إلى معرفة إسلامية أعمق.",
+        "termsAndConditions": "المشاركة الفعالة واحترام الآراء العلمية المتنوعة متوقعة. سيتم توفير بعض مواد القراءة، وقد تحتاج مواد أخرى إلى الشراء."
+      }
+    }
+  }
+]
+
+    

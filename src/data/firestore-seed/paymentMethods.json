@@ -1,0 +1,80 @@
+
+[
+  {
+    "value": "cbe",
+    "logoPlaceholder": "https://placehold.co/48x48.png",
+    "dataAiHint": "cbe logo",
+    "translations": {
+      "en": {
+        "label": "CBE (Commercial Bank of Ethiopia)",
+        "accountName": "Hafsa Madrassa CBE Main",
+        "accountNumber": "1000123456789",
+        "additionalInstructions": "Ensure the name 'Hafsa Madrassa CBE Main' appears as the recipient. Include student name in remarks."
+      },
+      "am": {
+        "label": "ኢትዮጵያ ንግድ ባንክ (CBE)",
+        "accountName": "ሀፍሳ መድረሳ CBE ዋና",
+        "accountNumber": "1000123456789",
+        "additionalInstructions": "የ'ሀፍሳ መድረሳ CBE ዋና' ስም በተቀባይነት መታየቱን ያረጋግጡ። የተማሪውን ስም በአስተያየት መስጫው ላይ ያካትቱ።"
+      },
+      "ar": {
+        "label": "البنك التجاري الإثيوبي (CBE)",
+        "accountName": "مدرسة حفصة CBE الرئيسي",
+        "accountNumber": "1000123456789",
+        "additionalInstructions": "تأكد من ظهور اسم 'مدرسة حفصة CBE الرئيسي' كالمستلم. قم بتضمين اسم الطالب في الملاحظات."
+      }
+    }
+  },
+  {
+    "value": "awash",
+    "logoPlaceholder": "https://placehold.co/48x48.png",
+    "dataAiHint": "awash bank logo",
+    "translations": {
+      "en": {
+        "label": "Awash Bank",
+        "accountName": "Hafsa Educational Services",
+        "accountNumber": "01301234567890",
+        "additionalInstructions": "Reference the program ID or student name when making the payment."
+      },
+      "am": {
+        "label": "አዋሽ ባንክ",
+        "accountName": "ሀፍሳ የትምህርት አገልግሎቶች",
+        "accountNumber": "01301234567890",
+        "additionalInstructions": "ክፍያ በሚፈጽሙበት ጊዜ የፕሮግራሙን መለያ ወይም የተማሪውን ስም ይጠቅሱ።"
+      },
+      "ar": {
+        "label": "بنك أواش",
+        "accountName": "خدمات حفصة التعليمية",
+        "accountNumber": "01301234567890",
+        "additionalInstructions": "اذكر معرف البرنامج أو اسم الطالب عند إجراء الدفع."
+      }
+    }
+  },
+  {
+    "value": "telebirr",
+    "logoPlaceholder": "https://placehold.co/48x48.png",
+    "dataAiHint": "telebirr logo",
+    "translations": {
+      "en": {
+        "label": "Telebirr",
+        "accountName": "Hafsa Madrassa Telebirr",
+        "accountNumber": "*7123# or Merchant Code 54321",
+        "additionalInstructions": "Follow Telebirr payment instructions. Keep transaction ID."
+      },
+      "am": {
+        "label": "ቴሌብር",
+        "accountName": "ሀፍሳ መድረሳ ቴሌብር",
+        "accountNumber": "*7123# ወይም የነጋዴ ኮድ 54321",
+        "additionalInstructions": "የቴሌብርን የክፍያ መመሪያዎች ይከተሉ። የግብይት መለያ ቁጥሩን ያስቀምጡ።"
+      },
+      "ar": {
+        "label": "تيليبير",
+        "accountName": "مدرسة حفصة تيليبير",
+        "accountNumber": "*7123# أو رمز التاجر 54321",
+        "additionalInstructions": "اتبع تعليمات الدفع الخاصة بتيليبير. احتفظ بمعرف المعاملة."
+      }
+    }
+  }
+]
+
+    
