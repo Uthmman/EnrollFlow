@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { db } from '@/lib/firebaseConfig';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
@@ -15,6 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { AddProgramForm, type ProgramFormData } from '@/components/admin/add-program-form';
+import { useToast } from "@/hooks/use-toast";
 import { getTranslationsForLanguage as getTranslations, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
 
@@ -31,6 +34,10 @@ const AdminPage = () => {
   const [paymentMethods, setPaymentMethods] = useState<HafsaPaymentMethod[]>([]);
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const [showAddProgramDialog, setShowAddProgramDialog] = useState(false);
+  const [editingProgram, setEditingProgram] = useState<HafsaProgram | null>(null);
 
   const [currentLanguage] = useState<LanguageCode>('en'); // Admin page default to English for now
   const [t, setT] = useState<Record<string, string>>({});
@@ -43,72 +50,72 @@ const AdminPage = () => {
     loadTranslations();
   }, [loadTranslations]);
 
+  const fetchAllData = useCallback(async () => {
+    setIsLoadingRegistrations(true);
+    setIsLoadingPrograms(true);
+    setIsLoadingPaymentMethods(true);
+    setError(null);
+
+    if (!db) {
+      setError(t['apDbNotInitError'] || "Database not initialized.");
+      setIsLoadingRegistrations(false);
+      setIsLoadingPrograms(false);
+      setIsLoadingPaymentMethods(false);
+      return;
+    }
+
+    try {
+      const registrationsCol = collection(db, 'registrations');
+      const regQuery = query(registrationsCol, orderBy('registrationDate', 'desc'));
+      const regSnapshot = await getDocs(regQuery);
+      const fetchedRegistrations = regSnapshot.docs.map(doc => {
+        const data = doc.data() as RegistrationData;
+        let regDate = data.registrationDate;
+        if (regDate && typeof (regDate as any).toDate === 'function') {
+          regDate = (regDate as any).toDate();
+        } else if (typeof regDate === 'string') {
+          regDate = new Date(regDate);
+        }
+        return {
+          id: doc.id,
+          ...data,
+          registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date()
+        } as RegistrationRow;
+      });
+      setRegistrations(fetchedRegistrations);
+    } catch (err: any) {
+      console.error("[AdminPage] Error fetching registrations:", err.message, err.stack ? err.stack : '', err);
+      setError(prev => prev ? `${prev}\n${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}` : `${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}`);
+    } finally {
+      setIsLoadingRegistrations(false);
+    }
+
+    try {
+      const fetchedPrograms = await fetchProgramsFromFirestore();
+      setPrograms(fetchedPrograms);
+    } catch (err: any) {
+      console.error("[AdminPage] Error fetching programs:", err.message, err.stack ? err.stack : '', err);
+      setError(prev => prev ? `${prev}\n${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}` : `${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}`);
+    } finally {
+      setIsLoadingPrograms(false);
+    }
+
+    try {
+      const fetchedPaymentMethods = await fetchPaymentMethodsFromFirestore();
+      setPaymentMethods(fetchedPaymentMethods);
+    } catch (err: any) {
+      console.error("[AdminPage] Error fetching payment methods:", err.message, err.stack ? err.stack : '', err);
+      setError(prev => prev ? `${prev}\n${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}` : `${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}`);
+    } finally {
+      setIsLoadingPaymentMethods(false);
+    }
+  }, [t]);
 
   useEffect(() => {
     if (isAdmin) {
-      const fetchAllData = async () => {
-        setIsLoadingRegistrations(true);
-        setIsLoadingPrograms(true);
-        setIsLoadingPaymentMethods(true);
-        setError(null);
-
-        if (!db) {
-          setError(t['apDbNotInitError'] || "Database not initialized.");
-          setIsLoadingRegistrations(false);
-          setIsLoadingPrograms(false);
-          setIsLoadingPaymentMethods(false);
-          return;
-        }
-
-        try {
-          const registrationsCol = collection(db, 'registrations');
-          const regQuery = query(registrationsCol, orderBy('registrationDate', 'desc'));
-          const regSnapshot = await getDocs(regQuery);
-          const fetchedRegistrations = regSnapshot.docs.map(doc => {
-            const data = doc.data() as RegistrationData;
-            let regDate = data.registrationDate;
-            if (regDate && typeof (regDate as any).toDate === 'function') {
-              regDate = (regDate as any).toDate();
-            } else if (typeof regDate === 'string') {
-              regDate = new Date(regDate);
-            }
-            return {
-              id: doc.id,
-              ...data,
-              registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date()
-            } as RegistrationRow;
-          });
-          setRegistrations(fetchedRegistrations);
-        } catch (err: any) {
-          console.error("[Service] Error fetching registrations:", err.message, err.stack ? err.stack : '', err);
-          setError(prev => prev ? `${prev}\n${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}` : `${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}`);
-        } finally {
-          setIsLoadingRegistrations(false);
-        }
-
-        try {
-          const fetchedPrograms = await fetchProgramsFromFirestore();
-          setPrograms(fetchedPrograms);
-        } catch (err: any) {
-          console.error("[Service] Error fetching programs:", err.message, err.stack ? err.stack : '', err);
-          setError(prev => prev ? `${prev}\n${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}` : `${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}`);
-        } finally {
-          setIsLoadingPrograms(false);
-        }
-
-        try {
-          const fetchedPaymentMethods = await fetchPaymentMethodsFromFirestore();
-          setPaymentMethods(fetchedPaymentMethods);
-        } catch (err: any) {
-          console.error("[Service] Error fetching payment methods:", err.message, err.stack ? err.stack : '', err);
-          setError(prev => prev ? `${prev}\n${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}` : `${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}`);
-        } finally {
-          setIsLoadingPaymentMethods(false);
-        }
-      };
       fetchAllData();
     }
-  }, [isAdmin, t]);
+  }, [isAdmin, fetchAllData]);
 
   if (isAdminLoading) {
     return (
@@ -122,26 +129,126 @@ const AdminPage = () => {
     return null; 
   }
 
-  const handleEdit = (type: string, id: string) => {
-    alert(`${t['apEditButton'] || 'Edit'} ${type} with ID: ${id}. ${t['apFeatureComingSoon'] || 'Feature coming soon.'}`);
+  const handleAddProgram = () => {
+    setEditingProgram(null);
+    setShowAddProgramDialog(true);
   };
 
-  const handleDelete = (type: string, id: string, name?: string) => {
-    let message = `${t['apConfirmDeleteMessage'] || 'Are you sure you want to delete this'} ${type}`;
-    if (name) {
-        message += ` "${name}"?`;
+  const handleEditProgram = (program: HafsaProgram) => {
+    setEditingProgram(program);
+    setShowAddProgramDialog(true);
+  };
+
+  const handleDeleteProgram = async (programId: string, programName?: string) => {
+    let message = `${t['apConfirmDeleteMessage'] || 'Are you sure you want to delete this'} ${t['apProgramSingular'] || 'program'}`;
+    if (programName) {
+        message += ` "${programName}"?`;
     } else {
-        message += ` with ID ${id}?`;
+        message += ` with ID ${programId}?`;
     }
-    message += ` (${t['apThisIsPlaceholder'] || 'This is a placeholder action.'})`;
-    if (confirm(message)) {
-      alert(`${t['apDeleteButton'] || 'Delete'} ${type} with ID: ${id} - ${t['apActionPlaceholder'] || 'Action not implemented yet.'}`);
+    
+    if (window.confirm(message)) {
+      try {
+        if (!db) throw new Error("Firestore not initialized");
+        await deleteDoc(doc(db, "programs", programId));
+        toast({ title: t['apProgramDeletedTitle'] || "Program Deleted", description: `${t['apProgramPrefix'] || "Program"} "${programName || programId}" ${t['apDeletedSuccess'] || "deleted successfully."}` });
+        await fetchAllData(); // Refresh list
+      } catch (error: any) {
+        console.error("Error deleting program:", error);
+        toast({ title: t['apDeleteErrorTitle'] || "Deletion Error", description: error.message, variant: "destructive" });
+      }
+    }
+  };
+  
+  const handleSaveProgram = async (data: ProgramFormData) => {
+    try {
+      if (!db) throw new Error("Firestore not initialized");
+      const programToSave: HafsaProgram = {
+        id: data.id,
+        price: data.price,
+        category: data.category,
+        ageRange: data.ageRange,
+        duration: data.duration,
+        schedule: data.schedule,
+        isChildProgram: data.isChildProgram,
+        translations: {
+          en: {
+            label: data.enLabel,
+            description: data.enDescription,
+            termsAndConditions: data.enTerms,
+          },
+          am: {
+            label: data.amLabel || '',
+            description: data.amDescription || '',
+            termsAndConditions: data.amTerms || '',
+          },
+          ar: {
+            label: data.arLabel || '',
+            description: data.arDescription || '',
+            termsAndConditions: data.arTerms || '',
+          },
+        },
+        // specificFields will be managed separately for now or via direct JSON/Firestore editing
+      };
+
+      await setDoc(doc(db, "programs", data.id), programToSave);
+      toast({ 
+        title: editingProgram ? (t['apProgramUpdatedTitle'] || "Program Updated") : (t['apProgramAddedTitle'] || "Program Added"), 
+        description: `${t['apProgramPrefix'] || "Program"} "${data.enLabel}" ${editingProgram ? (t['apUpdatedSuccess'] || "updated") : (t['apAddedSuccess'] || "added")} ${t['apSuccessfully'] || "successfully."}` 
+      });
+      setShowAddProgramDialog(false);
+      setEditingProgram(null);
+      await fetchAllData(); // Refresh the list
+    } catch (error: any) {
+      console.error("Error saving program:", error);
+      toast({ title: t['apSaveErrorTitle'] || "Save Error", description: error.message, variant: "destructive" });
     }
   };
 
-  const handleAdd = (type: string) => {
-    alert(`${t['apAddButton'] || 'Add New'} ${type}. ${t['apFeatureComingSoon'] || 'Feature coming soon.'}`);
-  }
+
+  const handleEditRegistration = (registrationId: string) => {
+    alert(`${t['apEditButton'] || 'Edit'} ${t['apRegistrationSingular'] || 'registration'} with ID: ${registrationId}. ${t['apFeatureComingSoon'] || 'Feature coming soon.'}`);
+  };
+
+  const handleDeleteRegistration = (registrationId: string, parentName?: string) => {
+    let message = `${t['apConfirmDeleteMessage'] || 'Are you sure you want to delete this'} ${t['apRegistrationSingular'] || 'registration'}`;
+    if (parentName) {
+        message += ` for "${parentName}"?`;
+    } else {
+        message += ` with ID ${registrationId}?`;
+    }
+    message += ` (${t['apThisIsPlaceholder'] || 'This is a placeholder action for now.'})`;
+    if (window.confirm(message)) {
+      // Placeholder: Implement actual deletion logic here
+      console.log(`Would delete registration: ${registrationId}`);
+      toast({ title: t['apActionPlaceholderTitle'] || "Action Placeholder", description: `${t['apDeleteButton'] || 'Delete'} ${t['apRegistrationSingular'] || 'registration'} for ID: ${registrationId} - ${t['apActionNotImplemented'] || 'Functionality not fully implemented yet.'}` });
+    }
+  };
+
+
+  const handleAddBankDetail = () => {
+    alert(`${t['apAddButton'] || 'Add New'} ${t['apBankDetailSingular'] || 'Bank Account'}. ${t['apFeatureComingSoon'] || 'Feature coming soon.'}`);
+  };
+
+  const handleEditBankDetail = (bankDetailId: string) => {
+    alert(`${t['apEditButton'] || 'Edit'} ${t['apBankDetailSingular'] || 'Bank Account'} with ID: ${bankDetailId}. ${t['apFeatureComingSoon'] || 'Feature coming soon.'}`);
+  };
+
+  const handleDeleteBankDetail = (bankDetailId: string, bankName?: string) => {
+     let message = `${t['apConfirmDeleteMessage'] || 'Are you sure you want to delete this'} ${t['apBankDetailSingular'] || 'Bank Account'}`;
+    if (bankName) {
+        message += ` "${bankName}"?`;
+    } else {
+        message += ` with ID ${bankDetailId}?`;
+    }
+    message += ` (${t['apThisIsPlaceholder'] || 'This is a placeholder action for now.'})`;
+    if (window.confirm(message)) {
+      // Placeholder: Implement actual deletion logic here
+      console.log(`Would delete bank detail: ${bankDetailId}`);
+      toast({ title: t['apActionPlaceholderTitle'] || "Action Placeholder", description: `${t['apDeleteButton'] || 'Delete'} ${t['apBankDetailSingular'] || 'Bank Account'} ID: ${bankDetailId} - ${t['apActionNotImplemented'] || 'Functionality not fully implemented yet.'}` });
+    }
+  };
+
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
@@ -210,11 +317,11 @@ const AdminPage = () => {
                             )}
                           </TableCell>
                           <TableCell className="space-x-1">
-                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEdit('registration', reg.id)}>
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditRegistration(reg.id)}>
                               <Edit className="h-3.5 w-3.5" />
                               <span className="sr-only">{t['apEditButton'] || 'Edit'}</span>
                             </Button>
-                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleDelete('registration', reg.id, reg.parentInfo.parentFullName)}>
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleDeleteRegistration(reg.id, reg.parentInfo.parentFullName)}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               <span className="sr-only">{t['apDeleteButton'] || 'Delete'}</span>
                             </Button>
@@ -236,7 +343,7 @@ const AdminPage = () => {
                 <CardTitle>{t['apManageProgramsTitle'] || "Manage Programs"}</CardTitle>
                 <CardDescription>{t['apManageProgramsDescAdmin'] || "Add, edit, or delete academic programs offered."}</CardDescription>
               </div>
-              <Button onClick={() => handleAdd('program')}>
+              <Button onClick={handleAddProgram}>
                 <PlusCircle className="mr-2 h-4 w-4" /> {t['apAddProgramButton'] || "Add Program"}
               </Button>
             </CardHeader>
@@ -260,11 +367,11 @@ const AdminPage = () => {
                             <p className="truncate">{translatedProgram.description}</p>
                         </CardContent>
                         <CardFooter className="flex justify-end space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => handleEdit('program', program.id)}>
+                            <Button variant="outline" size="sm" onClick={() => handleEditProgram(program)}>
                             <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDelete('program', program.id, translatedProgram.label)}>
-                            <Trash2 className="mr-1 h-4 w-4 text-destructive" /> {t['apDeleteButton'] || "Delete"}
+                            <Button variant="destructive" size="sm" onClick={() => handleDeleteProgram(program.id, translatedProgram.label)}>
+                            <Trash2 className="mr-1 h-4 w-4" /> {t['apDeleteButton'] || "Delete"}
                             </Button>
                         </CardFooter>
                         </Card>
@@ -283,7 +390,7 @@ const AdminPage = () => {
                 <CardTitle>{t['apBankAccountsSettingsTitle'] || "Manage Bank Accounts"}</CardTitle>
                 <CardDescription>{t['apBankAccountsSettingsDescAdmin'] || "Add, edit, or delete bank account details used for payments."}</CardDescription>
               </div>
-              <Button onClick={() => handleAdd('bankDetail')}>
+              <Button onClick={handleAddBankDetail}>
                 <PlusCircle className="mr-2 h-4 w-4" /> {t['apAddBankDetailButton'] || "Add Bank Account"}
               </Button>
             </CardHeader>
@@ -308,11 +415,11 @@ const AdminPage = () => {
                             {translatedMethod.additionalInstructions && <p className="mt-1 text-xs italic">{translatedMethod.additionalInstructions}</p>}
                         </CardContent>
                         <CardFooter className="flex justify-end space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => handleEdit('bankDetail', method.value)}>
+                            <Button variant="outline" size="sm" onClick={() => handleEditBankDetail(method.value)}>
                             <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDelete('bankDetail', method.value, translatedMethod.label)}>
-                            <Trash2 className="mr-1 h-4 w-4 text-destructive" /> {t['apDeleteButton'] || "Delete"}
+                            <Button variant="destructive" size="sm" onClick={() => handleDeleteBankDetail(method.value, translatedMethod.label)}>
+                            <Trash2 className="mr-1 h-4 w-4" /> {t['apDeleteButton'] || "Delete"}
                             </Button>
                         </CardFooter>
                         </Card>
@@ -324,8 +431,34 @@ const AdminPage = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={showAddProgramDialog} onOpenChange={(isOpen) => {
+        setShowAddProgramDialog(isOpen);
+        if (!isOpen) setEditingProgram(null);
+      }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingProgram ? (t['apEditProgramTitle'] || "Edit Program") : (t['apAddProgramDialogTitle'] || "Add New Program")}</DialogTitle>
+            <DialogDescription>
+              {editingProgram ? (t['apEditProgramDialogDesc'] || "Modify the details of the existing program.") : (t['apAddProgramDialogDesc'] || "Fill in the details for the new program.")}
+            </DialogDescription>
+          </DialogHeader>
+          <AddProgramForm
+            onSubmit={handleSaveProgram}
+            initialData={editingProgram}
+            onCancel={() => {
+              setShowAddProgramDialog(false);
+              setEditingProgram(null);
+            }}
+            currentLanguage={currentLanguage}
+          />
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };
 
 export default AdminPage;
+
+    
