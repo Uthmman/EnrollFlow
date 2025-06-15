@@ -3,15 +3,15 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
-import { db, auth } from '@/lib/firebaseConfig'; // Added auth
-import { signOut } from 'firebase/auth'; // Added signOut
+import { db, auth } from '@/lib/firebaseConfig';
+import { signOut } from 'firebase/auth';
 import { collection, getDocs, query, orderBy, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
-import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut } from 'lucide-react'; // Added UserCog, LogOut
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut } from 'lucide-react';
+import { Tabs, TabsContent } from "@/components/ui/tabs"; // Removed TabsList, TabsTrigger
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
@@ -21,13 +21,20 @@ import { AddProgramForm, type ProgramFormData } from '@/components/admin/add-pro
 import { useToast } from "@/hooks/use-toast";
 import { getTranslationsForLanguage as getTranslations, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
-import AppHeader from '@/components/app-header'; // Added AppHeader
+import AppHeader from '@/components/app-header';
+import { cn } from '@/lib/utils'; // Import cn utility
 
 interface RegistrationRow extends RegistrationData {
   id: string;
 }
 
-const LS_LANGUAGE_KEY = 'hafsaAdminPreferredLanguage'; // Separate LS key for admin lang
+const LS_LANGUAGE_KEY = 'hafsaAdminPreferredLanguage';
+
+const adminDashboardTabsConfig = [
+  { value: 'students', labelKey: 'apStudentsTab', icon: Users },
+  { value: 'programs', labelKey: 'apProgramsTab', icon: BookOpen },
+  { value: 'bank_accounts', labelKey: 'apBankAccountsTab', icon: Building },
+];
 
 const AdminPage = () => {
   const { isAdmin, isAdminLoading, user } = useAdminAuth();
@@ -46,9 +53,14 @@ const AdminPage = () => {
 
   const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>('en');
   const [t, setT] = useState<Record<string, string>>({});
+  const [activeAdminTab, setActiveAdminTab] = useState<string>('students');
+
 
   useEffect(() => {
     console.log(`[AdminPage] Auth state: isAdminLoading=${isAdminLoading}, isAdmin=${isAdmin}, user=${user?.email}`);
+    if(user?.email) {
+       console.log(`[AdminPage] NEXT_PUBLIC_ADMIN_EMAIL is: "${process.env.NEXT_PUBLIC_ADMIN_EMAIL}"`);
+    }
   }, [isAdmin, isAdminLoading, user]);
 
   const loadTranslations = useCallback((lang: LanguageCode) => {
@@ -61,7 +73,7 @@ const AdminPage = () => {
       setCurrentLanguage(storedLang);
       loadTranslations(storedLang);
     } else {
-      loadTranslations(currentLanguage); // Load with default 'en' initially
+      loadTranslations(currentLanguage); 
     }
   }, [loadTranslations, currentLanguage]);
 
@@ -137,16 +149,16 @@ const AdminPage = () => {
     } finally {
       setIsLoadingPaymentMethods(false);
     }
-  }, [currentLanguage]); // Added currentLanguage dependency
+  }, [currentLanguage]);
 
   useEffect(() => {
     if (isAdmin) {
       console.log("[AdminPage] isAdmin is true, calling fetchAllData");
       fetchAllData();
     } else {
-      console.log("[AdminPage] isAdmin is false or user not loaded, not calling fetchAllData");
+      console.log("[AdminPage] isAdmin is false or user not loaded, not calling fetchAllData. isAdmin:", isAdmin, "isAdminLoading:", isAdminLoading);
     }
-  }, [isAdmin, fetchAllData]);
+  }, [isAdmin, isAdminLoading, fetchAllData]); // Added isAdminLoading
 
   const handleAdminLogout = async () => {
     if (auth) {
@@ -154,7 +166,6 @@ const AdminPage = () => {
             await signOut(auth);
             toast({ title: getTranslatedText('efLoggedOutToastTitle', currentLanguage), description: getTranslatedText('efLoggedOutSuccessToastDesc', currentLanguage) });
             setShowAdminAccountDialog(false);
-            // useAdminAuth hook will handle redirection
         } catch (error) {
             toast({ title: getTranslatedText('efLogoutErrorToastTitle', currentLanguage), description: getTranslatedText('efLogoutFailedToastDesc', currentLanguage), variant: "destructive" });
         }
@@ -191,13 +202,27 @@ const AdminPage = () => {
           <p className="text-muted-foreground">{t['apAdminPanelSubtitle'] || "Manage enrollments, programs, and payment settings."}</p>
         </header>
 
-        <Tabs defaultValue="students" className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
-            <TabsTrigger value="students"><Users className="mr-2 h-4 w-4" />{t['apStudentsTab'] || "Students"}</TabsTrigger>
-            <TabsTrigger value="programs"><BookOpen className="mr-2 h-4 w-4" />{t['apProgramsTab'] || "Programs"}</TabsTrigger>
-            <TabsTrigger value="bank_accounts"><Building className="mr-2 h-4 w-4" />{t['apBankAccountsTab'] || "Bank Accounts"}</TabsTrigger>
-          </TabsList>
-
+        <Tabs value={activeAdminTab} onValueChange={setActiveAdminTab} className="w-full">
+          <div className="flex items-center justify-center space-x-1 sm:space-x-2 bg-muted p-1 sm:p-1.5 rounded-lg shadow-sm mx-auto max-w-2xl mb-6">
+            {adminDashboardTabsConfig.map(tabConfig => (
+                <button
+                    key={tabConfig.value}
+                    onClick={() => setActiveAdminTab(tabConfig.value)}
+                    className={cn(
+                        "flex-1 flex items-center justify-center gap-2 sm:gap-2.5 px-4 py-2.5 sm:px-6 sm:py-3 rounded-md transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted text-sm sm:text-base font-medium",
+                        activeAdminTab === tabConfig.value
+                            ? "bg-primary text-primary-foreground shadow"
+                            : "text-muted-foreground hover:bg-background hover:text-primary"
+                    )}
+                    aria-label={t[tabConfig.labelKey] || tabConfig.labelKey}
+                    type="button"
+                >
+                    <tabConfig.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span>{t[tabConfig.labelKey] || tabConfig.labelKey}</span>
+                </button>
+            ))}
+          </div>
+          
           <TabsContent value="students">
             <Card>
               <CardHeader>
@@ -392,7 +417,6 @@ const AdminPage = () => {
     );
   };
 
-  // Helper functions for actions (placeholders for now)
   const handleAddProgram = () => {
     setEditingProgram(null);
     setShowAddProgramDialog(true);
@@ -503,7 +527,7 @@ const AdminPage = () => {
   return (
     <main className="flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-background to-primary/10">
       <AppHeader
-        showAccountIcon={!!user} // Show if admin user is logged in
+        showAccountIcon={!!user} 
         onAccountClick={() => setShowAdminAccountDialog(true)}
         currentLanguage={currentLanguage}
         onLanguageChange={handleLanguageChange}
@@ -536,3 +560,5 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
+
+    
