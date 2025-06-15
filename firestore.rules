@@ -21,24 +21,23 @@ service cloud.firestore {
     match /programs/{programId} {
       // Allow anyone to read program data
       allow read: if true;
+
       // Allow writes for development/seeding.
-      // This allows the client-side ensureInitialDataInFirestore to work.
-      // TODO: For production, change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";)
+      // This allows the client-side `ensureInitialDataInFirestore` function to work.
+      // TODO: For production, change this to restrict writes, e.g.,
+      // allow write: if request.auth != null && request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";
       allow write: if true;
     }
 
     match /paymentMethods/{methodId} {
       // Allow anyone to read payment methods
       allow read: if true;
-      // Allow writes for development/seeding.
-      // This allows the client-side ensureInitialDataInFirestore to work.
-      // TODO: For production, change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";)
-      allow write: if true;
-    }
 
-    // Default deny all other paths if not explicitly matched above
-    match /{document=**} {
-      allow read, write: if false;
+      // Allow writes for development/seeding.
+      // This allows the client-side `ensureInitialDataInFirestore` function to work.
+      // TODO: For production, change this to restrict writes, e.g.,
+      // allow write: if request.auth != null && request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";
+      allow write: if true;
     }
   }
 }
