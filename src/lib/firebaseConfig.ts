@@ -56,27 +56,22 @@ async function seedCollection(
   }
   try {
     const collectionRef = collection(db, collectionName);
-    const q = firestoreQuery(collectionRef, limit(1));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-      console.log(`Collection '${collectionName}' appears empty. Seeding initial data...`);
-      for (const item of dataToSeed) {
-        const docId = item[idField as keyof typeof item];
-        if (!docId) {
-          console.warn(`Skipping item in ${collectionName} due to missing ID field ('${idField}'):`, item);
-          continue;
-        }
-        // Firestore expects plain objects, ensure type compatibility if complex types were imported
-        const plainItemData = JSON.parse(JSON.stringify(item)); 
-        await setDoc(doc(collectionRef, docId), plainItemData);
+    console.log(`Attempting to seed/update collection '${collectionName}'...`);
+    let count = 0;
+    for (const item of dataToSeed) {
+      const docId = item[idField as keyof typeof item];
+      if (!docId) {
+        console.warn(`Skipping item in ${collectionName} due to missing ID field ('${idField}'):`, item);
+        continue;
       }
-      console.log(`Successfully seeded ${dataToSeed.length} documents into '${collectionName}'.`);
-    } else {
-      console.log(`Collection '${collectionName}' is not empty. Skipping seed.`);
+      // Ensure item is a plain object for Firestore
+      const plainItemData = JSON.parse(JSON.stringify(item)); 
+      await setDoc(doc(collectionRef, docId.toString()), plainItemData); // Ensure docId is a string
+      count++;
     }
+    console.log(`Successfully seeded/updated ${count} documents in '${collectionName}'.`);
   } catch (error) {
-    console.error(`Error seeding collection '${collectionName}':`, error);
+    console.error(`Error seeding/updating collection '${collectionName}':`, error);
   }
 }
 
