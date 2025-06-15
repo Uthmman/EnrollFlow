@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getTranslationsForLanguage } as getTranslations // Alias to avoid conflict
+import { getTranslationsForLanguage as getTranslations } from '@/lib/translationService'; // Alias to avoid conflict
 import type { LanguageCode } from '@/locales';
 
 interface RegistrationRow extends RegistrationData {
@@ -216,3 +216,5 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
+
+    
