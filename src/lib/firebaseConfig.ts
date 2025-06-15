@@ -15,7 +15,7 @@ const firebaseConfig: FirebaseOptions = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, 
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 let app;
@@ -51,37 +51,53 @@ async function seedCollection(
   idField: string
 ) {
   if (!db) {
-    console.error("Firestore DB is not initialized. Cannot seed collection:", collectionName);
+    console.error(`Firestore DB is not initialized. Cannot seed collection '${collectionName}'.`);
     return;
   }
   try {
     const collectionRef = collection(db, collectionName);
-    console.log(`Attempting to seed/update collection '${collectionName}'...`);
+    console.log(`[Seed] Attempting to seed/update collection '${collectionName}' with ${dataToSeed.length} items...`);
+    if (dataToSeed.length === 0) {
+      console.warn(`[Seed] No data provided for seeding collection '${collectionName}'. Skipping.`);
+      return;
+    }
+
     let count = 0;
     for (const item of dataToSeed) {
       const docId = item[idField as keyof typeof item];
       if (!docId) {
-        console.warn(`Skipping item in ${collectionName} due to missing ID field ('${idField}'):`, item);
+        console.warn(`[Seed] Skipping item in '${collectionName}' due to missing ID field ('${idField}'). Item:`, JSON.stringify(item));
         continue;
       }
-      // Ensure item is a plain object for Firestore
-      const plainItemData = JSON.parse(JSON.stringify(item)); 
-      await setDoc(doc(collectionRef, docId.toString()), plainItemData); // Ensure docId is a string
+      const docIdStr = docId.toString();
+      if (!docIdStr.trim()) {
+          console.warn(`[Seed] Skipping item in '${collectionName}' due to empty ID field ('${idField}'). Item:`, JSON.stringify(item));
+          continue;
+      }
+      // console.log(`[Seed] Processing item for '${collectionName}': ID = ${docIdStr}`);
+
+      const plainItemData = JSON.parse(JSON.stringify(item));
+      await setDoc(doc(collectionRef, docIdStr), plainItemData);
+      // console.log(`[Seed] Successfully seeded/updated document '${docIdStr}' in '${collectionName}'.`);
       count++;
     }
-    console.log(`Successfully seeded/updated ${count} documents in '${collectionName}'.`);
-  } catch (error) {
-    console.error(`Error seeding/updating collection '${collectionName}':`, error);
+    console.log(`[Seed] Finished seeding/updating '${collectionName}'. ${count} of ${dataToSeed.length} documents processed successfully.`);
+  } catch (error: any) {
+    console.error(`[Seed] Error during seeding/updating collection '${collectionName}':`, error.message, error.stack, error);
   }
 }
 
 export async function ensureInitialDataInFirestore() {
-  // Type assertion to help TypeScript understand the structure
+  console.log("[Bootstrap] ensureInitialDataInFirestore: Starting initial data check/seed.");
   const typedProgramsData = programsData as HafsaProgram[];
   const typedPaymentMethodsData = paymentMethodsData as HafsaPaymentMethod[];
 
+  console.log(`[Bootstrap] ensureInitialDataInFirestore: Found ${typedProgramsData.length} programs to seed from JSON.`);
   await seedCollection('programs', typedProgramsData, 'id');
+
+  console.log(`[Bootstrap] ensureInitialDataInFirestore: Found ${typedPaymentMethodsData.length} payment methods to seed from JSON.`);
   await seedCollection('paymentMethods', typedPaymentMethodsData, 'value');
+  console.log("[Bootstrap] ensureInitialDataInFirestore: Finished initial data check/seed.");
 }
 
 

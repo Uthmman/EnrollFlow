@@ -33,7 +33,7 @@ import { collection, addDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 
 import { SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
-import type { HafsaProgram, HafsaPaymentMethod } from '@/types'; // Using types from index
+import type { HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData } from '@/types';
@@ -70,7 +70,7 @@ const defaultParticipantValues: ParticipantInfoData = {
 };
 
 const defaultPaymentProofValues: FormPaymentProofData = {
-    paymentType: '', 
+    paymentType: '',
     proofSubmissionType: 'transactionId',
     transactionId: '',
     pdfLink: '',
@@ -121,19 +121,19 @@ const ParticipantDetailFields: React.FC<{
         setValue('firstName', defaultParticipantValues.firstName);
         setValue('gender', defaultParticipantValues.gender);
         setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
-    } else { 
+    } else {
         setValue('firstName', parentAccountInfo.parentFullName || '');
         setValue('guardianFullName', parentAccountInfo.parentFullName || '');
         setValue('guardianPhone1', parentAccountInfo.parentPhone1 || '');
         setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
         setValue('gender', defaultParticipantValues.gender);
     }
-    
+
     setValue('specialAttention', defaultParticipantValues.specialAttention);
     setValue('schoolGrade', defaultParticipantValues.schoolGrade);
     setValue('quranLevel', defaultParticipantValues.quranLevel);
     setValue('guardianPhone2', defaultParticipantValues.guardianPhone2);
-    
+
     if (selectedProgram.category !== 'arabic_women' || !parentAccountInfo.parentPhone1) {
       setValue('guardianTelegramPhoneNumber', defaultParticipantValues.guardianTelegramPhoneNumber);
       setValue('guardianUsePhone1ForTelegram', defaultParticipantValues.guardianUsePhone1ForTelegram);
@@ -361,30 +361,37 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   useEffect(() => {
     const loadInitialData = async () => {
+      console.log("[Form] loadInitialData: Starting to load programs and payment methods.");
       setProgramsLoading(true);
       setPaymentMethodsLoading(true);
       try {
         const fetchedPrograms = await fetchProgramsFromFirestore();
+        console.log("[Form] loadInitialData: Fetched programs in useEffect", fetchedPrograms);
         setAvailablePrograms(fetchedPrograms);
 
         const fetchedPaymentMethods = await fetchPaymentMethodsFromFirestore();
+        console.log("[Form] loadInitialData: Fetched payment methods in useEffect", fetchedPaymentMethods);
         setPaymentMethods(fetchedPaymentMethods);
         if (fetchedPaymentMethods.length > 0 && !getValues('paymentProof.paymentType')) {
            setValue('paymentProof.paymentType', fetchedPaymentMethods[0].value);
         }
 
       } catch (error) {
-        console.error("Error loading initial data:", error);
-        toast({ title: t.efErrorToastTitle || "Error", description: t.efLoadDataErrorToastDesc || "Failed to load initial data.", variant: "destructive" });
+        console.error("[Form] loadInitialData: Error loading initial data:", error);
+        if (Object.keys(t).length > 0) { // Ensure translations are ready for toast
+            toast({ title: t.efErrorToastTitle || "Error", description: t.efLoadDataErrorToastDesc || "Failed to load initial data.", variant: "destructive" });
+        } else {
+            toast({ title: "Error", description: "Failed to load initial data.", variant: "destructive" });
+        }
       } finally {
         setProgramsLoading(false);
         setPaymentMethodsLoading(false);
+        console.log("[Form] loadInitialData: Finished loading programs and payment methods.");
       }
     };
-    if (Object.keys(t).length > 0) { // Ensure translations are loaded before fetching or toasting
-        loadInitialData();
-    }
-  }, [toast, setValue, getValues, t, currentLanguage]);
+     // Moved check for t inside, loadInitialData should try to run regardless of t for fetching
+    loadInitialData();
+  }, [toast, setValue, getValues, currentLanguage]); // Removed t from here, as loadInitialData itself calls t dependent toasts
 
 
   const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
@@ -465,17 +472,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         onStageChange('accountCreated');
       } else {
         if (currentView === 'dashboard') {
-            clearLocalStorageData(); 
+            clearLocalStorageData();
             setCurrentView('accountCreation');
             onStageChange('initial');
         }
       }
     });
     return () => unsubscribe();
-  }, [auth, setValue, onStageChange, currentView, reset, clearLocalStorageData, currentLanguage]);
+  }, [auth, setValue, onStageChange, currentView, reset, clearLocalStorageData, currentLanguage, getValues]);
 
 
- useEffect(() => { 
+ useEffect(() => {
     if (typeof window !== 'undefined' && !firebaseUser && Object.keys(t).length > 0) {
       try {
         const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
@@ -696,7 +703,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             screenshotDataUriForAI = data.paymentProof.screenshotDataUri;
          }
       }
-      
+
       const selectedBankMethod = paymentMethods.find(m => m.value === data.paymentProof?.paymentType);
       const selectedBankDetails = selectedBankMethod ? (selectedBankMethod.translations[currentLanguage] || selectedBankMethod.translations.en) : undefined;
 
@@ -708,7 +715,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         },
         expectedAmount: calculatedPrice,
         expectedAccountName: selectedBankDetails?.accountName,
-        expectedAccountNumber: selectedBankMethod?.accountNumber, // Account number is top-level
+        expectedAccountNumber: selectedBankMethod?.accountNumber,
       };
 
       const result = await handlePaymentVerification(verificationInput);
@@ -812,7 +819,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 
     if (!firebaseUser) {
-        clearLocalStorageData(); 
+        clearLocalStorageData();
         setCurrentView('accountCreation');
         onStageChange('initial');
     } else {
