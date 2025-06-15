@@ -14,6 +14,7 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";
 
       // For now, explicitly deny update and delete for registrations.
+      // These can be refined later for admin-specific actions if needed.
       allow update, delete: if false;
     }
 
@@ -21,7 +22,8 @@ service cloud.firestore {
       // Allow anyone to read program data
       allow read: if true;
       // Allow writes for development/seeding.
-      // TODO: Change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";) for production.
+      // This is crucial for the ensureInitialDataInFirestore function.
+      // TODO: For production, change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";).
       allow write: if true;
     }
 
@@ -29,7 +31,8 @@ service cloud.firestore {
       // Allow anyone to read payment methods
       allow read: if true;
       // Allow writes for development/seeding.
-      // TODO: Change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";) for production.
+      // This is crucial for the ensureInitialDataInFirestore function.
+      // TODO: For production, change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";).
       allow write: if true;
     }
   }

@@ -51,7 +51,7 @@ async function seedCollection(
   idField: string
 ) {
   if (!db) {
-    console.error(`Firestore DB is not initialized. Cannot seed collection '${collectionName}'.`);
+    console.error(`[Seed] Firestore DB is not initialized. Cannot seed collection '${collectionName}'.`);
     return;
   }
   try {
@@ -74,8 +74,9 @@ async function seedCollection(
           console.warn(`[Seed] Skipping item in '${collectionName}' due to empty ID field ('${idField}'). Item:`, JSON.stringify(item));
           continue;
       }
-      // console.log(`[Seed] Processing item for '${collectionName}': ID = ${docIdStr}`);
+      // console.log(`[Seed] Processing item for '${collectionName}': ID = ${docIdStr}, Data = ${JSON.stringify(item)}`);
 
+      // Ensure the data is a plain object for Firestore
       const plainItemData = JSON.parse(JSON.stringify(item));
       await setDoc(doc(collectionRef, docIdStr), plainItemData);
       // console.log(`[Seed] Successfully seeded/updated document '${docIdStr}' in '${collectionName}'.`);
@@ -84,6 +85,9 @@ async function seedCollection(
     console.log(`[Seed] Finished seeding/updating '${collectionName}'. ${count} of ${dataToSeed.length} documents processed successfully.`);
   } catch (error: any) {
     console.error(`[Seed] Error during seeding/updating collection '${collectionName}':`, error.message, error.stack, error);
+    if ((error.message as string).includes("Missing or insufficient permissions")) {
+        console.error(`[Seed] Permission Denied: Please ensure your Firestore security rules allow 'write' access to the '${collectionName}' collection for the current context (e.g., unauthenticated or authenticated user, depending on when seeding runs). For development, a rule like 'allow write: if true;' for this collection can be used.`);
+    }
   }
 }
 
