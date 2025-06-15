@@ -5,11 +5,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { db } from '@/lib/firebaseConfig';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types'; // Using types from index
+import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
-import { Loader2, Users, Edit3, Settings, AlertTriangle, ShieldCheck, ShieldAlert, Banknote, Edit, Trash2, PlusCircle } from 'lucide-react';
+import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -80,7 +80,7 @@ const AdminPage = () => {
           });
           setRegistrations(fetchedRegistrations);
         } catch (err: any) {
-          console.error("Error fetching registrations:", err);
+          console.error("[Service] Error fetching registrations:", err.message, err.stack ? err.stack : '', err);
           setError(prev => prev ? `${prev}\n${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}` : `${t['apFetchRegError'] || 'Failed to fetch registrations:'} ${err.message}`);
         } finally {
           setIsLoadingRegistrations(false);
@@ -90,7 +90,7 @@ const AdminPage = () => {
           const fetchedPrograms = await fetchProgramsFromFirestore();
           setPrograms(fetchedPrograms);
         } catch (err: any) {
-          console.error("Error fetching programs:", err);
+          console.error("[Service] Error fetching programs:", err.message, err.stack ? err.stack : '', err);
           setError(prev => prev ? `${prev}\n${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}` : `${t['apFetchProgramsError'] || 'Failed to fetch programs:'} ${err.message}`);
         } finally {
           setIsLoadingPrograms(false);
@@ -100,7 +100,7 @@ const AdminPage = () => {
           const fetchedPaymentMethods = await fetchPaymentMethodsFromFirestore();
           setPaymentMethods(fetchedPaymentMethods);
         } catch (err: any) {
-          console.error("Error fetching payment methods:", err);
+          console.error("[Service] Error fetching payment methods:", err.message, err.stack ? err.stack : '', err);
           setError(prev => prev ? `${prev}\n${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}` : `${t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods:'} ${err.message}`);
         } finally {
           setIsLoadingPaymentMethods(false);
@@ -147,27 +147,27 @@ const AdminPage = () => {
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-primary">{t['apAdminPanelTitle'] || "Admin Panel"}</h1>
-        <p className="text-muted-foreground">{t['apAdminPanelSubtitle'] || "Manage registrations, programs, and settings."}</p>
+        <p className="text-muted-foreground">{t['apAdminPanelSubtitle'] || "Manage enrollments, programs, and payment settings."}</p>
       </header>
 
       <Tabs defaultValue="students" className="w-full">
         <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
-          <TabsTrigger value="students"><Users className="mr-2 h-4 w-4" />{t['apStudentsTab'] || "Registered Students"}</TabsTrigger>
-          <TabsTrigger value="programs"><Edit3 className="mr-2 h-4 w-4" />{t['apProgramsTab'] || "Manage Programs"}</TabsTrigger>
-          <TabsTrigger value="settings"><Banknote className="mr-2 h-4 w-4" />{t['apBankDetailsTab'] || "Bank Details & Settings"}</TabsTrigger>
+          <TabsTrigger value="students"><Users className="mr-2 h-4 w-4" />{t['apStudentsTab'] || "Students"}</TabsTrigger>
+          <TabsTrigger value="programs"><BookOpen className="mr-2 h-4 w-4" />{t['apProgramsTab'] || "Programs"}</TabsTrigger>
+          <TabsTrigger value="bank_accounts"><Building className="mr-2 h-4 w-4" />{t['apBankAccountsTab'] || "Bank Accounts"}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="students">
           <Card>
             <CardHeader>
-              <CardTitle>{t['apStudentsListTitle'] || "All Registered Students"}</CardTitle>
-              <CardDescription>{t['apStudentsListDesc'] || "View and manage all student registrations."}</CardDescription>
+              <CardTitle>{t['apStudentsListTitle'] || "Student Enrollments"}</CardTitle>
+              <CardDescription>{t['apStudentsListDesc'] || "View and manage all student enrollments and their payment status."}</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoadingRegistrations && <div className="flex justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
               {error && !isLoadingRegistrations && <p className="text-destructive p-4 text-center">{error.includes('registrations') ? error : (t['apFetchRegError'] || 'Failed to fetch registrations')}</p>}
               {!isLoadingRegistrations && !error && registrations.length === 0 && (
-                <p className="text-muted-foreground p-4 text-center">{t['apNoRegistrationsFound'] || "No registrations found."}</p>
+                <p className="text-muted-foreground p-4 text-center">{t['apNoRegistrationsFound'] || "No student enrollments found."}</p>
               )}
               {!isLoadingRegistrations && registrations.length > 0 && (
                 <div className="overflow-x-auto">
@@ -234,7 +234,7 @@ const AdminPage = () => {
             <CardHeader className="flex flex-row justify-between items-center">
               <div>
                 <CardTitle>{t['apManageProgramsTitle'] || "Manage Programs"}</CardTitle>
-                <CardDescription>{t['apManageProgramsDescAdmin'] || "View, add, edit, or delete academic programs."}</CardDescription>
+                <CardDescription>{t['apManageProgramsDescAdmin'] || "Add, edit, or delete academic programs offered."}</CardDescription>
               </div>
               <Button onClick={() => handleAdd('program')}>
                 <PlusCircle className="mr-2 h-4 w-4" /> {t['apAddProgramButton'] || "Add Program"}
@@ -276,22 +276,22 @@ const AdminPage = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings">
+        <TabsContent value="bank_accounts">
           <Card>
             <CardHeader className="flex flex-row justify-between items-center">
               <div>
-                <CardTitle>{t['apBankDetailsSettingsTitle'] || "Bank Details & Settings"}</CardTitle>
-                <CardDescription>{t['apBankDetailsSettingsDescAdmin'] || "View, add, edit, or delete bank account details for payments."}</CardDescription>
+                <CardTitle>{t['apBankAccountsSettingsTitle'] || "Manage Bank Accounts"}</CardTitle>
+                <CardDescription>{t['apBankAccountsSettingsDescAdmin'] || "Add, edit, or delete bank account details used for payments."}</CardDescription>
               </div>
               <Button onClick={() => handleAdd('bankDetail')}>
-                <PlusCircle className="mr-2 h-4 w-4" /> {t['apAddBankDetailButton'] || "Add Bank Detail"}
+                <PlusCircle className="mr-2 h-4 w-4" /> {t['apAddBankDetailButton'] || "Add Bank Account"}
               </Button>
             </CardHeader>
             <CardContent>
               {isLoadingPaymentMethods && <div className="flex justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
               {error && !isLoadingPaymentMethods && <p className="text-destructive p-4 text-center">{error.includes('payment methods') ? error : (t['apFetchPaymentMethodsError'] || 'Failed to fetch payment methods')}</p>}
               {!isLoadingPaymentMethods && !error && paymentMethods.length === 0 && (
-                <p className="text-muted-foreground p-4 text-center">{t['apNoBankDetailsAdmin'] || "No bank details found. Add one to get started."}</p>
+                <p className="text-muted-foreground p-4 text-center">{t['apNoBankDetailsAdmin'] || "No bank accounts found. Add one to get started."}</p>
               )}
               {!isLoadingPaymentMethods && paymentMethods.length > 0 && (
                 <div className="space-y-4">

@@ -4,7 +4,7 @@
 import type { FC } from 'react';
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { UserCog, Languages, Shield } from 'lucide-react'; // Added Shield for Admin
+import { UserCog, Languages } from 'lucide-react'; // Removed Shield
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,11 +14,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getTranslationsForLanguage } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebaseConfig';
 
-// Placeholder for admin email - for production, use a more secure method
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@example.com';
 
 interface AppHeaderProps {
@@ -92,13 +91,7 @@ const AppHeader: FC<AppHeaderProps> = ({ showAccountIcon, onAccountClick, curren
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {isClientAdmin && (
-          <Link href="/admin" passHref>
-            <Button variant="ghost" size="icon" aria-label={t.adminPanelLabel || "Admin Panel"}>
-              <Shield className="h-5 w-5 text-primary" />
-            </Button>
-          </Link>
-        )}
+        {/* Admin panel link removed from here. Admin navigates directly. */}
 
         {showAccountIcon && (
           <Button variant="ghost" size="icon" onClick={onAccountClick} aria-label={t.accountSettingsLabel || "Account settings"}>
