@@ -10,7 +10,7 @@ import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
-import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut } from 'lucide-react';
+import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3 } from 'lucide-react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,6 +35,7 @@ const adminDashboardTabsConfig = [
   { value: 'students', labelKey: 'apStudentsTab', icon: Users },
   { value: 'programs', labelKey: 'apProgramsTab', icon: BookOpen },
   { value: 'bank_accounts', labelKey: 'apBankAccountsTab', icon: Building },
+  { value: 'statistics', labelKey: 'apStatisticsTab', icon: BarChart3 },
 ];
 
 const AdminPage = () => {
@@ -241,7 +242,7 @@ const AdminPage = () => {
       await setDoc(doc(db, "programs", data.id), programToSave, { merge: true });
       toast({ 
         title: editingProgram ? (getTranslatedText('apProgramUpdatedTitle', currentLanguage)) : (getTranslatedText('apProgramAddedTitle', currentLanguage)), 
-        description: `${getTranslatedText('apProgramPrefix', currentLanguage)} "${data.enLabel}" ${editingProgram ? (getTranslatedText('apUpdatedSuccess', currentLanguage)) : (getTranslatedText('apAddedSuccess', currentLanguage))} ${getTranslatedText('apSuccessfully', currentLanguage)}` 
+        description: `${getTranslatedText('apProgramPrefix', currentLanguage)} "${programToSave.translations.en.label}" ${editingProgram ? (getTranslatedText('apUpdatedSuccess', currentLanguage)) : (getTranslatedText('apAddedSuccess', currentLanguage))} ${getTranslatedText('apSuccessfully', currentLanguage)}` 
       });
       setShowAddProgramDialog(false);
       setEditingProgram(null);
@@ -306,7 +307,7 @@ const AdminPage = () => {
       await setDoc(doc(db, "paymentMethods", data.value), bankDetailToSave, { merge: true });
       toast({ 
         title: editingBankDetail ? (getTranslatedText('apBankDetailUpdatedTitle', currentLanguage)) : (getTranslatedText('apBankDetailAddedTitle', currentLanguage)), 
-        description: `${getTranslatedText('apBankDetailSingular', currentLanguage)} "${data.enLabel}" ${editingBankDetail ? (getTranslatedText('apUpdatedSuccess', currentLanguage)) : (getTranslatedText('apAddedSuccess', currentLanguage))} ${getTranslatedText('apSuccessfully', currentLanguage)}` 
+        description: `${getTranslatedText('apBankDetailSingular', currentLanguage)} "${bankDetailToSave.translations.en.label}" ${editingBankDetail ? (getTranslatedText('apUpdatedSuccess', currentLanguage)) : (getTranslatedText('apAddedSuccess', currentLanguage))} ${getTranslatedText('apSuccessfully', currentLanguage)}` 
       });
       setShowAddBankDialog(false);
       setEditingBankDetail(null);
@@ -365,24 +366,26 @@ const AdminPage = () => {
         </header>
 
         <Tabs value={activeAdminTab} onValueChange={setActiveAdminTab} className="w-full">
-          <div className="flex items-center justify-center space-x-1 sm:space-x-2 bg-muted p-1 sm:p-1.5 rounded-lg shadow-sm mx-auto max-w-2xl mb-6">
-            {adminDashboardTabsConfig.map(tabConfig => (
-                <button
-                    key={tabConfig.value}
-                    onClick={() => setActiveAdminTab(tabConfig.value)}
-                    className={cn(
-                        "flex-1 flex items-center justify-center gap-2 sm:gap-2.5 px-4 py-2.5 sm:px-6 sm:py-3 rounded-md transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted text-sm sm:text-base font-medium",
-                        activeAdminTab === tabConfig.value
-                            ? "bg-primary text-primary-foreground shadow"
-                            : "text-muted-foreground hover:bg-background hover:text-primary"
-                    )}
-                    aria-label={t[tabConfig.labelKey] || tabConfig.labelKey}
-                    type="button"
-                >
-                    <tabConfig.icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span>{t[tabConfig.labelKey] || tabConfig.labelKey}</span>
-                </button>
-            ))}
+           <div className="mb-6 w-full overflow-x-auto sm:overflow-visible">
+            <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20 mx-auto max-w-fit sm:max-w-2xl">
+                {adminDashboardTabsConfig.map(tabConfig => (
+                    <button
+                        key={tabConfig.value}
+                        onClick={() => setActiveAdminTab(tabConfig.value)}
+                        className={cn(
+                            "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-auto sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5",
+                            activeAdminTab === tabConfig.value
+                                ? "bg-primary-foreground text-primary scale-105 shadow-md"
+                                : "hover:bg-white/20"
+                        )}
+                        aria-label={t[tabConfig.labelKey] || tabConfig.labelKey}
+                        type="button"
+                    >
+                        <tabConfig.icon className="h-5 w-5 mb-0.5 sm:mb-0" />
+                        <span className="text-xs font-medium sm:text-sm">{t[tabConfig.labelKey] || tabConfig.labelKey}</span>
+                    </button>
+                ))}
+            </div>
           </div>
           
           <TabsContent value="students">
@@ -553,6 +556,20 @@ const AdminPage = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          
+          <TabsContent value="statistics">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t['apStatisticsTitle'] || "Statistics & Reports"}</CardTitle>
+                <CardDescription>{t['apStatisticsDesc'] || "View enrollment statistics and generate reports."}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground p-4 text-center">{t['apFeatureComingSoon'] || "Feature coming soon."}</p>
+                {/* Placeholder for statistics content */}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
         </Tabs>
 
         <Dialog open={showAddProgramDialog} onOpenChange={(isOpen) => {
@@ -622,7 +639,7 @@ const AdminPage = () => {
               <UserCog className="mr-2 h-5 w-5 text-primary"/>{t['apAdminAccountDialogTitle'] || "Admin Account"}
             </DialogTitle>
             <DialogDescription>
-              {user ? `${t['efLoggedInAsPrefix'] || "Logged in as:"} ${user.email}` : (t['apNotLoggedIn'] || "Not logged in")}
+              {user ? `${t['efLoggedInAsPrefix'] || "Logged in as:"} ${(user.displayName || user.email)}` : (t['apNotLoggedIn'] || "Not logged in")}
             </DialogDescription>
           </DialogHeader>
           {user && (
@@ -640,5 +657,3 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
-
-    

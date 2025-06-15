@@ -127,9 +127,9 @@ export const am: LocaleStrings = {
   efDashManageEnrollmentsLabel: "ምዝገባዎችን ያስተዳድሩ",
   efDashViewProgramsLabel: "ፕሮግራሞችን ይመልከቱ",
   efDashPaymentSubmissionLabel: "ክፍያ እና ማቅረቢያ",
-  efDashEnrollmentsTabLabel: "ምዝገባዎች",
-  efDashProgramsTabLabel: "ፕሮግራሞች",
-  efDashPaymentTabLabel: "ክፍያ",
+  efDashEnrollmentsTabLabel: "ምዝገባዎች", // For mobile
+  efDashProgramsTabLabel: "ፕሮግራሞች", // For mobile
+  efDashPaymentTabLabel: "ክፍያ", // For mobile
   efManageEnrollmentsTitle: "የእርስዎን ምዝገባዎች ያስተዳድሩ",
   efYourSubmittedEnrollments: "የእርስዎ ገቢ ምዝገባዎች፦",
   efViewReceiptButton: "ደረሰኝ ይመልከቱ",
@@ -172,8 +172,11 @@ export const am: LocaleStrings = {
   efProvidePdfLinkOption: "የፒዲኤፍ አገናኝ ያቅርቡ",
   efTransactionIdLabel: "የግብይት መለያ/ማጣቀሻ ያስገቡ",
   efTransactionIdPlaceholder: "ለምሳሌ፦ TRN123456789",
-  efUploadScreenshotLabel: "የክፍያ ቅጽበታዊ ገጽ እይታ ስቀል",
-  efScreenshotDesc: "ለ AI ማረጋገጫ የክፍያ ደረሰኝዎን ግልጽ ቅጽበታዊ ገጽ እይታ ወይም ፒዲኤፍ ይስቀሉ።",
+  efUploadScreenshotLabel: "የክፍያ ቅጽበታዊ ገጽ እይታ/ፒዲኤፍ ስቀል",
+  efDragDropOrClickLabel: "ፋይል እዚህ ይጎትቱ ወይም ለመምረጥ ጠቅ ያድርጉ",
+  efFileSelectedLabel: "የተመረጠ ፋይል:",
+  efClickOrDragToChangeLabel: "ለመቀየር ጠቅ ያድርጉ ወይም ይጎትቱ",
+  efScreenshotDesc: "ለማረጋገጫ የደረሰኝዎን ግልጽ ምስል (PNG, JPG) ወይም ፒዲኤፍ ይስቀሉ።",
   efPdfLinkLabel: "ወደ ደረሰኝ የፒዲኤፍ አገናኝ ያስገቡ",
   efPdfLinkPlaceholder: "https://example.com/receipt.pdf",
   efProceedToPaymentButton: "ወደ ክፍያ ይቀጥሉ",
@@ -242,6 +245,7 @@ export const am: LocaleStrings = {
   apStudentsTab: "ተማሪዎች",
   apProgramsTab: "ፕሮግራሞች",
   apBankAccountsTab: "የባንክ ሂሳቦች",
+  apStatisticsTab: "ስታቲስቲክስ",
   apStudentsListTitle: "የተማሪ ምዝገባዎች",
   apStudentsListDesc: "ሁሉንም የተማሪ ምዝገባዎች እና የክፍያ ሁኔታቸውን ይመልከቱ እና ያስተዳድሩ።",
   apDbNotInitError: "ዳታቤዝ አልተጀመረም። ምዝገባዎችን መጫን አይቻልም።",
@@ -266,6 +270,8 @@ export const am: LocaleStrings = {
   apFeatureComingSoon: "ባህሪ በቅርቡ ይመጣል።",
   apBankAccountsSettingsTitle: "የባንክ ሂሳቦችን ያስተዳድሩ",
   apBankAccountsSettingsDescAdmin: "ለክፍያዎች የሚያገለግሉ የባንክ ሂሳብ ዝርዝሮችን ያክሉ፣ ያርትዑ ወይም ይሰርዙ።",
+  apStatisticsTitle: "ስታቲስቲክስ እና ሪፖርቶች",
+  apStatisticsDesc: "የምዝገባ ስታቲስቲክስን ይመልከቱ እና ሪፖርቶችን ይፍጠሩ።",
   apAccessDeniedTitle: "መዳረሻ ተከልክሏል",
   apAccessDeniedMessage: "ይህን ገጽ ለማየት ፈቃድ የለዎትም። ይህ ስህተት ነው ብለው ካመኑ እባክዎ አስተዳዳሪን ያነጋግሩ።",
   apGoHomeButton: "ወደ መነሻ ገጽ ይመለሱ",
@@ -367,5 +373,3 @@ export const am: LocaleStrings = {
 
   "fallback.error": "የተሳሳተ ግቤት ወይም የጎደለ መረጃ።"
 };
-
-    

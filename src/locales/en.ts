@@ -177,8 +177,11 @@ export const en = {
   efProvidePdfLinkOption: "Provide PDF Link",
   efTransactionIdLabel: "Enter Transaction ID / Reference",
   efTransactionIdPlaceholder: "e.g., TRN123456789",
-  efUploadScreenshotLabel: "Upload Payment Screenshot",
-  efScreenshotDesc: "Upload a clear screenshot or PDF of your payment receipt for AI verification.",
+  efUploadScreenshotLabel: "Upload Payment Screenshot/PDF",
+  efDragDropOrClickLabel: "Drag 'n' drop a file here, or click to select",
+  efFileSelectedLabel: "File Selected:",
+  efClickOrDragToChangeLabel: "Click or drag to change",
+  efScreenshotDesc: "Upload a clear image (PNG, JPG) or PDF of your receipt.",
   efPdfLinkLabel: "Enter PDF Link to Receipt",
   efPdfLinkPlaceholder: "https://example.com/receipt.pdf",
   efProceedToPaymentButton: "Proceed to Payment",
@@ -250,6 +253,7 @@ export const en = {
   apStudentsTab: "Students",
   apProgramsTab: "Programs",
   apBankAccountsTab: "Bank Accounts",
+  apStatisticsTab: "Statistics",
   apStudentsListTitle: "Student Enrollments",
   apStudentsListDesc: "View and manage all student enrollments and their payment status.",
   apDbNotInitError: "Database not initialized. Cannot fetch registrations.",
@@ -274,6 +278,8 @@ export const en = {
   apFeatureComingSoon: "Feature coming soon.",
   apBankAccountsSettingsTitle: "Manage Bank Accounts",
   apBankAccountsSettingsDescAdmin: "Add, edit, or delete bank account details used for payments.",
+  apStatisticsTitle: "Statistics & Reports",
+  apStatisticsDesc: "View enrollment statistics and generate reports.",
   apAccessDeniedTitle: "Access Denied", 
   apAccessDeniedMessage: "You do not have permission to view this page. Please contact an administrator if you believe this is an error.", 
   apGoHomeButton: "Go to Homepage",
@@ -379,5 +385,3 @@ export const en = {
 };
 
 export type LocaleStrings = typeof en;
-
-    

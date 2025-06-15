@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText, ShieldCheck, ShieldAlert, UploadCloud } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation'; 
 
@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+// Accordion removed as terms are now always visible
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 
@@ -345,6 +345,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const [showPasswordInDialog, setShowPasswordInDialog] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [t, setT] = useState<Record<string, string>>({});
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
 
   const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(EnrollmentFormSchema),
@@ -447,7 +450,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       if (user && user.email) {
-        fetchUserRegistrations(user.uid); // Fetch existing registrations
+        fetchUserRegistrations(user.uid); 
         const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
 
         if (savedParentInfoRaw) {
@@ -511,7 +514,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       } else {
         if (currentView === 'dashboard') {
             clearLocalStorageData();
-            setUserRegistrations([]); // Clear fetched registrations on logout
+            setUserRegistrations([]); 
             setCurrentView('accountCreation');
             onStageChange('initial');
         }
@@ -537,7 +540,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         }
 
         if (loadedParentInfo?.parentEmail && loadedParentInfo?.password) {
-          // Guest session scenario
           setCurrentView('dashboard');
           onStageChange('accountCreated');
           setActiveDashboardTab('enrollments');
@@ -636,7 +638,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       try {
         const userCredential = await signInWithEmailAndPassword(auth, loginEmail!, loginPassword!);
         const user = userCredential.user;
-        const currentParentInfo = getValues('parentInfo'); // Get potentially entered name
+        const currentParentInfo = getValues('parentInfo'); 
 
         if (typeof window !== 'undefined') {
             localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify({...currentParentInfo, parentEmail: user.email!, password: loginPassword, confirmPassword: loginPassword }));
@@ -648,7 +650,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, { defaultValue: "Redirecting to admin panel..."}) });
           router.push('/admin');
         } else {
-          const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: currentParentInfo.parentFullName || user.email! });
+          const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: (user.displayName || currentParentInfo.parentFullName) || user.email! });
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
         }
       } catch (error: any) {
@@ -675,8 +677,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         toast({ title: t.efNoProgramsToastTitle || "No Programs", description: t.efNoProgramsDesc || "No programs available.", variant: "destructive"});
         return;
     }
-    // Clear any existing local participants when starting a new enrollment process
-    replaceParticipants([]);
     setProgramForNewParticipant(null);
     setCurrentView('addParticipant');
   };
@@ -734,25 +734,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         return;
       }
 
-      let screenshotDataUriForAI: string | undefined;
-      if (data.paymentProof?.proofSubmissionType === 'screenshot') {
-         if (data.paymentProof?.screenshot && data.paymentProof.screenshot.length > 0) {
-            const fileToUpload = data.paymentProof.screenshot[0];
-            if (fileToUpload instanceof File) {
-                screenshotDataUriForAI = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(fileToUpload);
-                });
-                setValue('paymentProof.screenshotDataUri', screenshotDataUriForAI, { shouldValidate: true });
-            } else {
-                console.warn("Screenshot field did not contain a File object at submission.");
-            }
-         } else if (data.paymentProof?.screenshotDataUri) {
-            screenshotDataUriForAI = data.paymentProof.screenshotDataUri;
-         }
+      let screenshotDataUriForAI: string | undefined = data.paymentProof?.screenshotDataUri;
+      if (data.paymentProof?.proofSubmissionType === 'screenshot' && selectedFile) {
+          screenshotDataUriForAI = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+          });
+          setValue('paymentProof.screenshotDataUri', screenshotDataUriForAI, { shouldValidate: true });
       }
+
 
       const selectedBankMethod = paymentMethods.find(m => m.value === data.paymentProof?.paymentType);
       const selectedBankDetails = selectedBankMethod ? (selectedBankMethod.translations[currentLanguage] || selectedBankMethod.translations.en) : undefined;
@@ -761,7 +753,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUriForAI,
+            screenshotDataUri: screenshotDataUriForAI, 
         },
         expectedAmount: calculatedPrice,
         expectedAccountName: selectedBankDetails?.accountName,
@@ -777,7 +769,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         couponCode: data.couponCode,
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUriForAI
+            screenshotDataUri: screenshotDataUriForAI 
         },
         calculatedPrice: calculatedPrice,
         paymentVerified: result.isPaymentValid,
@@ -820,8 +812,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             });
             setRegistrationDataForReceipt(finalRegistrationData);
             setCurrentView('confirmation');
-            clearLocalStorageData(); // Clear local form data after successful submission
-            if (firebaseUser) fetchUserRegistrations(firebaseUser.uid); // Refresh user's registration list
+            clearLocalStorageData(); 
+            setSelectedFile(null); 
+            if (firebaseUser) fetchUserRegistrations(firebaseUser.uid); 
 
         } catch (firestoreError: any) {
             console.error("Error saving registration to Firestore:", firestoreError);
@@ -831,7 +824,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 description: desc,
                 variant: "destructive",
             });
-            setRegistrationDataForReceipt(finalRegistrationData); // Show receipt even if DB save fails, but payment was "verified"
+            setRegistrationDataForReceipt(finalRegistrationData); 
             setCurrentView('confirmation');
         }
 
@@ -845,11 +838,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           description: failureMessage,
           variant: "destructive",
         });
-         // Still save to Firestore if AI verification fails but user wants to proceed (manual review case)
-        if (db && firebaseUser) {
+        if (db && (firebaseUser || getValues('parentInfo.parentEmail')) ) { // Allow saving if guest session with email
            try {
                 const firestoreReadyData = {
-                    ...finalRegistrationData, // Use finalRegistrationData which has paymentVerified: false
+                    ...finalRegistrationData, 
                     registrationDate: finalRegistrationData.registrationDate.toISOString(),
                      parentInfo: {
                         parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
@@ -870,14 +862,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 setRegistrationDataForReceipt(finalRegistrationData);
                 setCurrentView('confirmation');
                 clearLocalStorageData();
+                setSelectedFile(null);
                 if (firebaseUser) fetchUserRegistrations(firebaseUser.uid);
            } catch (dbError: any) {
                 console.error("Error saving non-verified registration to Firestore:", dbError);
                 toast({ title: t.efSavingErrorToastTitle, description: getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: dbError.message}), variant: "destructive" });
-                // Do not proceed to confirmation if DB save failed here, as we can't show a receipt for something not saved.
            }
         } else {
-             console.warn("DB not available or user not logged in, cannot save non-verified registration.");
+             console.warn("DB not available or user not logged in/no email, cannot save non-verified registration.");
         }
       }
     } catch (error: any) {
@@ -895,11 +887,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const handleBackFromReceipt = () => {
     setRegistrationDataForReceipt(null);
-    replaceParticipants([]); // Clear current form participants
+    replaceParticipants([]); 
     setValue('agreeToTerms', false);
     setValue('couponCode', '');
     resetField('paymentProof');
     setValue('paymentProof', {...defaultPaymentProofValues, paymentType: paymentMethods[0]?.value || '' });
+    setSelectedFile(null);
 
 
     if (!firebaseUser) {
@@ -908,7 +901,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         onStageChange('initial');
     } else {
         if (typeof window !== 'undefined') {
-          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY); // Only remove participants, parent info might be from login
+          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY); 
         }
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (firebaseUser.email === effectiveAdminEmail) {
@@ -916,22 +909,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         } else {
           setCurrentView('dashboard');
           setActiveDashboardTab('enrollments');
-          fetchUserRegistrations(firebaseUser.uid); // Refresh list
+          fetchUserRegistrations(firebaseUser.uid); 
         }
     }
     toast({ title: t.efReadyNewEnrollmentToastTitle || "Ready for New Enrollment", description: t.efPreviousEnrollmentClearedToastDesc || "Previous enrollment cleared." });
   };
 
   const handleViewReceipt = (registration: UserRegistrationRecord) => {
-    // Reconstruct RegistrationData for the receipt, ensuring Date objects are correctly handled
     const receiptData: RegistrationData = {
         ...registration,
-        registrationDate: new Date(registration.registrationDate), // Convert ISO string back to Date
+        registrationDate: new Date(registration.registrationDate), 
         participants: registration.participants.map(p => ({
             ...p,
             participantInfo: {
                 ...p.participantInfo,
-                dateOfBirth: new Date(p.participantInfo.dateOfBirth) // Convert ISO string back to Date
+                dateOfBirth: new Date(p.participantInfo.dateOfBirth) 
             }
         }))
     };
@@ -966,6 +958,23 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const uniqueProgramTerms = getUniqueSelectedProgramsTerms();
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        setValue('paymentProof.screenshot', event.target.files, { shouldValidate: true });
+        setSelectedFile(file);
+         // Generate Data URI for preview or direct submission if needed by AI flow without a separate upload step
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setValue('paymentProof.screenshotDataUri', reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    } else {
+        setValue('paymentProof.screenshot', null);
+        setSelectedFile(null);
+        setValue('paymentProof.screenshotDataUri', undefined);
+    }
+  };
 
   if (currentView === 'confirmation' && registrationDataForReceipt) {
     return <Receipt data={registrationDataForReceipt} onBack={handleBackFromReceipt} allPrograms={availablePrograms} paymentMethods={paymentMethods} currentLanguage={currentLanguage} />;
@@ -1312,20 +1321,18 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               <CardHeader className="p-3 sm:p-4 pb-2">
                 <CardTitle className="text-md sm:text-lg">{t.efTermsConditionsTitle}</CardTitle>
               </CardHeader>
-              <CardContent className="p-3 sm:p-4 pt-0">
+              <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
                 {uniqueProgramTerms.length > 0 ? (
-                   <Accordion type="multiple" className="w-full">
-                    {uniqueProgramTerms.map((programTerm, index) => (
-                      <AccordionItem value={`item-${index}`} key={programTerm.programId}>
-                        <AccordionTrigger className="text-sm sm:text-base text-primary hover:no-underline">
+                   uniqueProgramTerms.map((programTerm, index) => (
+                      <div key={programTerm.programId} className={cn(index > 0 && "mt-3 pt-3 border-t")}>
+                        <h4 className="text-sm sm:text-base font-semibold text-primary mb-1">
                           {t.efTermsForProgramPrefix} {programTerm.label}
-                        </AccordionTrigger>
-                        <AccordionContent className="text-xs sm:text-sm text-muted-foreground">
+                        </h4>
+                        <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap">
                           {programTerm.terms}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
+                        </p>
+                      </div>
+                    ))
                 ) : (
                   <p className="text-xs sm:text-sm text-muted-foreground">
                     {t.efGeneralTermsDescP1} <br/>
@@ -1477,19 +1484,50 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                   </div>
                 )}
                 {watchedProofSubmissionType === 'screenshot' && (
-                  <div>
-                    <Label htmlFor="paymentProof.screenshot" className="text-sm">{t.efUploadScreenshotLabel}</Label>
-                    <Input
-                        id="paymentProof.screenshot"
-                        type="file"
-                        accept="image/*,application/pdf"
-                        className="mt-1"
-                        {...register('paymentProof.screenshot')}
-                    />
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentProof.screenshotFile" className="text-sm">{t.efUploadScreenshotLabel}</Label>
+                    <div 
+                        className="flex items-center justify-center w-full p-4 border-2 border-dashed rounded-lg cursor-pointer border-primary/50 hover:border-primary bg-background hover:bg-muted transition-colors"
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                                setValue('paymentProof.screenshot', e.dataTransfer.files, { shouldValidate: true });
+                                setSelectedFile(e.dataTransfer.files[0]);
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                    setValue('paymentProof.screenshotDataUri', reader.result as string);
+                                };
+                                reader.readAsDataURL(e.dataTransfer.files[0]);
+                            }
+                        }}
+                    >
+                        <input
+                            type="file"
+                            id="paymentProof.screenshotFile"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleFileSelect}
+                        />
+                        <div className="text-center">
+                            <UploadCloud className="w-10 h-10 mx-auto text-primary/70 mb-2" />
+                            {selectedFile ? (
+                                <>
+                                    <p className="text-sm font-medium text-primary">{t.efFileSelectedLabel || "File Selected:"}</p>
+                                    <p className="text-xs text-muted-foreground truncate max-w-xs">{selectedFile.name}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{t.efClickOrDragToChangeLabel || "Click or drag to change"}</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-sm font-medium text-primary">{t.efDragDropOrClickLabel || "Drag 'n' drop a file here, or click to select"}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{t.efScreenshotDesc}</p>
+                                </>
+                            )}
+                        </div>
+                    </div>
                     {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{getTranslatedText((errors.paymentProof.screenshot as any).message || "fallback.error", currentLanguage)}</p>}
-                    <p className="text-xs text-muted-foreground mt-1">
-                        {t.efScreenshotDesc}
-                    </p>
                   </div>
                 )}
                 {watchedProofSubmissionType === 'pdfLink' && (
@@ -1583,7 +1621,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           <DialogHeader>
             <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>{t.efAccountInfoDialogTitle}</DialogTitle>
             <DialogDescription>
-                {firebaseUser ? `${t.efLoggedInAsPrefix}${firebaseUser.email}` :
+                {firebaseUser ? `${t.efLoggedInAsPrefix}${(firebaseUser.displayName || firebaseUser.email)}` :
                  (parentInfoForDialog?.parentEmail && parentInfoForDialog.password ? `${t.efPrimaryAccountGuestPrefix}${parentInfoForDialog.parentEmail}` :
                   parentInfoForDialog?.parentEmail ? `${t.efPrimaryAccountIncompletePrefix}${parentInfoForDialog.parentEmail}` :
                   t.efNoAccountActiveMsg)}
@@ -1626,5 +1664,3 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
-
-    

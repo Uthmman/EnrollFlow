@@ -127,9 +127,9 @@ export const ar: LocaleStrings = {
   efDashManageEnrollmentsLabel: "إدارة التسجيلات",
   efDashViewProgramsLabel: "عرض البرامج",
   efDashPaymentSubmissionLabel: "الدفع والتقديم",
-  efDashEnrollmentsTabLabel: "التسجيلات",
-  efDashProgramsTabLabel: "البرامج",
-  efDashPaymentTabLabel: "الدفع",
+  efDashEnrollmentsTabLabel: "التسجيلات", // For mobile
+  efDashProgramsTabLabel: "البرامج", // For mobile
+  efDashPaymentTabLabel: "الدفع", // For mobile
   efManageEnrollmentsTitle: "إدارة تسجيلاتك",
   efYourSubmittedEnrollments: "تسجيلاتك المقدمة:",
   efViewReceiptButton: "عرض الإيصال",
@@ -172,8 +172,11 @@ export const ar: LocaleStrings = {
   efProvidePdfLinkOption: "تقديم رابط PDF",
   efTransactionIdLabel: "أدخل معرف المعاملة / المرجع",
   efTransactionIdPlaceholder: "مثال: TRN123456789",
-  efUploadScreenshotLabel: "تحميل لقطة شاشة للدفع",
-  efScreenshotDesc: "قم بتحميل لقطة شاشة واضحة أو ملف PDF لإيصال الدفع الخاص بك للتحقق بواسطة الذكاء الاصطناعي.",
+  efUploadScreenshotLabel: "تحميل لقطة شاشة/ملف PDF للدفع",
+  efDragDropOrClickLabel: "اسحب وأفلت ملفًا هنا، أو انقر للاختيار",
+  efFileSelectedLabel: "الملف المحدد:",
+  efClickOrDragToChangeLabel: "انقر أو اسحب للتغيير",
+  efScreenshotDesc: "قم بتحميل صورة واضحة (PNG, JPG) أو ملف PDF لإيصال الدفع الخاص بك.",
   efPdfLinkLabel: "أدخل رابط PDF للإيصال",
   efPdfLinkPlaceholder: "https://example.com/receipt.pdf",
   efProceedToPaymentButton: "المتابعة إلى الدفع",
@@ -242,6 +245,7 @@ export const ar: LocaleStrings = {
   apStudentsTab: "الطلاب",
   apProgramsTab: "البرامج",
   apBankAccountsTab: "الحسابات البنكية",
+  apStatisticsTab: "الإحصائيات",
   apStudentsListTitle: "تسجيلات الطلاب",
   apStudentsListDesc: "عرض وإدارة جميع تسجيلات الطلاب وحالة دفعهم.",
   apDbNotInitError: "لم يتم تهيئة قاعدة البيانات. لا يمكن جلب التسجيلات.",
@@ -266,6 +270,8 @@ export const ar: LocaleStrings = {
   apFeatureComingSoon: "الميزة قادمة قريبًا.",
   apBankAccountsSettingsTitle: "إدارة الحسابات البنكية",
   apBankAccountsSettingsDescAdmin: "إضافة أو تعديل أو حذف تفاصيل الحسابات البنكية المستخدمة للمدفوعات.",
+  apStatisticsTitle: "الإحصائيات والتقارير",
+  apStatisticsDesc: "عرض إحصائيات التسجيل وإنشاء التقارير.",
   apAccessDeniedTitle: "تم رفض الوصول",
   apAccessDeniedMessage: "ليس لديك إذن لعرض هذه الصفحة. يرجى الاتصال بمسؤول إذا كنت تعتقد أن هذا خطأ.",
   apGoHomeButton: "الذهاب إلى الصفحة الرئيسية",
@@ -368,5 +374,3 @@ export const ar: LocaleStrings = {
 
   "fallback.error": "إدخال غير صالح أو معلومات مفقودة."
 };
-
-    
