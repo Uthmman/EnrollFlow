@@ -5,9 +5,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText, ShieldCheck, ShieldAlert } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation'; 
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,9 +28,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 import { db, auth } from '@/lib/firebaseConfig';
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, orderBy } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 
 import { SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
@@ -314,6 +315,10 @@ interface EnrollmentFormProps {
 
 type DashboardTab = 'enrollments' | 'programs' | 'payment';
 
+interface UserRegistrationRecord extends RegistrationData {
+  id: string; // Firestore document ID
+}
+
 const ADMIN_EMAIL_FROM_ENV = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAccountDialogFromParent, onCloseAccountDialog, currentLanguage }) => {
@@ -322,7 +327,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const [authMode, setAuthMode] = useState<'register' | 'login'>('register');
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
-  const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
+  const [registrationDataForReceipt, setRegistrationDataForReceipt] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const router = useRouter();
@@ -331,6 +336,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const [programsLoading, setProgramsLoading] = useState<boolean>(true);
   const [paymentMethods, setPaymentMethods] = useState<HafsaPaymentMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState<boolean>(true);
+  
+  const [userRegistrations, setUserRegistrations] = useState<UserRegistrationRecord[]>([]);
+  const [isLoadingUserRegistrations, setIsLoadingUserRegistrations] = useState(false);
 
 
   const [programForNewParticipant, setProgramForNewParticipant] = useState<HafsaProgram | null>(null);
@@ -363,6 +371,28 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     translateEnrollmentFormContent(currentLanguage);
   }, [currentLanguage, translateEnrollmentFormContent]);
 
+  const fetchUserRegistrations = useCallback(async (userId: string) => {
+    if (!db) {
+      console.error("Firestore not initialized. Cannot fetch user registrations.");
+      return;
+    }
+    setIsLoadingUserRegistrations(true);
+    try {
+      const regsCollection = collection(db, 'registrations');
+      const q = query(regsCollection, where('firebaseUserId', '==', userId), orderBy('registrationDate', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const fetchedRegs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRegistrationRecord));
+      setUserRegistrations(fetchedRegs);
+      console.log(`[Form] Fetched ${fetchedRegs.length} registrations for user ${userId}`);
+    } catch (error) {
+      console.error("Error fetching user registrations:", error);
+      toast({ title: t.efErrorToastTitle, description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations.", variant: "destructive"});
+    } finally {
+      setIsLoadingUserRegistrations(false);
+    }
+  }, [toast, t.efErrorToastTitle, t.efFetchUserRegErrorToastDesc]);
+
+
   useEffect(() => {
     const loadInitialData = async () => {
       console.log("[Form] loadInitialData: Starting to load programs and payment methods.");
@@ -382,7 +412,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
       } catch (error) {
         console.error("[Form] loadInitialData: Error loading initial data:", error);
-        if (Object.keys(t).length > 0) { // Ensure translations are ready for toast
+        if (Object.keys(t).length > 0) {
             toast({ title: t.efErrorToastTitle || "Error", description: t.efLoadDataErrorToastDesc || "Failed to load initial data.", variant: "destructive" });
         } else {
             toast({ title: "Error", description: "Failed to load initial data.", variant: "destructive" });
@@ -393,12 +423,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         console.log("[Form] loadInitialData: Finished loading programs and payment methods.");
       }
     };
-     // Moved check for t inside, loadInitialData should try to run regardless of t for fetching
     loadInitialData();
-  }, [toast, setValue, getValues, currentLanguage]); // Removed t from here, as loadInitialData itself calls t dependent toasts
+  }, [toast, setValue, getValues, currentLanguage, t.efErrorToastTitle, t.efLoadDataErrorToastDesc]);
 
 
-  const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
+  const { fields: participantFields, append: appendParticipant, remove: removeParticipant, replace: replaceParticipants } = useFieldArray({
     control,
     name: "participants",
   });
@@ -408,9 +437,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
       localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
       setValue('parentInfo', defaultParentValues);
-      setValue('participants', []);
+      replaceParticipants([]); // Use replace to clear the array
     }
-  }, [setValue]);
+  }, [setValue, replaceParticipants]);
 
   useEffect(() => {
     if (!auth) return;
@@ -418,6 +447,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       if (user && user.email) {
+        fetchUserRegistrations(user.uid); // Fetch existing registrations
         const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
 
         if (savedParentInfoRaw) {
@@ -451,7 +481,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             try {
                 const savedParticipants = JSON.parse(savedParticipantsRaw) as {parentEmail: string, data: EnrolledParticipantData[]};
                 if (savedParticipants.parentEmail === user.email) {
-                     setValue('participants', savedParticipants.data.map((p: EnrolledParticipantData) => ({
+                     replaceParticipants(savedParticipants.data.map((p: EnrolledParticipantData) => ({
                         ...p,
                         participantInfo: {
                             ...p.participantInfo,
@@ -460,19 +490,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     })));
                 } else {
                     localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
-                    setValue('participants', []);
+                     replaceParticipants([]);
                 }
             } catch (e) {
                 console.error("Error parsing participants from LS on auth change", e);
                 localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
-                setValue('participants', []);
+                replaceParticipants([]);
             }
         }
         
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (user.email === effectiveAdminEmail && router && typeof router.push === 'function' && !window.location.pathname.startsWith('/admin')) {
-          // Only redirect if not already on an admin path.
-          // This condition for router and router.push is a safeguard.
           console.log(`[EnrollmentForm] Admin user ${user.email} detected on non-admin page, redirecting to /admin.`);
           router.push('/admin');
         } else if (currentView === 'accountCreation' || currentView === 'confirmation') {
@@ -483,13 +511,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       } else {
         if (currentView === 'dashboard') {
             clearLocalStorageData();
+            setUserRegistrations([]); // Clear fetched registrations on logout
             setCurrentView('accountCreation');
             onStageChange('initial');
         }
       }
     });
     return () => unsubscribe();
-  }, [auth, setValue, onStageChange, currentView, reset, clearLocalStorageData, currentLanguage, getValues, router]); // Added router
+  }, [auth, setValue, onStageChange, currentView, reset, clearLocalStorageData, currentLanguage, getValues, router, fetchUserRegistrations, replaceParticipants]);
 
 
  useEffect(() => {
@@ -508,6 +537,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         }
 
         if (loadedParentInfo?.parentEmail && loadedParentInfo?.password) {
+          // Guest session scenario
           setCurrentView('dashboard');
           onStageChange('accountCreated');
           setActiveDashboardTab('enrollments');
@@ -516,7 +546,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
            if (savedParticipantsRaw) {
              const localParticipants = JSON.parse(savedParticipantsRaw) as {parentEmail: string, data: EnrolledParticipantData[]};
              if(localParticipants.parentEmail === loadedParentInfo.parentEmail) {
-                setValue('participants', localParticipants.data.map((p: EnrolledParticipantData) => ({
+                replaceParticipants(localParticipants.data.map((p: EnrolledParticipantData) => ({
                     ...p,
                     participantInfo: {
                         ...p.participantInfo,
@@ -530,7 +560,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         console.error("Error loading data from localStorage:", error);
       }
     }
-  }, [setValue, onStageChange, toast, firebaseUser, currentLanguage, t]);
+  }, [setValue, onStageChange, toast, firebaseUser, currentLanguage, t, replaceParticipants]);
 
 
   const watchedParticipants = watch('participants');
@@ -538,7 +568,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const watchedProofSubmissionType = watch('paymentProof.proofSubmissionType');
 
   const dashboardTabsConfig = [
-    { value: 'enrollments' as DashboardTab, desktopLabelKey: 'efDashManageEnrollmentsLabel', mobileLabelKey: 'efDashEnrollTabLabel', icon: Users },
+    { value: 'enrollments' as DashboardTab, desktopLabelKey: 'efDashManageEnrollmentsLabel', mobileLabelKey: 'efDashEnrollmentsTabLabel', icon: Users },
     { value: 'programs' as DashboardTab, desktopLabelKey: 'efDashViewProgramsLabel', mobileLabelKey: 'efDashProgramsTabLabel', icon: LayoutList },
     { value: 'payment' as DashboardTab, desktopLabelKey: 'efDashPaymentSubmissionLabel', mobileLabelKey: 'efDashPaymentTabLabel', icon: CreditCard },
   ];
@@ -576,7 +606,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             }
             const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, {name: parentFullName});
             toast({ title: t.efAccountCreatedToastTitle || "Account Created!", description: desc });
-            // User will be picked up by onAuthStateChanged, which handles view transitions
         } catch (error: any) {
             console.error("Firebase registration error:", error);
             let errorMessage = t.efRegistrationFailedToastDesc || "Registration failed.";
@@ -607,7 +636,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       try {
         const userCredential = await signInWithEmailAndPassword(auth, loginEmail!, loginPassword!);
         const user = userCredential.user;
-        const currentParentInfo = getValues('parentInfo');
+        const currentParentInfo = getValues('parentInfo'); // Get potentially entered name
 
         if (typeof window !== 'undefined') {
             localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify({...currentParentInfo, parentEmail: user.email!, password: loginPassword, confirmPassword: loginPassword }));
@@ -618,11 +647,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           console.log(`[EnrollmentForm] Admin user ${user.email} logged in successfully. Redirecting to /admin.`);
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, { defaultValue: "Redirecting to admin panel..."}) });
           router.push('/admin');
-          // No need to call onStageChange or setCurrentView here for admin
         } else {
           const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: currentParentInfo.parentFullName || user.email! });
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
-          // For non-admin, onAuthStateChanged will handle setting user and view transitions
         }
       } catch (error: any) {
         console.error("Firebase login error:", error);
@@ -648,6 +675,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         toast({ title: t.efNoProgramsToastTitle || "No Programs", description: t.efNoProgramsDesc || "No programs available.", variant: "destructive"});
         return;
     }
+    // Clear any existing local participants when starting a new enrollment process
+    replaceParticipants([]);
     setProgramForNewParticipant(null);
     setCurrentView('addParticipant');
   };
@@ -789,9 +818,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               variant: "default",
               className: "bg-accent text-accent-foreground",
             });
-            setRegistrationData(finalRegistrationData);
+            setRegistrationDataForReceipt(finalRegistrationData);
             setCurrentView('confirmation');
-            clearLocalStorageData();
+            clearLocalStorageData(); // Clear local form data after successful submission
+            if (firebaseUser) fetchUserRegistrations(firebaseUser.uid); // Refresh user's registration list
 
         } catch (firestoreError: any) {
             console.error("Error saving registration to Firestore:", firestoreError);
@@ -801,7 +831,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 description: desc,
                 variant: "destructive",
             });
-            setRegistrationData(finalRegistrationData);
+            setRegistrationDataForReceipt(finalRegistrationData); // Show receipt even if DB save fails, but payment was "verified"
             setCurrentView('confirmation');
         }
 
@@ -815,6 +845,40 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           description: failureMessage,
           variant: "destructive",
         });
+         // Still save to Firestore if AI verification fails but user wants to proceed (manual review case)
+        if (db && firebaseUser) {
+           try {
+                const firestoreReadyData = {
+                    ...finalRegistrationData, // Use finalRegistrationData which has paymentVerified: false
+                    registrationDate: finalRegistrationData.registrationDate.toISOString(),
+                     parentInfo: {
+                        parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
+                        parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
+                        parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
+                    },
+                    participants: finalRegistrationData.participants.map(p => ({
+                        ...p,
+                        participantInfo: {
+                            ...p.participantInfo,
+                            dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
+                        }
+                    })),
+                };
+                await addDoc(collection(db, "registrations"), firestoreReadyData);
+                console.log("Registration data (payment not AI verified) saved to Firestore:", firestoreReadyData);
+                toast({ title: t.efRegSubmittedForReviewToastTitle || "Submitted for Review", description: t.efRegSubmittedForReviewToastDesc || "Your registration is submitted and will be reviewed."});
+                setRegistrationDataForReceipt(finalRegistrationData);
+                setCurrentView('confirmation');
+                clearLocalStorageData();
+                if (firebaseUser) fetchUserRegistrations(firebaseUser.uid);
+           } catch (dbError: any) {
+                console.error("Error saving non-verified registration to Firestore:", dbError);
+                toast({ title: t.efSavingErrorToastTitle, description: getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: dbError.message}), variant: "destructive" });
+                // Do not proceed to confirmation if DB save failed here, as we can't show a receipt for something not saved.
+           }
+        } else {
+             console.warn("DB not available or user not logged in, cannot save non-verified registration.");
+        }
       }
     } catch (error: any) {
       console.error("Submission error:", error);
@@ -830,9 +894,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const handleBackFromReceipt = () => {
-    setRegistrationData(null);
-    resetField('participants');
-    setValue('participants', []);
+    setRegistrationDataForReceipt(null);
+    replaceParticipants([]); // Clear current form participants
     setValue('agreeToTerms', false);
     setValue('couponCode', '');
     resetField('paymentProof');
@@ -845,18 +908,35 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         onStageChange('initial');
     } else {
         if (typeof window !== 'undefined') {
-          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY); // Only remove participants, parent info might be from login
         }
-        // If the user is an admin, redirect to admin panel after completing a registration for someone else
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (firebaseUser.email === effectiveAdminEmail) {
           router.push('/admin');
         } else {
           setCurrentView('dashboard');
           setActiveDashboardTab('enrollments');
+          fetchUserRegistrations(firebaseUser.uid); // Refresh list
         }
     }
     toast({ title: t.efReadyNewEnrollmentToastTitle || "Ready for New Enrollment", description: t.efPreviousEnrollmentClearedToastDesc || "Previous enrollment cleared." });
+  };
+
+  const handleViewReceipt = (registration: UserRegistrationRecord) => {
+    // Reconstruct RegistrationData for the receipt, ensuring Date objects are correctly handled
+    const receiptData: RegistrationData = {
+        ...registration,
+        registrationDate: new Date(registration.registrationDate), // Convert ISO string back to Date
+        participants: registration.participants.map(p => ({
+            ...p,
+            participantInfo: {
+                ...p.participantInfo,
+                dateOfBirth: new Date(p.participantInfo.dateOfBirth) // Convert ISO string back to Date
+            }
+        }))
+    };
+    setRegistrationDataForReceipt(receiptData);
+    setCurrentView('confirmation');
   };
 
   const getUniqueSelectedProgramsTerms = () => {
@@ -887,8 +967,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const uniqueProgramTerms = getUniqueSelectedProgramsTerms();
 
 
-  if (currentView === 'confirmation' && registrationData) {
-    return <Receipt data={registrationData} onBack={handleBackFromReceipt} allPrograms={availablePrograms} paymentMethods={paymentMethods} currentLanguage={currentLanguage} />;
+  if (currentView === 'confirmation' && registrationDataForReceipt) {
+    return <Receipt data={registrationDataForReceipt} onBack={handleBackFromReceipt} allPrograms={availablePrograms} paymentMethods={paymentMethods} currentLanguage={currentLanguage} />;
   }
 
   const renderAccountCreation = () => (
@@ -1088,35 +1168,79 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
         <TabsContent value="enrollments" className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
             <h3 className="text-xl font-semibold text-primary">{t.efManageEnrollmentsTitle}</h3>
+            {isLoadingUserRegistrations && <div className="flex justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+            {!isLoadingUserRegistrations && userRegistrations.length > 0 && (
+                <div className="space-y-3">
+                    <h4 className="text-md font-medium text-muted-foreground">{t.efYourSubmittedEnrollments || "Your Submitted Enrollments:"}</h4>
+                    {userRegistrations.map((reg) => (
+                        <Card key={reg.id} className="p-3 bg-background/70">
+                           <div className="flex justify-between items-start mb-1">
+                             <p className="text-xs text-muted-foreground">{t.rRegistrationDateLabel} {format(new Date(reg.registrationDate), "MMM d, yyyy HH:mm")}</p>
+                                {reg.paymentVerified ? (
+                                <Badge variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                                    <ShieldCheck className="mr-1 h-3.5 w-3.5" /> {t['apVerifiedBadge'] || "Verified"}
+                                </Badge>
+                                ) : reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("human review") ? (
+                                <Badge variant="outline" className="border-orange-500 text-orange-600">
+                                    <ShieldAlert className="mr-1 h-3.5 w-3.5" /> {t['apPendingReviewBadge'] || "Pending Review"}
+                                </Badge>
+                                ) : (
+                                <Badge variant="destructive">
+                                    <ShieldAlert className="mr-1 h-3.5 w-3.5" />
+                                    {t['apNotVerifiedBadge'] || "Not Verified"}
+                                </Badge>
+                                )}
+                           </div>
+                            {reg.participants.map((p, idx) => {
+                                const program = availablePrograms.find(prog => prog.id === p.programId);
+                                const progTranslated = program ? (program.translations[currentLanguage] || program.translations.en) : { label: t.efUnknownProgramText };
+                                return (
+                                    <div key={`${reg.id}-${idx}`} className="py-1">
+                                        <p><span className="font-semibold">{p.participantInfo.firstName}</span> - {progTranslated.label} (Br{program?.price.toFixed(2)})</p>
+                                    </div>
+                                );
+                            })}
+                             <Button size="sm" variant="outline" onClick={() => handleViewReceipt(reg)} className="mt-2">
+                                <FileText className="mr-2 h-4 w-4"/> {t.efViewReceiptButton || "View Receipt"}
+                            </Button>
+                        </Card>
+                    ))}
+                </div>
+            )}
 
-            {participantFields.map((field, index) => {
-                const enrolledParticipant = field as unknown as EnrolledParticipantData;
-                const program = availablePrograms.find(p => p.id === enrolledParticipant.programId);
-                const progTranslated = program ? (program.translations[currentLanguage] || program.translations.en) : { label: t.efUnknownProgramText || "Unknown Program" };
-                return (
-                <Card key={field.id} className="p-3 mb-2 bg-background/80">
-                    <div className="flex justify-between items-start">
-                    <div>
-                        <p className="font-semibold text-md">{enrolledParticipant.participantInfo.firstName}</p>
-                        <p className="text-xs text-muted-foreground">{progTranslated.label} - Br{program?.price.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{t.efContactLabel}: {enrolledParticipant.participantInfo.guardianFullName} ({enrolledParticipant.participantInfo.guardianPhone1})</p>
-                    </div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveParticipant(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                    </div>
-                </Card>
-                );
-            })}
+            {participantFields.length > 0 && (
+                 <div className="mt-4">
+                    <h4 className="text-md font-medium text-muted-foreground">{t.efInProgressEnrollment || "Enrollment in Progress:"}</h4>
+                    {participantFields.map((field, index) => {
+                        const enrolledParticipant = field as unknown as EnrolledParticipantData;
+                        const program = availablePrograms.find(p => p.id === enrolledParticipant.programId);
+                        const progTranslated = program ? (program.translations[currentLanguage] || program.translations.en) : { label: t.efUnknownProgramText || "Unknown Program" };
+                        return (
+                        <Card key={field.id} className="p-3 mb-2 bg-background/80 border-dashed">
+                            <div className="flex justify-between items-start">
+                            <div>
+                                <p className="font-semibold text-md">{enrolledParticipant.participantInfo.firstName}</p>
+                                <p className="text-xs text-muted-foreground">{progTranslated.label} - Br{program?.price.toFixed(2)}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{t.efContactLabel}: {enrolledParticipant.participantInfo.guardianFullName} ({enrolledParticipant.participantInfo.guardianPhone1})</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveParticipant(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                            </div>
+                        </Card>
+                        );
+                    })}
+                 </div>
+            )}
 
-            {(participantFields.length === 0) && (
+            {(participantFields.length === 0 && userRegistrations.length === 0 && !isLoadingUserRegistrations) && (
                 <div className="text-center py-4 sm:py-6">
                     <p className="text-muted-foreground mb-3 sm:mb-4 text-sm">{t.efNoParticipantsMsg}</p>
                 </div>
             )}
 
-            <Button type="button" variant="default" onClick={handleAddParticipantClick} className="w-full sm:w-auto" disabled={programsLoading || availablePrograms.length === 0}>
-                 {programsLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} {t.efAddParticipantButton}
+            <Button type="button" variant="default" onClick={handleAddParticipantClick} className="w-full sm:w-auto mt-4" disabled={programsLoading || availablePrograms.length === 0}>
+                 {programsLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} {t.efAddNewEnrollmentButton || "Start New Enrollment"}
             </Button>
         </TabsContent>
 
@@ -1267,7 +1391,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.paymentType.message || "fallback.error", currentLanguage)}</p>}
             </div>
 
-            {selectedMethodObject && selectedMethodObject.accountNumber && (
+            {selectedMethodObject && (selectedMethodObject.accountNumber || selectedMethodDetails?.accountName) && (
                  <Card className="mt-4 p-3 sm:p-4 border-primary/20 bg-card shadow-sm rounded-lg">
                     <div className="flex items-center gap-3 sm:gap-4">
                       {selectedMethodObject.logoPlaceholder && (
@@ -1282,7 +1406,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                       )}
                       <div className="flex-grow space-y-0">
                         <p className="text-lg font-medium text-foreground">{selectedMethodDetails?.label || selectedMethodObject.value}</p>
-                        <p className="text-xl font-bold font-mono text-primary">{selectedMethodObject.accountNumber}</p>
+                        {selectedMethodObject.accountNumber && <p className="text-xl font-bold font-mono text-primary">{selectedMethodObject.accountNumber}</p>}
                         {selectedMethodDetails?.accountName && (
                           <p className="text-sm text-muted-foreground">{selectedMethodDetails.accountName}</p>
                         )}
@@ -1443,7 +1567,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     </Button>
                 ) : (
                     <Button type="submit"
-                        disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType') || paymentMethodsLoading}
+                        disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType') || paymentMethodsLoading || participantFields.length === 0}
                         className="w-full sm:ml-auto sm:w-auto"
                     >
                         {isLoading || paymentMethodsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
@@ -1486,7 +1610,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 if (auth) {
                     try {
                         await signOut(auth);
-                        // clearLocalStorageData(); // Already called in onAuthStateChanged
                         toast({title: t.efLoggedOutToastTitle || "Logged Out", description: t.efLoggedOutSuccessToastDesc || "Successfully logged out."});
                         onCloseAccountDialog();
                     } catch (error) {
@@ -1503,3 +1626,5 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+
+    

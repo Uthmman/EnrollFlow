@@ -1,20 +1,18 @@
 
 import { z } from 'zod';
-// Import HafsaProgram, ProgramField, HafsaPaymentMethod etc. from constants where they are now primarily defined
 import type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory } from '@/lib/constants';
 
-// Authentication and Form related types
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const phoneRegex = /^[0-9]{9,15}$/; // Basic phone regex, adjust if needed for specific formats
+const phoneRegex = /^[0-9]{9,15}$/; 
 
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters."),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format."),
   parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX)."),
-  password: z.string().min(6, "Password must be at least 6 characters."),
-  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
+  password: z.string().min(6, "Password must be at least 6 characters.").optional(), // Optional for updates/reads
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(), // Optional for updates/reads
 }).superRefine((data, ctx) => {
-  if (data.password !== data.confirmPassword) {
+  if (data.password && data.password !== data.confirmPassword) { // Only validate if password is being set/changed
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['confirmPassword'],
@@ -42,15 +40,12 @@ export type ParticipantInfoData = z.infer<typeof ParticipantInfoSchema>;
 
 export const EnrolledParticipantSchema = z.object({
   programId: z.string().min(1, "Program selection is required for each participant."),
-  // Store program details that were current at time of enrollment for receipt/history
-  // This could include the translated label and price, but for simplicity, we might just store ID
-  // and look it up. For now, just programId.
   participantInfo: ParticipantInfoSchema,
 });
 export type EnrolledParticipantData = z.infer<typeof EnrolledParticipantSchema>;
 
 export const PaymentProofSchema = z.object({
-  paymentType: z.string().min(1, "Payment method is required."), // This will be the ID/value from Firestore
+  paymentType: z.string().min(1, "Payment method is required."),
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
     required_error: "Proof submission method is required.",
   }),
@@ -74,7 +69,7 @@ export const EnrollmentFormSchema = z.object({
   loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(),
 })
 .superRefine((data, ctx) => {
-    if (data.paymentProof) {
+    if (data.participants && data.participants.length > 0 && data.paymentProof) { // Check if participants exist before validating paymentProof details
         const { proofSubmissionType, transactionId, screenshot, pdfLink, screenshotDataUri } = data.paymentProof;
         if (proofSubmissionType === 'transactionId') {
             if (!transactionId || transactionId.length < 3) {
@@ -136,7 +131,7 @@ export const EnrollmentFormSchema = z.object({
     if (hasParticipants && !hasPaymentProofObject) {
        ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['paymentProof', 'paymentType'],
+            path: ['paymentProof', 'paymentType'], // Point to a general payment proof field
             message: 'Payment details are required when participants are enrolled.',
         });
     } else if (hasParticipants && hasPaymentProofObject) {
@@ -165,21 +160,39 @@ export const EnrollmentFormSchema = z.object({
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
-// Store IDs for program and payment method, actual translated data can be looked up
-// or a snapshot of relevant translated fields can be stored.
-// For simplicity, we'll store less here and rely on lookups in components like Receipt.
 export type RegistrationData = {
   parentInfo: ParentInfoData;
-  participants: EnrolledParticipantData[]; // Contains programId
+  participants: EnrolledParticipantData[]; 
   agreeToTerms: boolean;
   couponCode?: string;
-  paymentProof: PaymentProofData; // Contains paymentType (ID)
+  paymentProof: PaymentProofData; 
   calculatedPrice: number;
   paymentVerified: boolean;
   paymentVerificationDetails?: any;
-  registrationDate: Date;
+  registrationDate: Date | string; // Allow string for Firestore data, convert to Date in app
   firebaseUserId?: string;
 };
 
-// Re-exporting types defined in constants.ts for centralized access
+
+export const BankDetailFormSchema = z.object({
+  value: z.string().min(3, "Bank ID must be at least 3 characters (e.g., 'cbe_branch_x').").regex(/^[a-z0-9_]+$/, "ID can only contain lowercase letters, numbers, and underscores."),
+  logoPlaceholder: z.string().url({ message: "Please enter a valid URL for the logo placeholder." }).optional().or(z.literal('')),
+  dataAiHint: z.string().optional(),
+  accountNumber: z.string().min(5, "Account number must be at least 5 digits.").optional().or(z.literal('')),
+  enLabel: z.string().min(1, "English label (Bank Name) is required."),
+  enAccountName: z.string().optional(),
+  enAdditionalInstructions: z.string().optional(),
+  amLabel: z.string().optional(),
+  amAccountName: z.string().optional(),
+  amAdditionalInstructions: z.string().optional(),
+  arLabel: z.string().optional(),
+  arAccountName: z.string().optional(),
+  arAdditionalInstructions: z.string().optional(),
+});
+
+export type BankDetailFormData = z.infer<typeof BankDetailFormSchema>;
+
+
 export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };
+
+    

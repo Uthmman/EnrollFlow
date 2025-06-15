@@ -91,9 +91,12 @@ export const en = {
   efFirestoreInitFailedToastDesc: "Firestore is not initialized. Cannot save registration.",
   efSavingErrorToastTitle: "Saving Error",
   efRegSubmittedDbFailToastDescTpl: "Registration submitted, but failed to save to database: {message}. Please contact support.",
+  efRegSubmittedForReviewToastTitle: "Submitted for Review",
+  efRegSubmittedForReviewToastDesc: "Your registration is submitted and will be reviewed.",
   efPaymentIssueToastTitle: "Payment Issue",
   efPaymentVerificationFailedToastDesc: "Payment verification failed.",
   efErrorToastTitle: "Error",
+  efFetchUserRegErrorToastDesc: "Failed to fetch your registrations.",
   efUnexpectedErrorToastDesc: "An unexpected error occurred. Please try again.",
   efNoProgramSelectedToastDesc: "No program selected.",
   efReadyNewEnrollmentToastTitle: "Ready for New Enrollment",
@@ -129,14 +132,17 @@ export const en = {
   efDashManageEnrollmentsLabel: "Manage Enrollments",
   efDashViewProgramsLabel: "View Programs",
   efDashPaymentSubmissionLabel: "Payment & Submission",
-  efDashEnrollTabLabel: "Enroll",
-  efDashProgramsTabLabel: "Programs",
-  efDashPaymentTabLabel: "Payment",
-  efManageEnrollmentsTitle: "Manage Enrollments",
+  efDashEnrollmentsTabLabel: "Enrollments", // For mobile
+  efDashProgramsTabLabel: "Programs", // For mobile
+  efDashPaymentTabLabel: "Payment", // For mobile
+  efManageEnrollmentsTitle: "Manage Your Enrollments",
+  efYourSubmittedEnrollments: "Your Submitted Enrollments:",
+  efViewReceiptButton: "View Receipt",
+  efInProgressEnrollment: "Enrollment in Progress (Not Submitted):",
   efUnknownProgramText: "Unknown Program",
   efContactLabel: "Contact",
-  efNoParticipantsMsg: "No participants added yet. Click below to add an enrollment.",
-  efAddParticipantButton: "Add Participant / Enrollment",
+  efNoParticipantsMsg: "No participants added to the current enrollment. Click below to start a new enrollment.",
+  efAddNewEnrollmentButton: "Start New Enrollment",
   efAvailableProgramsTitle: "Available Programs",
   efNoProgramsViewingMsg: "No programs are currently available for viewing. Please check back later or contact administration.",
   efAgeLabel: "Age",
@@ -247,9 +253,9 @@ export const en = {
   apStudentsListTitle: "Student Enrollments",
   apStudentsListDesc: "View and manage all student enrollments and their payment status.",
   apDbNotInitError: "Database not initialized. Cannot fetch registrations.",
-  apRegistrationsText: "registrations", // helper for error messages
-  apProgramsText: "programs", // helper for error messages
-  apPaymentMethodsText: "payment methods", // helper for error messages
+  apRegistrationsText: "registrations", 
+  apProgramsText: "programs", 
+  apPaymentMethodsText: "payment methods", 
   apFetchRegError: "Failed to fetch registrations:",
   apNoRegistrationsFound: "No student enrollments found.",
   apParentNameHeader: "Parent Name",
@@ -268,8 +274,8 @@ export const en = {
   apFeatureComingSoon: "Feature coming soon.",
   apBankAccountsSettingsTitle: "Manage Bank Accounts",
   apBankAccountsSettingsDescAdmin: "Add, edit, or delete bank account details used for payments.",
-  apAccessDeniedTitle: "Access Denied", // Used by access-denied page
-  apAccessDeniedMessage: "You do not have permission to view this page. Please contact an administrator if you believe this is an error.", // Used by access-denied page
+  apAccessDeniedTitle: "Access Denied", 
+  apAccessDeniedMessage: "You do not have permission to view this page. Please contact an administrator if you believe this is an error.", 
   apGoHomeButton: "Go to Homepage",
   apAddProgramButton: "Add Program",
   apAddBankDetailButton: "Add Bank Account",
@@ -286,7 +292,7 @@ export const en = {
   apLoadingBankDetails: "Loading bank accounts...",
   apFetchPaymentMethodsError: "Failed to fetch payment methods:",
   apNoBankDetailsAdmin: "No bank accounts found. Add one to get started.",
-  apConfirmDeleteMessage: "Are you sure you want to delete this", 
+  apConfirmDeleteMessage: "Are you sure you want to delete this {item}", 
   apThisIsPlaceholder: "This is a placeholder action for now.",
   apActionPlaceholderTitle: "Action Placeholder",
   apActionNotImplemented: "Functionality not fully implemented yet.",
@@ -342,9 +348,36 @@ export const en = {
   apDeleteErrorTitle: "Deletion Error",
   apAdminAccountDialogTitle: "Admin Account",
   apNotLoggedIn: "Not logged in",
+  apBankIdLabel: "Bank ID (Unique)",
+  apBankIdPlaceholder: "e.g., cbe_main, awash_telebirr",
+  apBankIdFixed: "ID cannot be changed after creation.",
+  apAccountNumberPlaceholder: "Enter bank account number",
+  apLogoPlaceholderLabel: "Logo Placeholder URL",
+  apLogoAiHintLabel: "Logo AI Hint",
+  apLogoAiHintPlaceholder: "e.g., cbe logo, bank icon",
+  apBankEnLabel: "English Label (Bank Name)",
+  apBankEnAccountName: "English Account Name (Holder)",
+  apBankEnInstructions: "English Additional Instructions",
+  apBankAmLabel: "Amharic Label (Bank Name)",
+  apBankAmAccountName: "Amharic Account Name (Holder)",
+  apBankAmInstructions: "Amharic Additional Instructions",
+  apBankArLabel: "Arabic Label (Bank Name)",
+  apBankArAccountName: "Arabic Account Name (Holder)",
+  apBankArInstructions: "Arabic Additional Instructions",
+  apUpdateBankButton: "Update Bank Account",
+  apEditBankDialogTitle: "Edit Bank Account",
+  apAddBankDialogTitle: "Add New Bank Account",
+  apEditBankDialogDesc: "Modify the details of the existing bank account.",
+  apAddBankDialogDesc: "Fill in the details for the new bank account.",
+  apBankDetailAddedTitle: "Bank Account Added",
+  apBankDetailUpdatedTitle: "Bank Account Updated",
+  apBankDetailDeletedTitle: "Bank Account Deleted",
+
 
   // Fallback for errors/missing keys
   "fallback.error": "Invalid input or missing information."
 };
 
 export type LocaleStrings = typeof en;
+
+    

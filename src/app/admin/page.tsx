@@ -11,18 +11,19 @@ import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
 import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut } from 'lucide-react';
-import { Tabs, TabsContent } from "@/components/ui/tabs"; // Removed TabsList, TabsTrigger
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { AddProgramForm, type ProgramFormData } from '@/components/admin/add-program-form';
+import { AddBankForm, type BankDetailFormData } from '@/components/admin/add-bank-form';
 import { useToast } from "@/hooks/use-toast";
 import { getTranslationsForLanguage as getTranslations, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
 import AppHeader from '@/components/app-header';
-import { cn } from '@/lib/utils'; // Import cn utility
+import { cn } from '@/lib/utils';
 
 interface RegistrationRow extends RegistrationData {
   id: string;
@@ -49,6 +50,10 @@ const AdminPage = () => {
 
   const [showAddProgramDialog, setShowAddProgramDialog] = useState(false);
   const [editingProgram, setEditingProgram] = useState<HafsaProgram | null>(null);
+
+  const [showAddBankDialog, setShowAddBankDialog] = useState(false);
+  const [editingBankDetail, setEditingBankDetail] = useState<HafsaPaymentMethod | null>(null);
+
   const [showAdminAccountDialog, setShowAdminAccountDialog] = useState(false);
 
   const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>('en');
@@ -158,7 +163,7 @@ const AdminPage = () => {
     } else {
       console.log("[AdminPage] isAdmin is false or user not loaded, not calling fetchAllData. isAdmin:", isAdmin, "isAdminLoading:", isAdminLoading);
     }
-  }, [isAdmin, isAdminLoading, fetchAllData]); // Added isAdminLoading
+  }, [isAdmin, isAdminLoading, fetchAllData]);
 
   const handleAdminLogout = async () => {
     if (auth) {
@@ -169,6 +174,163 @@ const AdminPage = () => {
         } catch (error) {
             toast({ title: getTranslatedText('efLogoutErrorToastTitle', currentLanguage), description: getTranslatedText('efLogoutFailedToastDesc', currentLanguage), variant: "destructive" });
         }
+    }
+  };
+
+  const handleAddProgram = () => {
+    setEditingProgram(null);
+    setShowAddProgramDialog(true);
+  };
+
+  const handleEditProgram = (program: HafsaProgram) => {
+    setEditingProgram(program);
+    setShowAddProgramDialog(true);
+  };
+  
+  const handleDeleteProgram = async (programId: string, programName?: string) => {
+    let message = `${getTranslatedText('apConfirmDeleteMessage', currentLanguage, {item: getTranslatedText('apProgramSingular', currentLanguage)})}`;
+    if (programName) {
+        message += ` "${programName}"?`;
+    } else {
+        message += ` with ID ${programId}?`;
+    }
+    
+    if (window.confirm(message)) {
+      try {
+        if (!db) throw new Error("Firestore not initialized");
+        await deleteDoc(doc(db, "programs", programId));
+        toast({ title: getTranslatedText('apProgramDeletedTitle', currentLanguage), description: `${getTranslatedText('apProgramPrefix', currentLanguage)} "${programName || programId}" ${getTranslatedText('apDeletedSuccess', currentLanguage)} ${getTranslatedText('apSuccessfully', currentLanguage)}` });
+        await fetchAllData(); 
+      } catch (error: any) {
+        console.error("Error deleting program:", error);
+        toast({ title: getTranslatedText('apDeleteErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
+      }
+    }
+  };
+  
+  const handleSaveProgram = async (data: ProgramFormData) => {
+    try {
+      if (!db) throw new Error("Firestore not initialized");
+      const programToSave: HafsaProgram = {
+        id: data.id,
+        price: data.price,
+        category: data.category,
+        ageRange: data.ageRange || undefined,
+        duration: data.duration || undefined,
+        schedule: data.schedule || undefined,
+        isChildProgram: data.isChildProgram,
+        translations: {
+          en: {
+            label: data.enLabel,
+            description: data.enDescription,
+            termsAndConditions: data.enTerms,
+          },
+          am: data.amLabel ? {
+            label: data.amLabel,
+            description: data.amDescription || '',
+            termsAndConditions: data.amTerms || '',
+          } : undefined,
+          ar: data.arLabel ? {
+            label: data.arLabel,
+            description: data.arDescription || '',
+            termsAndConditions: data.arTerms || '',
+          } : undefined,
+        },
+      };
+
+      await setDoc(doc(db, "programs", data.id), programToSave, { merge: true });
+      toast({ 
+        title: editingProgram ? (getTranslatedText('apProgramUpdatedTitle', currentLanguage)) : (getTranslatedText('apProgramAddedTitle', currentLanguage)), 
+        description: `${getTranslatedText('apProgramPrefix', currentLanguage)} "${data.enLabel}" ${editingProgram ? (getTranslatedText('apUpdatedSuccess', currentLanguage)) : (getTranslatedText('apAddedSuccess', currentLanguage))} ${getTranslatedText('apSuccessfully', currentLanguage)}` 
+      });
+      setShowAddProgramDialog(false);
+      setEditingProgram(null);
+      await fetchAllData(); 
+    } catch (error: any) {
+      console.error("Error saving program:", error);
+      toast({ title: getTranslatedText('apSaveErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleEditRegistration = (registrationId: string) => {
+    toast({ title: getTranslatedText('apFeatureComingSoon', currentLanguage), description: `${getTranslatedText('apEditButton', currentLanguage)} ${getTranslatedText('apRegistrationSingular', currentLanguage)} ID: ${registrationId}` });
+  };
+
+  const handleDeleteRegistration = (registrationId: string, parentName?: string) => {
+    let message = `${getTranslatedText('apConfirmDeleteMessage', currentLanguage, { item: getTranslatedText('apRegistrationSingular', currentLanguage) })}`;
+    if (parentName) message += ` for "${parentName}"?`; else message += ` with ID ${registrationId}?`;
+    
+    if (window.confirm(message)) {
+      console.log(`Placeholder: Would delete registration: ${registrationId}`);
+      toast({ title: getTranslatedText('apActionPlaceholderTitle', currentLanguage), description: `${getTranslatedText('apDeleteButton', currentLanguage)} ${getTranslatedText('apRegistrationSingular', currentLanguage)} ID: ${registrationId} - ${getTranslatedText('apActionNotImplemented', currentLanguage)}` });
+    }
+  };
+
+  const handleAddBankDetail = () => {
+    setEditingBankDetail(null);
+    setShowAddBankDialog(true);
+  };
+
+  const handleEditBankDetail = (bankDetail: HafsaPaymentMethod) => {
+    setEditingBankDetail(bankDetail);
+    setShowAddBankDialog(true);
+  };
+
+  const handleSaveBankDetail = async (data: BankDetailFormData) => {
+    try {
+      if (!db) throw new Error("Firestore not initialized");
+      const bankDetailToSave: HafsaPaymentMethod = {
+        value: data.value,
+        accountNumber: data.accountNumber || undefined,
+        logoPlaceholder: data.logoPlaceholder || undefined,
+        dataAiHint: data.dataAiHint || undefined,
+        translations: {
+          en: {
+            label: data.enLabel,
+            accountName: data.enAccountName || undefined,
+            additionalInstructions: data.enAdditionalInstructions || undefined,
+          },
+          am: data.amLabel ? {
+            label: data.amLabel,
+            accountName: data.amAccountName || undefined,
+            additionalInstructions: data.amAdditionalInstructions || undefined,
+          } : undefined,
+          ar: data.arLabel ? {
+            label: data.arLabel,
+            accountName: data.arAccountName || undefined,
+            additionalInstructions: data.arAdditionalInstructions || undefined,
+          } : undefined,
+        },
+      };
+
+      await setDoc(doc(db, "paymentMethods", data.value), bankDetailToSave, { merge: true });
+      toast({ 
+        title: editingBankDetail ? (getTranslatedText('apBankDetailUpdatedTitle', currentLanguage)) : (getTranslatedText('apBankDetailAddedTitle', currentLanguage)), 
+        description: `${getTranslatedText('apBankDetailSingular', currentLanguage)} "${data.enLabel}" ${editingBankDetail ? (getTranslatedText('apUpdatedSuccess', currentLanguage)) : (getTranslatedText('apAddedSuccess', currentLanguage))} ${getTranslatedText('apSuccessfully', currentLanguage)}` 
+      });
+      setShowAddBankDialog(false);
+      setEditingBankDetail(null);
+      await fetchAllData();
+    } catch (error: any) {
+      console.error("Error saving bank detail:", error);
+      toast({ title: getTranslatedText('apSaveErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleDeleteBankDetail = async (bankDetailId: string, bankName?: string) => {
+    let message = `${getTranslatedText('apConfirmDeleteMessage', currentLanguage, {item: getTranslatedText('apBankDetailSingular', currentLanguage)})}`;
+    if (bankName) message += ` "${bankName}"?`; else message += ` ID: ${bankDetailId}?`;
+    
+    if (window.confirm(message)) {
+      try {
+        if (!db) throw new Error("Firestore not initialized");
+        await deleteDoc(doc(db, "paymentMethods", bankDetailId));
+        toast({ title: getTranslatedText('apBankDetailDeletedTitle', currentLanguage), description: `${getTranslatedText('apBankDetailSingular', currentLanguage)} "${bankName || bankDetailId}" ${getTranslatedText('apDeletedSuccess', currentLanguage)} ${getTranslatedText('apSuccessfully', currentLanguage)}` });
+        await fetchAllData();
+      } catch (error: any) {
+        console.error("Error deleting bank detail:", error);
+        toast({ title: getTranslatedText('apDeleteErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
+      }
     }
   };
 
@@ -266,12 +428,14 @@ const AdminPage = () => {
                                 <Badge variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90">
                                   <ShieldCheck className="mr-1 h-3.5 w-3.5" /> {t['apVerifiedBadge'] || "Verified"}
                                 </Badge>
+                              ) : reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("human review") ? (
+                                <Badge variant="outline" className="border-orange-500 text-orange-600">
+                                  <ShieldAlert className="mr-1 h-3.5 w-3.5" /> {t['apPendingReviewBadge'] || "Pending Review"}
+                                </Badge>
                               ) : (
                                  <Badge variant="destructive">
                                   <ShieldAlert className="mr-1 h-3.5 w-3.5" />
-                                  {reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("human review")
-                                    ? (t['apPendingReviewBadge'] || "Pending Review")
-                                    : (t['apNotVerifiedBadge'] || "Not Verified")}
+                                  {t['apNotVerifiedBadge'] || "Not Verified"}
                                 </Badge>
                               )}
                             </TableCell>
@@ -374,7 +538,7 @@ const AdminPage = () => {
                               {translatedMethod.additionalInstructions && <p className="mt-1 text-xs italic">{translatedMethod.additionalInstructions}</p>}
                           </CardContent>
                           <CardFooter className="flex justify-end space-x-2">
-                              <Button variant="outline" size="sm" onClick={() => handleEditBankDetail(method.value)}>
+                              <Button variant="outline" size="sm" onClick={() => handleEditBankDetail(method)}>
                               <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
                               </Button>
                               <Button variant="destructive" size="sm" onClick={() => handleDeleteBankDetail(method.value, translatedMethod.label)}>
@@ -413,115 +577,31 @@ const AdminPage = () => {
             />
           </DialogContent>
         </Dialog>
+
+        <Dialog open={showAddBankDialog} onOpenChange={(isOpen) => {
+          setShowAddBankDialog(isOpen);
+          if (!isOpen) setEditingBankDetail(null);
+        }}>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingBankDetail ? (t['apEditBankDialogTitle'] || "Edit Bank Account") : (t['apAddBankDialogTitle'] || "Add New Bank Account")}</DialogTitle>
+              <DialogDescription>
+                {editingBankDetail ? (t['apEditBankDialogDesc'] || "Modify the details of the existing bank account.") : (t['apAddBankDialogDesc'] || "Fill in the details for the new bank account.")}
+              </DialogDescription>
+            </DialogHeader>
+            <AddBankForm
+              onSubmit={handleSaveBankDetail}
+              initialData={editingBankDetail}
+              onCancel={() => {
+                setShowAddBankDialog(false);
+                setEditingBankDetail(null);
+              }}
+              currentLanguage={currentLanguage}
+            />
+          </DialogContent>
+        </Dialog>
       </>
     );
-  };
-
-  const handleAddProgram = () => {
-    setEditingProgram(null);
-    setShowAddProgramDialog(true);
-  };
-
-  const handleEditProgram = (program: HafsaProgram) => {
-    setEditingProgram(program);
-    setShowAddProgramDialog(true);
-  };
-  
-  const handleDeleteProgram = async (programId: string, programName?: string) => {
-    let message = `${getTranslatedText('apConfirmDeleteMessage', currentLanguage) || 'Are you sure you want to delete this'} ${getTranslatedText('apProgramSingular', currentLanguage) || 'program'}`;
-    if (programName) {
-        message += ` "${programName}"?`;
-    } else {
-        message += ` with ID ${programId}?`;
-    }
-    
-    if (window.confirm(message)) {
-      try {
-        if (!db) throw new Error("Firestore not initialized");
-        await deleteDoc(doc(db, "programs", programId));
-        toast({ title: getTranslatedText('apProgramDeletedTitle', currentLanguage), description: `${getTranslatedText('apProgramPrefix', currentLanguage)} "${programName || programId}" ${getTranslatedText('apDeletedSuccess', currentLanguage)} ${getTranslatedText('apSuccessfully', currentLanguage)}` });
-        await fetchAllData(); 
-      } catch (error: any) {
-        console.error("Error deleting program:", error);
-        toast({ title: getTranslatedText('apDeleteErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
-      }
-    }
-  };
-  
-  const handleSaveProgram = async (data: ProgramFormData) => {
-    try {
-      if (!db) throw new Error("Firestore not initialized");
-      const programToSave: HafsaProgram = {
-        id: data.id,
-        price: data.price,
-        category: data.category,
-        ageRange: data.ageRange,
-        duration: data.duration,
-        schedule: data.schedule,
-        isChildProgram: data.isChildProgram,
-        translations: {
-          en: {
-            label: data.enLabel,
-            description: data.enDescription,
-            termsAndConditions: data.enTerms,
-          },
-          am: {
-            label: data.amLabel || '',
-            description: data.amDescription || '',
-            termsAndConditions: data.amTerms || '',
-          },
-          ar: {
-            label: data.arLabel || '',
-            description: data.arDescription || '',
-            termsAndConditions: data.arTerms || '',
-          },
-        },
-      };
-
-      await setDoc(doc(db, "programs", data.id), programToSave, { merge: true });
-      toast({ 
-        title: editingProgram ? (getTranslatedText('apProgramUpdatedTitle', currentLanguage)) : (getTranslatedText('apProgramAddedTitle', currentLanguage)), 
-        description: `${getTranslatedText('apProgramPrefix', currentLanguage)} "${data.enLabel}" ${editingProgram ? (getTranslatedText('apUpdatedSuccess', currentLanguage)) : (getTranslatedText('apAddedSuccess', currentLanguage))} ${getTranslatedText('apSuccessfully', currentLanguage)}` 
-      });
-      setShowAddProgramDialog(false);
-      setEditingProgram(null);
-      await fetchAllData(); 
-    } catch (error: any) {
-      console.error("Error saving program:", error);
-      toast({ title: getTranslatedText('apSaveErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
-    }
-  };
-
-  const handleEditRegistration = (registrationId: string) => {
-    alert(`${getTranslatedText('apEditButton', currentLanguage)} ${getTranslatedText('apRegistrationSingular', currentLanguage)} ID: ${registrationId}. ${getTranslatedText('apFeatureComingSoon', currentLanguage)}`);
-  };
-
-  const handleDeleteRegistration = (registrationId: string, parentName?: string) => {
-    let message = `${getTranslatedText('apConfirmDeleteMessage', currentLanguage)} ${getTranslatedText('apRegistrationSingular', currentLanguage)}`;
-    if (parentName) message += ` for "${parentName}"?`; else message += ` with ID ${registrationId}?`;
-    message += ` (${getTranslatedText('apThisIsPlaceholder', currentLanguage)})`;
-    if (window.confirm(message)) {
-      console.log(`Would delete registration: ${registrationId}`);
-      toast({ title: getTranslatedText('apActionPlaceholderTitle', currentLanguage), description: `${getTranslatedText('apDeleteButton', currentLanguage)} ${getTranslatedText('apRegistrationSingular', currentLanguage)} ID: ${registrationId} - ${getTranslatedText('apActionNotImplemented', currentLanguage)}` });
-    }
-  };
-
-  const handleAddBankDetail = () => {
-    alert(`${getTranslatedText('apAddButton', currentLanguage)} ${getTranslatedText('apBankDetailSingular', currentLanguage)}. ${getTranslatedText('apFeatureComingSoon', currentLanguage)}`);
-  };
-
-  const handleEditBankDetail = (bankDetailId: string) => {
-    alert(`${getTranslatedText('apEditButton', currentLanguage)} ${getTranslatedText('apBankDetailSingular', currentLanguage)} ID: ${bankDetailId}. ${getTranslatedText('apFeatureComingSoon', currentLanguage)}`);
-  };
-
-  const handleDeleteBankDetail = (bankDetailId: string, bankName?: string) => {
-    let message = `${getTranslatedText('apConfirmDeleteMessage', currentLanguage)} ${getTranslatedText('apBankDetailSingular', currentLanguage)}`;
-    if (bankName) message += ` "${bankName}"?`; else message += ` with ID ${bankDetailId}?`;
-    message += ` (${getTranslatedText('apThisIsPlaceholder', currentLanguage)})`;
-    if (window.confirm(message)) {
-      console.log(`Would delete bank detail: ${bankDetailId}`);
-      toast({ title: getTranslatedText('apActionPlaceholderTitle', currentLanguage), description: `${getTranslatedText('apDeleteButton', currentLanguage)} ${getTranslatedText('apBankDetailSingular', currentLanguage)} ID: ${bankDetailId} - ${getTranslatedText('apActionNotImplemented', currentLanguage)}` });
-    }
   };
 
   return (

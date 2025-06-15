@@ -8,10 +8,9 @@ service cloud.firestore {
       // Allow authenticated users to create new registrations
       allow create: if request.auth != null;
 
-      // Allow users whose email matches YOUR_ADMIN_EMAIL_HERE to read registrations
-      // IMPORTANT: Replace "YOUR_ADMIN_EMAIL_HERE" with the actual email address
-      // you've set in your NEXT_PUBLIC_ADMIN_EMAIL environment variable.
-      allow read: if request.auth != null && request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";
+      // Allow users whose email matches YOUR_ADMIN_EMAIL_HERE to read ALL registrations
+      // Also, allow authenticated users to read their OWN registrations
+      allow read: if request.auth != null && (request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE" || request.auth.uid == resource.data.firebaseUserId);
 
       // For now, explicitly deny update and delete for registrations.
       // These can be refined later for admin-specific actions if needed.
@@ -21,17 +20,21 @@ service cloud.firestore {
     match /programs/{programId} {
       // Allow anyone to read program data
       allow read: if true;
-      // Allow writes for development/seeding.
-      // TODO: Change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";) for production.
-      allow write: if true;
+      // Allow writes for development/seeding by anyone, and by admin.
+      // For production, you might want to restrict the 'true' part or make it admin-only.
+      allow write: if true; // Simpler for client-side seeding during development
+                            // For production: request.auth != null && request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";
     }
 
     match /paymentMethods/{methodId} {
       // Allow anyone to read payment methods
       allow read: if true;
-      // Allow writes for development/seeding.
-      // TODO: Change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";) for production.
-      allow write: if true;
+      // Allow writes for development/seeding by anyone, and by admin.
+      // For production, you might want to restrict the 'true' part or make it admin-only.
+      allow write: if true; // Simpler for client-side seeding during development
+                            // For production: request.auth != null && request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";
     }
   }
 }
+
+    
