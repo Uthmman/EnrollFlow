@@ -22,8 +22,8 @@ service cloud.firestore {
       // Allow anyone to read program data
       allow read: if true;
       // Allow writes for development/seeding.
-      // This is crucial for the ensureInitialDataInFirestore function.
-      // TODO: For production, change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";).
+      // This allows the client-side ensureInitialDataInFirestore to work.
+      // TODO: For production, change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";)
       allow write: if true;
     }
 
@@ -31,9 +31,14 @@ service cloud.firestore {
       // Allow anyone to read payment methods
       allow read: if true;
       // Allow writes for development/seeding.
-      // This is crucial for the ensureInitialDataInFirestore function.
-      // TODO: For production, change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";).
+      // This allows the client-side ensureInitialDataInFirestore to work.
+      // TODO: For production, change to admin-only (e.g., if request.auth.token.email == "YOUR_ADMIN_EMAIL_HERE";)
       allow write: if true;
+    }
+
+    // Default deny all other paths if not explicitly matched above
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
