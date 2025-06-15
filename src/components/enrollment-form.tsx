@@ -32,7 +32,8 @@ import { db, auth } from '@/lib/firebaseConfig';
 import { collection, addDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 
-import { SCHOOL_GRADES, QURAN_LEVELS, type HafsaProgram, type HafsaPaymentMethod } from '@/lib/constants';
+import { SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
+import type { HafsaProgram, HafsaPaymentMethod } from '@/types'; // Using types from index
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData } from '@/types';
@@ -152,7 +153,7 @@ const ParticipantDetailFields: React.FC<{
 
   const isArabicWomenProgram = selectedProgram.category === 'arabic_women';
 
-  const programSpecificFieldsLabel = getTranslatedText(`programs.${selectedProgram.id}.label`, currentLanguage, {defaultValue: selectedProgram.label});
+  const programSpecificFieldsLabel = selectedProgram.translations[currentLanguage]?.label || selectedProgram.translations.en.label;
   const participantLabel = isArabicWomenProgram ? (t.pdfTraineeInfo) : (t.pdfParticipantInfo);
   const contactLabel = isArabicWomenProgram ? (t.pdfTraineeContactInfo) : (t.pdfGuardianContactInfo);
 
@@ -211,8 +212,7 @@ const ParticipantDetailFields: React.FC<{
         </div>
 
         {selectedProgram.specificFields?.map(field => {
-            const specificFieldKey = `programs.specificFields.${selectedProgram.category === 'arabic_women' && field.name === 'specialAttention' ? `arabicWomen.${field.name}` : field.name}`;
-            const translatedLabel = getTranslatedText(specificFieldKey, currentLanguage, {defaultValue: field.label});
+            const translatedLabel = getTranslatedText(field.labelKey, currentLanguage);
 
             if (field.name === 'specialAttention') {
                 return (
@@ -381,8 +381,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setPaymentMethodsLoading(false);
       }
     };
-    loadInitialData();
-  }, [toast, currentLanguage, setValue, getValues, t.efErrorToastTitle, t.efLoadDataErrorToastDesc]); // Ensure all dependencies relying on `t` also depend on `currentLanguage`
+    if (Object.keys(t).length > 0) { // Ensure translations are loaded before fetching or toasting
+        loadInitialData();
+    }
+  }, [toast, setValue, getValues, t, currentLanguage]);
 
 
   const { fields: participantFields, append: appendParticipant, remove: removeParticipant } = useFieldArray({
@@ -464,7 +466,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       } else {
         if (currentView === 'dashboard') {
             clearLocalStorageData(); 
-            // No need to setValue here again, clearLocalStorageData handles it
             setCurrentView('accountCreation');
             onStageChange('initial');
         }
@@ -475,7 +476,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 
  useEffect(() => { 
-    if (typeof window !== 'undefined' && !firebaseUser) {
+    if (typeof window !== 'undefined' && !firebaseUser && Object.keys(t).length > 0) {
       try {
         const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
         const savedParticipantsRaw = localStorage.getItem(LOCALSTORAGE_PARTICIPANTS_KEY);
@@ -512,7 +513,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         console.error("Error loading data from localStorage:", error);
       }
     }
-  }, [setValue, onStageChange, toast, firebaseUser, currentLanguage, t.efWelcomeBackToastTitle, t.efGuestSessionLoadedToastDesc]);
+  }, [setValue, onStageChange, toast, firebaseUser, currentLanguage, t]);
 
 
   const watchedParticipants = watch('participants');
@@ -644,7 +645,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
     setCurrentView('dashboard');
     setActiveDashboardTab('enrollments');
-    const programDisplayLabel = getTranslatedText(`programs.${programForNewParticipant.id}.label`, currentLanguage, {defaultValue: programForNewParticipant.label})
+    const programDisplayLabel = programForNewParticipant.translations[currentLanguage]?.label || programForNewParticipant.translations.en.label;
     const desc = getTranslatedText('efParticipantForProgramToastDescTpl', currentLanguage, {name: participantData.firstName, program: programDisplayLabel});
     toast({title: t.efParticipantAddedToastTitle || "Participant Added", description: desc});
   };
@@ -696,7 +697,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
          }
       }
       
-      const selectedBankDetails = paymentMethods.find(m => m.value === data.paymentProof?.paymentType);
+      const selectedBankMethod = paymentMethods.find(m => m.value === data.paymentProof?.paymentType);
+      const selectedBankDetails = selectedBankMethod ? (selectedBankMethod.translations[currentLanguage] || selectedBankMethod.translations.en) : undefined;
+
 
       const verificationInput = {
         paymentProof: {
@@ -705,7 +708,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         },
         expectedAmount: calculatedPrice,
         expectedAccountName: selectedBankDetails?.accountName,
-        expectedAccountNumber: selectedBankDetails?.accountNumber,
+        expectedAccountNumber: selectedBankMethod?.accountNumber, // Account number is top-level
       };
 
       const result = await handlePaymentVerification(verificationInput);
@@ -810,8 +813,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
     if (!firebaseUser) {
         clearLocalStorageData(); 
-        // resetField('parentInfo'); // Handled by clearLocalStorageData
-        // setValue('parentInfo', defaultParentValues); // Handled by clearLocalStorageData
         setCurrentView('accountCreation');
         onStageChange('initial');
     } else {
@@ -833,13 +834,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     watchedParticipants.forEach(enrolled => {
         if (!uniqueProgramIds.has(enrolled.programId)) {
             const program = availablePrograms.find(p => p.id === enrolled.programId);
-            if (program && program.termsAndConditions) {
-                terms.push({
-                    programId: program.id,
-                    label: getTranslatedText(`programs.${program.id}.label`, currentLanguage, {defaultValue: program.label}),
-                    terms: getTranslatedText(`programs.${program.id}.termsAndConditions`, currentLanguage, {defaultValue: program.termsAndConditions})
-                });
-                uniqueProgramIds.add(program.id);
+            if (program && program.translations) {
+                const translatedProgram = program.translations[currentLanguage] || program.translations.en;
+                if (translatedProgram.termsAndConditions) {
+                    terms.push({
+                        programId: program.id,
+                        label: translatedProgram.label,
+                        terms: translatedProgram.termsAndConditions
+                    });
+                    uniqueProgramIds.add(program.id);
+                }
             }
         }
     });
@@ -966,8 +970,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                   case 'arabic_women': IconComponent = Briefcase; break;
                   default: IconComponent = BookOpenText;
                 }
-                const progLabel = getTranslatedText(`programs.${prog.id}.label`, currentLanguage, {defaultValue: prog.label});
-                const progDesc = getTranslatedText(`programs.${prog.id}.description`, currentLanguage, {defaultValue: prog.description});
+                const progTranslated = prog.translations[currentLanguage] || prog.translations.en;
 
                 return (
                   <Card
@@ -978,9 +981,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
                       <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
                           <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                          <CardTitle className="text-base sm:text-lg text-primary">{progLabel}</CardTitle>
+                          <CardTitle className="text-base sm:text-lg text-primary">{progTranslated.label}</CardTitle>
                       </div>
-                      <CardDescription className="text-xs sm:text-sm">{progDesc}</CardDescription>
+                      <CardDescription className="text-xs sm:text-sm">{progTranslated.description}</CardDescription>
                     </CardHeader>
                     <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
                       {prog.ageRange && <p><strong>{t.efAgeLabel}:</strong> {prog.ageRange}</p>}
@@ -1019,7 +1022,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     </div>
   );
 
-  const selectedMethodDetails = paymentMethods.find(m => m.value === watchedPaymentType);
+  const selectedMethodObject = paymentMethods.find(m => m.value === watchedPaymentType);
+  const selectedMethodDetails = selectedMethodObject ? (selectedMethodObject.translations[currentLanguage] || selectedMethodObject.translations.en) : undefined;
+
 
   const renderDashboard = () => (
     <Tabs value={activeDashboardTab} onValueChange={(value) => setActiveDashboardTab(value as DashboardTab)} className="w-full">
@@ -1053,13 +1058,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             {participantFields.map((field, index) => {
                 const enrolledParticipant = field as unknown as EnrolledParticipantData;
                 const program = availablePrograms.find(p => p.id === enrolledParticipant.programId);
-                const progLabel = program ? (getTranslatedText(`programs.${program.id}.label`, currentLanguage, {defaultValue: program.label})) : (t.efUnknownProgramText || "Unknown Program");
+                const progTranslated = program ? (program.translations[currentLanguage] || program.translations.en) : { label: t.efUnknownProgramText || "Unknown Program" };
                 return (
                 <Card key={field.id} className="p-3 mb-2 bg-background/80">
                     <div className="flex justify-between items-start">
                     <div>
                         <p className="font-semibold text-md">{enrolledParticipant.participantInfo.firstName}</p>
-                        <p className="text-xs text-muted-foreground">{progLabel} - Br{program?.price.toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">{progTranslated.label} - Br{program?.price.toFixed(2)}</p>
                         <p className="text-xs text-muted-foreground mt-1">{t.efContactLabel}: {enrolledParticipant.participantInfo.guardianFullName} ({enrolledParticipant.participantInfo.guardianPhone1})</p>
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveParticipant(index)} className="text-destructive hover:text-destructive/80 p-1.5 h-auto">
@@ -1112,8 +1117,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         case 'arabic_women': IconComponent = Briefcase; break;
                         default: IconComponent = BookOpenText;
                     }
-                    const progLabel = getTranslatedText(`programs.${prog.id}.label`, currentLanguage, {defaultValue: prog.label});
-                    const progDesc = getTranslatedText(`programs.${prog.id}.description`, currentLanguage, {defaultValue: prog.description});
+                    const progTranslated = prog.translations[currentLanguage] || prog.translations.en;
                     return (
                         <Card
                           key={prog.id}
@@ -1123,9 +1127,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
                             <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
                                 <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                                <CardTitle className="text-base sm:text-lg text-primary">{progLabel}</CardTitle>
+                                <CardTitle className="text-base sm:text-lg text-primary">{progTranslated.label}</CardTitle>
                             </div>
-                            <CardDescription className="text-xs sm:text-sm">{progDesc}</CardDescription>
+                            <CardDescription className="text-xs sm:text-sm">{progTranslated.description}</CardDescription>
                         </CardHeader>
                         <CardContent className="text-xs sm:text-sm flex-grow px-3 sm:px-4 pb-2">
                             {prog.ageRange && <p><strong>{t.efAgeLabel}:</strong> {prog.ageRange}</p>}
@@ -1215,7 +1219,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         <Select onValueChange={field.onChange} value={field.value || paymentMethods[0]?.value} >
                         <SelectTrigger id="paymentProof.paymentType" className="mt-1"><SelectValue placeholder={t.efChoosePaymentMethodPlaceholder} /></SelectTrigger>
                         <SelectContent>
-                            {paymentMethods.map(method => <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>)}
+                            {paymentMethods.map(method => {
+                                const methodTranslated = method.translations[currentLanguage] || method.translations.en;
+                                return <SelectItem key={method.value} value={method.value}>{methodTranslated.label}</SelectItem>;
+                            })}
                         </SelectContent>
                         </Select>
                     )}
@@ -1226,34 +1233,34 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 {errors.paymentProof?.paymentType && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.paymentType.message || "fallback.error", currentLanguage)}</p>}
             </div>
 
-            {selectedMethodDetails && selectedMethodDetails.accountNumber && (
+            {selectedMethodObject && selectedMethodObject.accountNumber && (
                  <Card className="mt-4 p-3 sm:p-4 border-primary/20 bg-card shadow-sm rounded-lg">
                     <div className="flex items-center gap-3 sm:gap-4">
-                      {selectedMethodDetails.logoPlaceholder && (
+                      {selectedMethodObject.logoPlaceholder && (
                         <Image
-                          src={selectedMethodDetails.logoPlaceholder}
-                          alt={`${selectedMethodDetails.label} logo`}
+                          src={selectedMethodObject.logoPlaceholder}
+                          alt={`${selectedMethodDetails?.label || selectedMethodObject.value} logo`}
                           width={48}
                           height={48}
-                          data-ai-hint={selectedMethodDetails.dataAiHint || 'bank logo'}
+                          data-ai-hint={selectedMethodObject.dataAiHint || 'bank logo'}
                           className="rounded-lg h-12 w-12 object-contain flex-shrink-0"
                         />
                       )}
                       <div className="flex-grow space-y-0">
-                        <p className="text-lg font-medium text-foreground">{selectedMethodDetails.label}</p>
-                        <p className="text-xl font-bold font-mono text-primary">{selectedMethodDetails.accountNumber}</p>
-                        {selectedMethodDetails.accountName && (
+                        <p className="text-lg font-medium text-foreground">{selectedMethodDetails?.label || selectedMethodObject.value}</p>
+                        <p className="text-xl font-bold font-mono text-primary">{selectedMethodObject.accountNumber}</p>
+                        {selectedMethodDetails?.accountName && (
                           <p className="text-sm text-muted-foreground">{selectedMethodDetails.accountName}</p>
                         )}
                       </div>
-                      {selectedMethodDetails.accountNumber && (
+                      {selectedMethodObject.accountNumber && (
                         <Button
                           variant="ghost"
                           size="sm"
                           type="button"
                           onClick={async () => {
                             try {
-                              await navigator.clipboard.writeText(selectedMethodDetails.accountNumber!);
+                              await navigator.clipboard.writeText(selectedMethodObject.accountNumber!);
                               toast({ title: t.efCopiedToastTitle || "Copied!", description: t.efAccountCopiedToastDesc || "Account copied." });
                             } catch (err) {
                               toast({ title: t.efCopyFailedToastTitle || "Copy Failed", description: t.efCopyAccountFailedToastDesc || "Could not copy.", variant: "destructive" });
@@ -1267,7 +1274,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         </Button>
                       )}
                     </div>
-                    {selectedMethodDetails.additionalInstructions && (
+                    {selectedMethodDetails?.additionalInstructions && (
                       <p className="text-xs text-muted-foreground italic mt-3 pt-3 border-t border-border/50">
                         {selectedMethodDetails.additionalInstructions}
                       </p>
@@ -1445,7 +1452,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 if (auth) {
                     try {
                         await signOut(auth);
-                        clearLocalStorageData(); 
+                        // clearLocalStorageData(); // Already called in onAuthStateChanged
                         toast({title: t.efLoggedOutToastTitle || "Logged Out", description: t.efLoggedOutSuccessToastDesc || "Successfully logged out."});
                         onCloseAccountDialog();
                     } catch (error) {
@@ -1462,4 +1469,3 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
-

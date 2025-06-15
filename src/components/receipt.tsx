@@ -7,18 +7,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { RegistrationData } from '@/types';
-import type { HafsaProgram, HafsaPaymentMethod } from '@/lib/constants'; // Updated to import HafsaPaymentMethod
+import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { format } from 'date-fns';
-// HAFSA_PAYMENT_METHODS removed from here, will be passed as prop
 import { getTranslationsForLanguage, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
 
 interface ReceiptProps {
   data: RegistrationData;
   onBack: () => void;
-  allPrograms: HafsaProgram[];
-  paymentMethods: HafsaPaymentMethod[]; // Added to pass fetched payment methods
+  allPrograms: HafsaProgram[]; // Fetched programs passed as prop
+  paymentMethods: HafsaPaymentMethod[]; // Fetched payment methods passed as prop
   currentLanguage: LanguageCode;
 }
 
@@ -41,7 +39,10 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, paymentMet
     }
   };
 
-  const paymentMethodLabel = paymentMethods.find(pm => pm.value === data.paymentProof.paymentType)?.label || data.paymentProof.paymentType;
+  const paymentMethodObject = paymentMethods.find(pm => pm.value === data.paymentProof.paymentType);
+  const paymentMethodTranslated = paymentMethodObject?.translations[currentLanguage] || paymentMethodObject?.translations.en;
+  const paymentMethodLabel = paymentMethodTranslated?.label || data.paymentProof.paymentType;
+
   const primaryRegistrant = data.parentInfo;
   const enrolledParticipants = data.participants || [];
 
@@ -102,9 +103,10 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, paymentMet
                     <h3 className="text-lg sm:text-xl font-semibold font-headline text-primary">{t.rEnrolledParticipantsTitle}</h3>
                 </div>
                 {enrolledParticipants.map((enrolledItem, index) => {
-                    const program = allPrograms.find(p => p.id === enrolledItem.programId);
+                    const programObject = allPrograms.find(p => p.id === enrolledItem.programId);
+                    const programTranslated = programObject?.translations[currentLanguage] || programObject?.translations.en;
                     const participant = enrolledItem.participantInfo;
-                    const programLabel = program ? (getTranslatedText(`programs.${program.id}.label`, currentLanguage, {defaultValue: program.label})) : (t.rNaText || "N/A");
+                    const programLabel = programTranslated?.label || (t.rNaText || "N/A");
                     return (
                         <div key={index} className="mb-3 sm:mb-4 pl-7 border-l-2 border-muted ml-2 pl-4 py-2 relative">
                             <span className="absolute -left-[10px] top-1.5 bg-background p-0.5 rounded-full border border-muted">
@@ -113,12 +115,12 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, paymentMet
                             <h4 className="text-md sm:text-lg font-semibold mb-1">{t.rParticipantPrefix} {index + 1}: {participant.firstName}</h4>
                             <div className="space-y-0.5 text-xs sm:text-sm">
                                 <p><strong>{t.rProgramLabel}</strong> {programLabel}</p>
-                                <p><strong>{t.rPriceLabel}</strong> Br{program?.price.toFixed(2) || '0.00'}</p>
+                                <p><strong>{t.rPriceLabel}</strong> Br{programObject?.price.toFixed(2) || '0.00'}</p>
                                 <p><strong>{t.rGenderLabel}</strong> {getTranslatedText(participant.gender === "male" ? "pdfMaleOption" : "pdfFemaleOption", currentLanguage, {defaultValue: participant.gender.charAt(0).toUpperCase() + participant.gender.slice(1)})}</p>
                                 <p><strong>{t.rDOBLabel}</strong> {format(new Date(participant.dateOfBirth), "MMMM d, yyyy")}</p>
-                                {participant.schoolGrade && <p><strong>{t.rSchoolGradeLabel}</strong> {participant.schoolGrade}</p>}
-                                {participant.quranLevel && <p><strong>{t.rQuranLevelLabel}</strong> {participant.quranLevel}</p>}
-                                {participant.specialAttention && <p><strong>{t.rSpecialAttentionLabel}</strong> {participant.specialAttention}</p>}
+                                {participant.schoolGrade && <p><strong>{getTranslatedText("programs.specificFields.schoolGrade", currentLanguage, {defaultValue: "School Grade"})}:</strong> {participant.schoolGrade}</p>}
+                                {participant.quranLevel && <p><strong>{getTranslatedText("programs.specificFields.quranLevel", currentLanguage, {defaultValue: "Quran Level"})}:</strong> {participant.quranLevel}</p>}
+                                {participant.specialAttention && <p><strong>{getTranslatedText("programs.specificFields.specialAttention", currentLanguage, {defaultValue: "Special Attention"})}:</strong> {participant.specialAttention}</p>}
 
                                 <div className="mt-2 pt-2 border-t border-dashed">
                                     <p className="text-xs font-medium text-muted-foreground flex items-center"><ShieldQuestion className="mr-1.5 h-3.5 w-3.5"/>{t.rGuardianContactForPrefix}{participant.firstName}:</p>

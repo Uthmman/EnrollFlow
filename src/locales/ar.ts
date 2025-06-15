@@ -251,19 +251,13 @@ export const ar: LocaleStrings = {
   apViewDetailsForPrefix: "عرض تفاصيل لـ ",
   apViewDetailsSuffix: " (الميزة قادمة قريبًا).",
   apManageProgramsTitle: "إدارة البرامج",
-  apManageProgramsDesc: "إنشاء أو تعديل أو حذف البرامج الأكاديمية. (هذه الميزة قيد التطوير).",
   apManageProgramsDescAdmin: "عرض أو إضافة أو تعديل أو حذف البرامج الأكاديمية.",
   apImportantNoteLabel: "ملاحظة هامة:",
-  apProgramsStaticNote: "حاليًا، يتم تعريف البرامج بشكل ثابت في الكود. لجعلها قابلة للتعديل هنا، يجب نقلها إلى قاعدة بيانات Firestore.",
   apProgramsFirestoreNote: "يتم الآن تخزين بيانات البرنامج في مجموعة 'programs' في Firestore. ستسمح التحديثات المستقبلية بالتعديل هنا.",
   apFeatureComingSoon: "الميزة قادمة قريبًا.",
-  apAddProgramButtonDisabled: "إضافة برنامج جديد",
   apBankDetailsSettingsTitle: "تفاصيل البنك والإعدادات",
-  apBankDetailsSettingsDesc: "تحديث تفاصيل الحساب البنكي للمدفوعات وإعدادات التطبيق الأخرى. (هذه الميزة قيد التطوير).",
   apBankDetailsSettingsDescAdmin: "عرض أو إضافة أو تعديل أو حذف تفاصيل الحساب البنكي للمدفوعات.",
-  apBankDetailsStaticNote: "حاليًا، يتم تعريف تفاصيل البنك بشكل ثابت في الكود. لجعلها قابلة للتعديل هنا، يجب نقلها إلى قاعدة بيانات Firestore.",
   apBankDetailsFirestoreNote: "يتم الآن تخزين تفاصيل البنك في مجموعة 'paymentMethods' في Firestore. ستسمح التحديثات المستقبلية بالتعديل هنا.",
-  apUpdateBankDetailsButtonDisabled: "تحديث تفاصيل البنك",
   apAccessDeniedTitle: "تم رفض الوصول",
   apAccessDeniedMessage: "ليس لديك إذن لعرض هذه الصفحة. يرجى الاتصال بمسؤول إذا كنت تعتقد أن هذا خطأ.",
   apGoHomeButton: "الذهاب إلى الصفحة الرئيسية",
@@ -287,26 +281,5 @@ export const ar: LocaleStrings = {
   apActionPlaceholder: "الإجراء لم يتم تنفيذه بعد.",
   apAddButton: "إضافة جديد",
 
-
-  "programs.daycare_morning.label": "رعاية نهارية (فترة صباحية)",
-  "programs.daycare_morning.description": "بيئة آمنة ورعاية للأطفال الصغار مع دمج إسلامي. التركيز على التعلم المبكر واللعب.",
-  "programs.daycare_morning.termsAndConditions": "الدفع الكامل مطلوب مقدمًا. لا يوجد استرداد للأيام الفائتة. يجب على الآباء توفير الحفاضات والحليب الصناعي إذا لزم الأمر. تطبق سياسات الرعاية النهارية القياسية.",
-  "programs.quran_kids_beginner.label": "قرآن للأطفال (مبتدئ - القاعدة)",
-  "programs.quran_kids_beginner.description": "مقدمة في الأبجدية العربية، التجويد الأساسي، وحفظ السور القصيرة. طرق تعليمية جذابة وممتعة.",
-  "programs.quran_kids_beginner.termsAndConditions": "الحضور المنتظم أمر بالغ الأهمية. تطبق رسوم مواد بقيمة 200 ريال. يتم تشجيع الآباء على دعم الممارسة المنزلية.",
-  "programs.quran_bootcamp_full_day.label": "معسكر القرآن (يوم كامل)",
-  "programs.quran_bootcamp_full_day.description": "حفظ مكثف للقرآن وممارسة التجويد للطلاب المتفانين.",
-  "programs.quran_bootcamp_full_day.termsAndConditions": "الالتزام الكامل مطلوب. أماكن محدودة. قد تكون هناك حاجة لاختبار تحديد المستوى. غير قابل للاسترداد بعد البدء.",
-  "programs.quran_bootcamp_asr.label": "معسكر القرآن (بعد العصر)",
-  "programs.quran_bootcamp_asr.description": "جلسات مسائية لحفظ القرآن وممارسة التجويد.",
-  "programs.quran_bootcamp_asr.termsAndConditions": "الحضور المنتظم متوقع. غير قابل للاسترداد بعد البدء. الممارسة المنزلية هي المفتاح.",
-  "programs.arabic_women_level1.label": "اللغة العربية للنساء (المستوى الأول)",
-  "programs.arabic_women_level1.description": "اللغة العربية الأساسية للأخوات، مع التركيز على القراءة والكتابة والمحادثة الأساسية لفهم القرآن والسنة.",
-  "programs.arabic_women_level1.termsAndConditions": "هذا البرنامج للنساء فقط. الالتزام بجميع الجلسات متوقع. قد يكون شراء الكتاب المدرسي مطلوبًا.",
-  "programs.islamic_studies_adults.label": "دراسات إسلامية عامة (للبالغين)",
-  "programs.islamic_studies_adults.description": "دورة شاملة تغطي العقيدة والفقه والسيرة والحديث للبالغين الذين يسعون إلى معرفة إسلامية أعمق.",
-  "programs.islamic_studies_adults.termsAndConditions": "المشاركة الفعالة واحترام الآراء العلمية المتنوعة متوقعة. سيتم توفير بعض مواد القراءة، وقد تحتاج مواد أخرى إلى الشراء.",
+  "fallback.error": "إدخال غير صالح أو معلومات مفقودة."
 };
-
-
-    

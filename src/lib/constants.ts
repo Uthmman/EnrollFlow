@@ -1,16 +1,22 @@
 
 // Program related types
-export type ProgramField =
-  | { type: 'text'; name: 'specialAttention'; label: 'Special Attention (e.g., allergies, specific needs)' }
-  | { type: 'select'; name: 'schoolGrade'; label: 'School Grade'; options: string[] }
-  | { type: 'select'; name: 'quranLevel'; label: 'Quran Level'; options: string[] };
+export type ProgramField = {
+  type: 'text' | 'select';
+  name: 'specialAttention' | 'schoolGrade' | 'quranLevel'; // Keep this specific for now
+  labelKey: string; // This key will be used to look up translations in locale files
+  options?: string[]; // Only for 'select' type
+};
 
 export type HafsaProgramCategory = 'daycare' | 'quran_kids' | 'arabic_women' | 'general_islamic_studies';
 
-export type HafsaProgram = {
-  id: string; // This ID should match the document ID in Firestore
+export type ProgramTranslations = {
   label: string;
   description: string;
+  termsAndConditions: string;
+};
+
+export type HafsaProgram = {
+  id: string; // This ID should match the document ID in Firestore
   price: number;
   category: HafsaProgramCategory;
   ageRange?: string;
@@ -18,54 +24,36 @@ export type HafsaProgram = {
   schedule?: string;
   isChildProgram: boolean;
   specificFields?: ProgramField[];
-  termsAndConditions: string;
+  translations: {
+    en: ProgramTranslations;
+    am?: ProgramTranslations;
+    ar?: ProgramTranslations;
+    [key: string]: ProgramTranslations | undefined; // To allow dynamic access like translations[currentLang]
+  };
 };
 
 export const SCHOOL_GRADES = ["KG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12", "Not Applicable"];
 export const QURAN_LEVELS = ["Beginner (Qaida)", "Junior (Nazr)", "Intermediate (Nazr)", "Advanced (Hifz)", "Not Applicable"];
 
-// HAFSA_PROGRAMS array removed, will be fetched from Firestore.
-// Example Firestore document structure for 'programs' collection:
-// Document ID: 'daycare_morning'
-// {
-//   id: 'daycare_morning', // Optional to repeat if doc ID is the same
-//   label: 'Daycare (Morning Session)',
-//   description: 'Safe and nurturing environment for young children with Islamic integration. Focus on early learning and play.',
-//   price: 2500,
-//   category: 'daycare',
-//   ageRange: '1.5 - 3 years',
-//   duration: 'Half-day (8 AM - 12 PM)',
-//   schedule: 'Monday - Friday',
-//   isChildProgram: true,
-//   specificFields: [
-//     { type: 'text', name: 'specialAttention', label: 'Special Attention (e.g., allergies, specific needs)' },
-//   ],
-//   termsAndConditions: "Full payment required upfront. No refunds for missed days. Parents must provide diapers and formula if needed. Standard daycare policies apply."
-// }
 
-
-export type HafsaPaymentMethod = {
-  value: string; // This value should match the document ID in Firestore
+export type PaymentMethodTranslations = {
   label: string;
-  logoPlaceholder?: string;
-  dataAiHint?: string;
   accountName?: string;
-  accountNumber?: string;
   additionalInstructions?: string;
 };
 
-// HAFSA_PAYMENT_METHODS array removed, will be fetched from Firestore.
-// Example Firestore document structure for 'paymentMethods' collection:
-// Document ID: 'cbe'
-// {
-//   value: 'cbe', // Optional to repeat if doc ID is the same
-//   label: 'CBE (Commercial Bank of Ethiopia)',
-//   logoPlaceholder: 'https://placehold.co/48x48.png',
-//   dataAiHint: 'cbe logo',
-//   accountName: 'Hafsa Madrassa',
-//   accountNumber: '1000123456789',
-//   additionalInstructions: 'Ensure the name "Hafsa Madrassa" appears as the recipient.'
-// }
+export type HafsaPaymentMethod = {
+  value: string; // This value should match the document ID in Firestore
+  logoPlaceholder?: string;
+  dataAiHint?: string;
+  accountNumber?: string; // This is not typically translated, so it remains at the top level
+  translations: {
+    en: PaymentMethodTranslations;
+    am?: PaymentMethodTranslations;
+    ar?: PaymentMethodTranslations;
+    [key: string]: PaymentMethodTranslations | undefined;
+  };
+};
 
 
 export const LEGACY_PAYMENT_TYPES = [

@@ -1,7 +1,7 @@
 
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
-import type { HafsaPaymentMethod } from '@/lib/constants';
+import type { HafsaPaymentMethod, PaymentMethodTranslations } from '@/lib/constants'; // Adjusted import
 
 export async function fetchPaymentMethodsFromFirestore(): Promise<HafsaPaymentMethod[]> {
   if (!db) {
@@ -10,15 +10,32 @@ export async function fetchPaymentMethodsFromFirestore(): Promise<HafsaPaymentMe
   }
   try {
     const paymentMethodsCollectionRef = collection(db, 'paymentMethods');
-    // Order by label or a custom 'displayOrder' field if you add one
-    const q = query(paymentMethodsCollectionRef, orderBy('label', 'asc')); 
+    // Order by a field if it exists, e.g., 'order' or 'value' (doc.id)
+    const q = query(paymentMethodsCollectionRef); // Simple query, can add orderBy('value') or another field
     
     const querySnapshot = await getDocs(q);
     const paymentMethods: HafsaPaymentMethod[] = [];
     querySnapshot.forEach((doc) => {
-      // Ensure the document data conforms to HafsaPaymentMethod, including the 'value' from the document id
-      paymentMethods.push({ value: doc.id, ...doc.data() } as HafsaPaymentMethod);
+      const data = doc.data();
+      const paymentMethodData = {
+        value: doc.id,
+        logoPlaceholder: data.logoPlaceholder,
+        dataAiHint: data.dataAiHint,
+        accountNumber: data.accountNumber, // Stays top-level
+        translations: {
+          en: data.translations?.en || { label: data.label || doc.id, accountName: data.accountName, additionalInstructions: data.additionalInstructions }, // Fallback
+          am: data.translations?.am,
+          ar: data.translations?.ar,
+        }
+      } as HafsaPaymentMethod;
+
+      if (!paymentMethodData.translations.en.label) {
+         console.warn(`PaymentMethod ${doc.id} is missing required 'en' translation field 'label'. Using ID as fallback.`);
+      }
+      paymentMethods.push(paymentMethodData);
     });
+    // Sort by the English label if no other order field is present
+    paymentMethods.sort((a, b) => (a.translations.en.label || a.value).localeCompare(b.translations.en.label || b.value));
     return paymentMethods;
   } catch (error) {
     console.error("Error fetching payment methods from Firestore:", error);

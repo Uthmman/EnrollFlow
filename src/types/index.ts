@@ -1,6 +1,7 @@
 
 import { z } from 'zod';
-import type { ProgramCategoryType, ProgramField } from '@/lib/constants'; // Import from constants
+// Import HafsaProgram, ProgramField, HafsaPaymentMethod etc. from constants where they are now primarily defined
+import type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory } from '@/lib/constants';
 
 // Authentication and Form related types
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,20 +25,12 @@ export const ParentInfoSchema = z.object({
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
 export const ParticipantInfoSchema = z.object({
-  // For Arabic Training, firstName will be the trainee's Full Name.
-  // For Daycare/Quran, it's the child's First Name.
   firstName: z.string().min(2, "Participant's/Trainee's first name must be at least 2 characters."),
   gender: z.enum(["male", "female"], { required_error: "Gender is required." }),
   dateOfBirth: z.date({ required_error: "Date of birth is required." }),
-
-  // Program-specific fields (optional, shown based on program.category)
   specialAttention: z.string().optional(),
   schoolGrade: z.string().optional(),
   quranLevel: z.string().optional(),
-
-  // Guardian/Trainee Contact fields
-  // For Daycare/Quran: Guardian's details (can be pre-filled from ParentInfo).
-  // For Arabic Training: Trainee's own details.
   guardianFullName: z.string().min(3, "Guardian's/Trainee's full name must be at least 3 characters."),
   guardianPhone1: z.string().regex(phoneRegex, "Guardian's/Trainee's primary phone invalid."),
   guardianPhone2: z.string().regex(phoneRegex, "Secondary phone invalid.").optional().or(z.literal('')),
@@ -49,12 +42,15 @@ export type ParticipantInfoData = z.infer<typeof ParticipantInfoSchema>;
 
 export const EnrolledParticipantSchema = z.object({
   programId: z.string().min(1, "Program selection is required for each participant."),
+  // Store program details that were current at time of enrollment for receipt/history
+  // This could include the translated label and price, but for simplicity, we might just store ID
+  // and look it up. For now, just programId.
   participantInfo: ParticipantInfoSchema,
 });
 export type EnrolledParticipantData = z.infer<typeof EnrolledParticipantSchema>;
 
 export const PaymentProofSchema = z.object({
-  paymentType: z.string().min(1, "Payment method is required."),
+  paymentType: z.string().min(1, "Payment method is required."), // This will be the ID/value from Firestore
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
     required_error: "Proof submission method is required.",
   }),
@@ -92,7 +88,6 @@ export const EnrollmentFormSchema = z.object({
             if (typeof window !== 'undefined') {
                 const ssAsFileList = screenshot as FileList | undefined | null;
                 if (!ssAsFileList || ssAsFileList.length === 0) {
-                    // Only add error if screenshotDataUri is also missing
                     if (!screenshotDataUri) {
                         ctx.addIssue({
                             code: z.ZodIssueCode.custom,
@@ -113,8 +108,8 @@ export const EnrollmentFormSchema = z.object({
                         message: 'A valid screenshot file object is required.',
                     });
                 }
-            } else { // For server-side or environments without FileList
-                 if (!screenshotDataUri && !screenshot) { // Check if either is present
+            } else { 
+                 if (!screenshotDataUri && !screenshot) { 
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'screenshot'],
@@ -170,12 +165,15 @@ export const EnrollmentFormSchema = z.object({
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
+// Store IDs for program and payment method, actual translated data can be looked up
+// or a snapshot of relevant translated fields can be stored.
+// For simplicity, we'll store less here and rely on lookups in components like Receipt.
 export type RegistrationData = {
   parentInfo: ParentInfoData;
-  participants: EnrolledParticipantData[];
+  participants: EnrolledParticipantData[]; // Contains programId
   agreeToTerms: boolean;
   couponCode?: string;
-  paymentProof: PaymentProofData;
+  paymentProof: PaymentProofData; // Contains paymentType (ID)
   calculatedPrice: number;
   paymentVerified: boolean;
   paymentVerificationDetails?: any;
@@ -183,6 +181,5 @@ export type RegistrationData = {
   firebaseUserId?: string;
 };
 
-// Re-export HafsaProgram and ProgramField if they are defined in constants.ts
-// This allows other parts of the app to import them from types/index.ts as a central point.
-export type { HafsaProgram, ProgramField, HafsaProgramCategory } from '@/lib/constants';
+// Re-exporting types defined in constants.ts for centralized access
+export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };

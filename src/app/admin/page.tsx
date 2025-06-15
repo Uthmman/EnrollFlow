@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { db } from '@/lib/firebaseConfig';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types';
+import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types'; // Using types from index
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getTranslationsForLanguage as getTranslations } from '@/lib/translationService';
+import { getTranslationsForLanguage as getTranslations, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
 
 interface RegistrationRow extends RegistrationData {
@@ -32,7 +32,7 @@ const AdminPage = () => {
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [currentLanguage] = useState<LanguageCode>('en');
+  const [currentLanguage] = useState<LanguageCode>('en'); // Admin page default to English for now
   const [t, setT] = useState<Record<string, string>>({});
 
   const loadTranslations = useCallback(() => {
@@ -61,7 +61,6 @@ const AdminPage = () => {
         }
 
         try {
-          // Fetch Registrations
           const registrationsCol = collection(db, 'registrations');
           const regQuery = query(registrationsCol, orderBy('registrationDate', 'desc'));
           const regSnapshot = await getDocs(regQuery);
@@ -87,7 +86,6 @@ const AdminPage = () => {
           setIsLoadingRegistrations(false);
         }
 
-        // Fetch Programs
         try {
           const fetchedPrograms = await fetchProgramsFromFirestore();
           setPrograms(fetchedPrograms);
@@ -98,7 +96,6 @@ const AdminPage = () => {
           setIsLoadingPrograms(false);
         }
 
-        // Fetch Payment Methods
         try {
           const fetchedPaymentMethods = await fetchPaymentMethodsFromFirestore();
           setPaymentMethods(fetchedPaymentMethods);
@@ -122,7 +119,7 @@ const AdminPage = () => {
   }
 
   if (!isAdmin) {
-    return null;
+    return null; 
   }
 
   const handleEdit = (type: string, id: string) => {
@@ -251,25 +248,28 @@ const AdminPage = () => {
               )}
               {!isLoadingPrograms && programs.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {programs.map((program) => (
-                    <Card key={program.id}>
-                      <CardHeader>
-                        <CardTitle className="text-lg">{program.label}</CardTitle>
-                        <CardDescription>Br{program.price.toFixed(2)} - {program.category}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="text-sm">
-                        <p className="truncate">{program.description}</p>
-                      </CardContent>
-                      <CardFooter className="flex justify-end space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit('program', program.id)}>
-                          <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDelete('program', program.id, program.label)}>
-                          <Trash2 className="mr-1 h-4 w-4 text-destructive" /> {t['apDeleteButton'] || "Delete"}
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
+                  {programs.map((program) => {
+                    const translatedProgram = program.translations[currentLanguage] || program.translations.en;
+                    return (
+                        <Card key={program.id}>
+                        <CardHeader>
+                            <CardTitle className="text-lg">{translatedProgram.label}</CardTitle>
+                            <CardDescription>Br{program.price.toFixed(2)} - {program.category}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="text-sm">
+                            <p className="truncate">{translatedProgram.description}</p>
+                        </CardContent>
+                        <CardFooter className="flex justify-end space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit('program', program.id)}>
+                            <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDelete('program', program.id, translatedProgram.label)}>
+                            <Trash2 className="mr-1 h-4 w-4 text-destructive" /> {t['apDeleteButton'] || "Delete"}
+                            </Button>
+                        </CardFooter>
+                        </Card>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -295,26 +295,29 @@ const AdminPage = () => {
               )}
               {!isLoadingPaymentMethods && paymentMethods.length > 0 && (
                 <div className="space-y-4">
-                  {paymentMethods.map((method) => (
-                    <Card key={method.value}>
-                      <CardHeader>
-                        <CardTitle className="text-lg">{method.label}</CardTitle>
-                        {method.accountNumber && <CardDescription>{t['apAccountNumberHeader'] || "Account Number"}: {method.accountNumber}</CardDescription>}
-                      </CardHeader>
-                      <CardContent className="text-sm">
-                        {method.accountName && <p>{t['apAccountNameHeader'] || "Account Name"}: {method.accountName}</p>}
-                        {method.additionalInstructions && <p className="mt-1 text-xs italic">{method.additionalInstructions}</p>}
-                      </CardContent>
-                      <CardFooter className="flex justify-end space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit('bankDetail', method.value)}>
-                          <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDelete('bankDetail', method.value, method.label)}>
-                          <Trash2 className="mr-1 h-4 w-4 text-destructive" /> {t['apDeleteButton'] || "Delete"}
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
+                  {paymentMethods.map((method) => {
+                     const translatedMethod = method.translations[currentLanguage] || method.translations.en;
+                     return (
+                        <Card key={method.value}>
+                        <CardHeader>
+                            <CardTitle className="text-lg">{translatedMethod.label}</CardTitle>
+                            {method.accountNumber && <CardDescription>{t['apAccountNumberHeader'] || "Account Number"}: {method.accountNumber}</CardDescription>}
+                        </CardHeader>
+                        <CardContent className="text-sm">
+                            {translatedMethod.accountName && <p>{t['apAccountNameHeader'] || "Account Name"}: {translatedMethod.accountName}</p>}
+                            {translatedMethod.additionalInstructions && <p className="mt-1 text-xs italic">{translatedMethod.additionalInstructions}</p>}
+                        </CardContent>
+                        <CardFooter className="flex justify-end space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit('bankDetail', method.value)}>
+                            <Edit className="mr-1 h-4 w-4" /> {t['apEditButton'] || "Edit"}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDelete('bankDetail', method.value, translatedMethod.label)}>
+                            <Trash2 className="mr-1 h-4 w-4 text-destructive" /> {t['apDeleteButton'] || "Delete"}
+                            </Button>
+                        </CardFooter>
+                        </Card>
+                     );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -326,5 +329,3 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
-
-    

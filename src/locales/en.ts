@@ -49,6 +49,8 @@ export const en = {
   pdfSaveParticipantButton: "Save Participant",
   pdfSaveTraineeButton: "Save Trainee",
   pdfSelectPlaceholderPrefix: "Select ",
+  
+  // Keys for specificFields labels (to be kept in locale files)
   "programs.specificFields.specialAttention": "Special Attention (e.g., allergies, specific needs)",
   "programs.specificFields.schoolGrade": "School Grade",
   "programs.specificFields.quranLevel": "Quran Level",
@@ -209,7 +211,7 @@ export const en = {
   rPriceLabel: "Price:",
   rGenderLabel: "Gender:",
   rDOBLabel: "Date of Birth:",
-  rSchoolGradeLabel: "School Grade:",
+  rSchoolGradeLabel: "School Grade:", // This and below are generic fallback labels
   rQuranLevelLabel: "Quran Level:",
   rSpecialAttentionLabel: "Special Attention:",
   rGuardianContactForPrefix: "Guardian Contact for ",
@@ -256,28 +258,20 @@ export const en = {
   apVerifiedBadge: "Verified",
   apNotVerifiedBadge: "Not Verified",
   apPendingReviewBadge: "Pending Review",
-  apViewDetailsButton: "View Details", // Kept for potential future use, though direct edit/delete is added.
+  apViewDetailsButton: "View Details",
   apViewDetailsForPrefix: "View details for ",
   apViewDetailsSuffix: " (feature coming soon).",
   apManageProgramsTitle: "Manage Programs",
-  apManageProgramsDesc: "Create, edit, or delete academic programs. (This feature is under development).", // Old desc
-  apManageProgramsDescAdmin: "View, add, edit, or delete academic programs.", // New desc for admin page
+  apManageProgramsDescAdmin: "View, add, edit, or delete academic programs.",
   apImportantNoteLabel: "Important Note:",
-  apProgramsStaticNote: "Currently, programs are defined statically in the code. To make them editable here, they need to be migrated to the Firestore database.",
   apProgramsFirestoreNote: "Program data is now stored in the 'programs' collection in Firestore. Future updates will allow editing here.",
   apFeatureComingSoon: "Feature coming soon.",
-  apAddProgramButtonDisabled: "Add New Program", // Old button text
   apBankDetailsSettingsTitle: "Bank Details & Settings",
-  apBankDetailsSettingsDesc: "Update bank account details for payments and other application settings. (This feature is under development).", // Old desc
-  apBankDetailsSettingsDescAdmin: "View, add, edit, or delete bank account details for payments.", // New desc for admin page
-  apBankDetailsStaticNote: "Currently, bank details are defined statically in the code. To make them editable here, they need to be migrated to the Firestore database.",
+  apBankDetailsSettingsDescAdmin: "View, add, edit, or delete bank account details for payments.",
   apBankDetailsFirestoreNote: "Bank details are now stored in the 'paymentMethods' collection in Firestore. Future updates will allow editing here.",
-  apUpdateBankDetailsButtonDisabled: "Update Bank Details", // Old button text
   apAccessDeniedTitle: "Access Denied",
   apAccessDeniedMessage: "You do not have permission to view this page. Please contact an administrator if you believe this is an error.",
   apGoHomeButton: "Go to Homepage",
-
-  // New keys for admin page enhancements
   apAddProgramButton: "Add Program",
   apAddBankDetailButton: "Add Bank Detail",
   apEditButton: "Edit",
@@ -293,34 +287,13 @@ export const en = {
   apLoadingBankDetails: "Loading bank details...",
   apFetchPaymentMethodsError: "Failed to fetch payment methods:",
   apNoBankDetailsAdmin: "No bank details found. Add one to get started.",
-  apConfirmDeleteMessage: "Are you sure you want to delete this", // Generic part
+  apConfirmDeleteMessage: "Are you sure you want to delete this", 
   apThisIsPlaceholder: "This is a placeholder action.",
   apActionPlaceholder: "Action not implemented yet.",
   apAddButton: "Add New",
 
-
-  // Program translations (example keys - you'll need one for each program's label, desc, terms)
-  "programs.daycare_morning.label": "Daycare (Morning Session)",
-  "programs.daycare_morning.description": "Safe and nurturing environment for young children with Islamic integration. Focus on early learning and play.",
-  "programs.daycare_morning.termsAndConditions": "Full payment required upfront. No refunds for missed days. Parents must provide diapers and formula if needed. Standard daycare policies apply.",
-  "programs.quran_kids_beginner.label": "Kids Quran (Beginner - Qaida)",
-  "programs.quran_kids_beginner.description": "Introduction to Arabic alphabet, basic Tajweed, and memorization of short Surahs. Engaging and fun learning methods.",
-  "programs.quran_kids_beginner.termsAndConditions": "Consistent attendance is crucial. Materials fee of Br 200 applicable. Parents are encouraged to support home practice.",
-  "programs.quran_bootcamp_full_day.label": "Quran Bootcamp (Full-Day)",
-  "programs.quran_bootcamp_full_day.description": "Intensive Quran memorization and Tajweed practice for dedicated students.",
-  "programs.quran_bootcamp_full_day.termsAndConditions": "Full commitment required. Limited spots. Placement test may be needed. Non-refundable after start.",
-  "programs.quran_bootcamp_asr.label": "Quran Bootcamp (After Asr)",
-  "programs.quran_bootcamp_asr.description": "Evening Quran memorization and Tajweed sessions.",
-  "programs.quran_bootcamp_asr.termsAndConditions": "Regular attendance expected. Non-refundable after start. Home practice is key.",
-  "programs.arabic_women_level1.label": "Arabic Language for Women (Level 1)",
-  "programs.arabic_women_level1.description": "Foundational Arabic for sisters, focusing on reading, writing, and basic conversation for understanding Quran and Sunnah.",
-  "programs.arabic_women_level1.termsAndConditions": "This program is for women only. Commitment to all sessions is expected. Textbook purchase may be required.",
-  "programs.islamic_studies_adults.label": "General Islamic Studies (Adults)",
-  "programs.islamic_studies_adults.description": "Comprehensive course covering Aqeedah, Fiqh, Seerah, and Hadith for adults seeking deeper Islamic knowledge.",
-  "programs.islamic_studies_adults.termsAndConditions": "Active participation and respect for diverse scholarly opinions are expected. Some reading materials will be provided, others may need to be purchased.",
+  // Fallback for errors/missing keys
+  "fallback.error": "Invalid input or missing information."
 };
 
 export type LocaleStrings = typeof en;
-
-
-    
