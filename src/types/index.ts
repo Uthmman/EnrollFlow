@@ -17,11 +17,11 @@ export type LoginData = z.infer<typeof LoginSchema>;
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim(),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
-  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim(),
-  password: z.string().min(6, "Password must be at least 6 characters."),
-  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
+  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters.").optional(),
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(),
 }).superRefine((data, ctx) => {
-  if (data.password && data.confirmPassword) {
+  if (data.password && data.confirmPassword) { // Only validate if both are provided (for new registration)
     if (data.password !== data.confirmPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -29,19 +29,14 @@ export const ParentInfoSchema = z.object({
         message: 'Passwords do not match.',
       });
     }
-  } else if (data.password && !data.confirmPassword) {
+  } else if (data.password && !data.confirmPassword) { // If password is provided, confirmation is needed
     ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['confirmPassword'],
         message: 'Please confirm your password.',
     });
-  } else if (!data.password && data.confirmPassword) {
-     ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['password'],
-        message: 'Please enter a password.',
-    });
   }
+  // No issue if only confirmPassword is provided without password, or if neither are (for logged-in state)
 });
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
@@ -75,16 +70,40 @@ export const PaymentProofSchema = z.object({
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
     required_error: "Proof submission method is required.",
   }),
-  screenshot: z.any().optional(), // For file input object
-  screenshotDataUri: z.string().optional(), // For base64 data
+  screenshot: z.any().optional(),
+  screenshotDataUri: z.string().optional(),
   pdfLink: z.string().url("Invalid URL for PDF link.").optional().or(z.literal('')),
   transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional().or(z.literal('')),
+}).refine(data => {
+  if (data.proofSubmissionType === 'transactionId') {
+    return data.transactionId && data.transactionId.trim().length >= 3;
+  }
+  return true;
+}, {
+  message: 'Transaction ID is required and must be at least 3 characters when submission type is Transaction ID.',
+  path: ['transactionId'],
+}).refine(data => {
+  if (data.proofSubmissionType === 'screenshot') {
+    return data.screenshotDataUri && data.screenshotDataUri.trim() !== '';
+  }
+  return true;
+}, {
+  message: 'Please upload a screenshot for verification when submission type is Screenshot.',
+  path: ['screenshot'], // This path will relate to the file input field in the UI
+}).refine(data => {
+  if (data.proofSubmissionType === 'pdfLink') {
+    return data.pdfLink && data.pdfLink.trim() !== '' && (data.pdfLink.startsWith('http://') || data.pdfLink.startsWith('https://'));
+  }
+  return true;
+}, {
+  message: 'A valid PDF link (starting with http:// or https://) is required when submission type is PDF Link.',
+  path: ['pdfLink'],
 });
 export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: z.object({
+  parentInfo: z.object({ // Manually define as optional, equivalent to ParentInfoSchema.partial().optional()
     parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim().optional(),
     parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim().optional(),
     parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
@@ -96,7 +115,7 @@ export const EnrollmentFormSchema = z.object({
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
-  paymentProof: PaymentProofSchema.optional(),
+  paymentProof: PaymentProofSchema.optional(), // This will now use the refined PaymentProofSchema
   loginEmail: z.string().regex(emailRegex, "Invalid email address format for login.").trim().optional(),
   loginPassword: z.string().min(6, "Password for login must be at least 6 characters.").optional(),
 })
@@ -107,53 +126,26 @@ export const EnrollmentFormSchema = z.object({
         if (!data.paymentProof) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                path: ['paymentProof'],
-                message: 'Payment details are required when participants are enrolled.',
+                path: ['paymentProof'], // General path for the whole paymentProof object
+                message: 'Payment details (including method and proof type) are required when participants are enrolled.',
             });
-            // Allow Zod to collect other issues if any
         } else {
-            const { paymentType, proofSubmissionType, transactionId, pdfLink, screenshotDataUri } = data.paymentProof;
-
-            if (!paymentType || paymentType.trim() === '') {
+            // The detailed validation of transactionId, pdfLink, screenshotDataUri
+            // based on proofSubmissionType is now handled within PaymentProofSchema.refine.
+            // We still need to ensure that paymentType and proofSubmissionType are selected.
+            if (!data.paymentProof.paymentType || data.paymentProof.paymentType.trim() === '') {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['paymentProof', 'paymentType'],
                     message: 'Please select a payment method.',
                 });
             }
-
-            if (!proofSubmissionType) {
-                ctx.addIssue({
+            if (!data.paymentProof.proofSubmissionType) {
+                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['paymentProof', 'proofSubmissionType'],
                     message: 'Please select a proof submission method.',
                 });
-            } else {
-                if (proofSubmissionType === 'transactionId') {
-                    if (!transactionId || transactionId.trim().length < 3) {
-                        ctx.addIssue({
-                            code: z.ZodIssueCode.custom,
-                            path: ['paymentProof', 'transactionId'],
-                            message: 'Transaction ID is required and must be at least 3 characters.',
-                        });
-                    }
-                } else if (proofSubmissionType === 'screenshot') {
-                     if (!screenshotDataUri || screenshotDataUri.trim() === '') {
-                         ctx.addIssue({
-                            code: z.ZodIssueCode.custom,
-                            path: ['paymentProof', 'screenshot'],
-                            message: 'Please upload a screenshot for verification.',
-                        });
-                     }
-                } else if (proofSubmissionType === 'pdfLink') {
-                    if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) {
-                         ctx.addIssue({
-                            code: z.ZodIssueCode.custom,
-                            path: ['paymentProof', 'pdfLink'],
-                            message: 'A valid PDF link (starting with http:// or https://) is required.',
-                        });
-                    }
-                }
             }
         }
     }
@@ -220,5 +212,4 @@ export type CouponData = ConstantCouponData;
 
 
 export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };
-
     
