@@ -8,15 +8,32 @@ const phoneRegex = /^[0-9]{9,15}$/;
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim(),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
-  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim(),
-  password: z.string().min(6, "Password must be at least 6 characters."),
-  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
+  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(), // Made optional
+  password: z.string().min(6, "Password must be at least 6 characters.").optional(), // Made optional
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(), // Made optional
 }).superRefine((data, ctx) => {
-  if (data.password !== data.confirmPassword) {
+  // Only validate password confirmation if both password and confirmPassword are provided (typically during new account registration)
+  if (data.password && data.confirmPassword) {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['confirmPassword'],
+        message: 'Passwords do not match.',
+      });
+    }
+  } else if (data.password && !data.confirmPassword) {
+    // If password is provided but confirmPassword is not (relevant for registration flow)
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['confirmPassword'],
-      message: 'Passwords do not match.',
+        code: z.ZodIssueCode.custom,
+        path: ['confirmPassword'],
+        message: 'Please confirm your password.',
+    });
+  } else if (!data.password && data.confirmPassword) {
+     // If confirmPassword is provided but password is not (relevant for registration flow)
+    ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['password'],
+        message: 'Please enter a password.',
     });
   }
 });
@@ -109,7 +126,7 @@ export const EnrollmentFormSchema = z.object({
                     });
                 }
             } else if (proofSubmissionType === 'screenshot') {
-                 if (!screenshotDataUri || screenshotDataUri.trim() === '') {
+                 if (!screenshotDataUri || screenshotDataUri.trim() === '') { // Validate the data URI
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'screenshot'], // Point error to the file input field
