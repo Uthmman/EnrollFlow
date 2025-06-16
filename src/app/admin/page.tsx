@@ -10,7 +10,7 @@ import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
-import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3 } from 'lucide-react';
+import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3, PercentSquare } from 'lucide-react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,8 +35,21 @@ const adminDashboardTabsConfig = [
   { value: 'students', labelKey: 'apStudentsTab', icon: Users },
   { value: 'programs', labelKey: 'apProgramsTab', icon: BookOpen },
   { value: 'bank_accounts', labelKey: 'apBankAccountsTab', icon: Building },
+  { value: 'coupons', labelKey: 'apCouponsTab', icon: PercentSquare },
   { value: 'statistics', labelKey: 'apStatisticsTab', icon: BarChart3 },
 ];
+
+interface ProgramStats {
+  programId: string;
+  programName: string;
+  count: number;
+}
+
+interface GenderStats {
+  male: number;
+  female: number;
+}
+
 
 const AdminPage = () => {
   const { isAdmin, isAdminLoading, user } = useAdminAuth();
@@ -60,6 +73,9 @@ const AdminPage = () => {
   const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>('en');
   const [t, setT] = useState<Record<string, string>>({});
   const [activeAdminTab, setActiveAdminTab] = useState<string>('students');
+
+  const [programStatistics, setProgramStatistics] = useState<ProgramStats[]>([]);
+  const [genderStatistics, setGenderStatistics] = useState<GenderStats>({ male: 0, female: 0 });
 
 
   useEffect(() => {
@@ -89,6 +105,43 @@ const AdminPage = () => {
     loadTranslations(lang);
   };
 
+  const calculateStatistics = useCallback((regs: RegistrationRow[], progs: HafsaProgram[]) => {
+    const progStats: Record<string, { name: string; count: number }> = {};
+    let maleCount = 0;
+    let femaleCount = 0;
+
+    regs.forEach(reg => {
+      reg.participants?.forEach(participant => {
+        // Program statistics
+        const programDetails = progs.find(p => p.id === participant.programId);
+        const programName = programDetails?.translations[currentLanguage]?.label || programDetails?.translations.en?.label || participant.programId;
+        
+        if (progStats[participant.programId]) {
+          progStats[participant.programId].count++;
+        } else {
+          progStats[participant.programId] = { name: programName, count: 1 };
+        }
+
+        // Gender statistics
+        if (participant.participantInfo.gender === 'male') {
+          maleCount++;
+        } else if (participant.participantInfo.gender === 'female') {
+          femaleCount++;
+        }
+      });
+    });
+
+    const formattedProgramStats: ProgramStats[] = Object.entries(progStats).map(([id, data]) => ({
+      programId: id,
+      programName: data.name,
+      count: data.count,
+    }));
+
+    setProgramStatistics(formattedProgramStats);
+    setGenderStatistics({ male: maleCount, female: femaleCount });
+  }, [currentLanguage]);
+
+
   const fetchAllData = useCallback(async () => {
     console.log("[AdminPage] fetchAllData called");
     setIsLoadingRegistrations(true);
@@ -104,14 +157,15 @@ const AdminPage = () => {
       return;
     }
 
+    let fetchedRegistrations: RegistrationRow[] = [];
+    let fetchedPrograms: HafsaProgram[] = [];
+
     try {
       console.log("[AdminPage] Fetching registrations...");
       const registrationsCol = collection(db, 'registrations');
-      // Temporarily removed orderBy to prevent index errors. Admin should create index.
-      // const regQuery = query(registrationsCol, orderBy('registrationDate', 'desc'));
       const regQuery = query(registrationsCol);
       const regSnapshot = await getDocs(regQuery);
-      const fetchedRegistrations = regSnapshot.docs.map(doc => {
+      fetchedRegistrations = regSnapshot.docs.map(doc => {
         const data = doc.data() as RegistrationData;
         let regDate = data.registrationDate;
         if (regDate && typeof (regDate as any).toDate === 'function') {
@@ -120,7 +174,7 @@ const AdminPage = () => {
           regDate = new Date(regDate);
         } else if (regDate === undefined || regDate === null) {
             console.warn(`[AdminPage] Registration ${doc.id} has missing registrationDate. Defaulting to now.`);
-            regDate = new Date(); // Default to now if missing, or handle as error
+            regDate = new Date(); 
         }
         return {
           id: doc.id,
@@ -128,7 +182,6 @@ const AdminPage = () => {
           registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date()
         } as RegistrationRow;
       });
-      // Client-side sort if orderBy was removed
       fetchedRegistrations.sort((a, b) => {
         const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
         const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
@@ -152,7 +205,7 @@ const AdminPage = () => {
     }
 
     try {
-      const fetchedPrograms = await fetchProgramsFromFirestore();
+      fetchedPrograms = await fetchProgramsFromFirestore();
       setPrograms(fetchedPrograms);
       console.log("[AdminPage] Fetched programs:", fetchedPrograms.length);
     } catch (err: any) {
@@ -174,7 +227,16 @@ const AdminPage = () => {
     } finally {
       setIsLoadingPaymentMethods(false);
     }
-  }, [currentLanguage]);
+
+    // Calculate statistics after fetching registrations and programs
+    if (fetchedRegistrations.length > 0 && fetchedPrograms.length > 0) {
+      calculateStatistics(fetchedRegistrations, fetchedPrograms);
+    } else {
+      setProgramStatistics([]);
+      setGenderStatistics({ male: 0, female: 0 });
+    }
+
+  }, [currentLanguage, calculateStatistics]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -386,13 +448,14 @@ const AdminPage = () => {
 
         <Tabs value={activeAdminTab} onValueChange={setActiveAdminTab} className="w-full">
            <div className="mb-6 w-full overflow-x-auto sm:overflow-visible">
-            <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20 mx-auto max-w-fit sm:max-w-2xl">
+            <div className="flex items-center justify-center space-x-1 bg-primary text-primary-foreground p-1.5 rounded-full shadow-xl border border-primary-foreground/20 mx-auto max-w-fit">
                 {adminDashboardTabsConfig.map(tabConfig => (
                     <button
                         key={tabConfig.value}
                         onClick={() => setActiveAdminTab(tabConfig.value)}
                         className={cn(
-                            "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[85px] h-16 sm:w-auto sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5", // Increased width w-[85px] and height h-16
+                            "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary h-16 sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5", 
+                            "w-[85px]", // Increased width for all tabs
                             activeAdminTab === tabConfig.value
                                 ? "bg-primary-foreground text-primary scale-105 shadow-md"
                                 : "hover:bg-white/20"
@@ -576,15 +639,78 @@ const AdminPage = () => {
             </Card>
           </TabsContent>
           
+          <TabsContent value="coupons">
+             <Card>
+              <CardHeader>
+                <CardTitle>{t['apCouponsTabTitle'] || "Manage Coupons"}</CardTitle>
+                <CardDescription>{t['apCouponsTabDesc'] || "Add, edit, or delete coupon codes for discounts."}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground p-4 text-center">{t['apFeatureComingSoon'] || "Feature coming soon."}</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="statistics">
             <Card>
               <CardHeader>
                 <CardTitle>{t['apStatisticsTitle'] || "Statistics & Reports"}</CardTitle>
                 <CardDescription>{t['apStatisticsDesc'] || "View enrollment statistics and generate reports."}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground p-4 text-center">{t['apFeatureComingSoon'] || "Feature coming soon."}</p>
-                {/* Placeholder for statistics content */}
+              <CardContent className="space-y-6">
+                {(isLoadingRegistrations || isLoadingPrograms) && <div className="flex justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+                {!isLoadingRegistrations && !isLoadingPrograms && (
+                  <>
+                    <div>
+                      <h3 className="text-lg font-semibold text-primary mb-2">{t['apStudentsPerProgramTitle'] || "Students per Program"}</h3>
+                      {programStatistics.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>{t['apProgramNameHeader'] || "Program Name"}</TableHead>
+                              <TableHead className="text-right">{t['apStudentCountHeader'] || "Student Count"}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {programStatistics.map(stat => (
+                              <TableRow key={stat.programId}>
+                                <TableCell>{stat.programName}</TableCell>
+                                <TableCell className="text-right">{stat.count}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <p className="text-muted-foreground">{t['apNoProgramStats'] || "No program enrollment data available."}</p>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-primary mb-2">{t['apGenderDistributionTitle'] || "Gender Distribution"}</h3>
+                      {genderStatistics.male > 0 || genderStatistics.female > 0 ? (
+                         <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>{t['pdfGenderLabel'] || "Gender"}</TableHead>
+                              <TableHead className="text-right">{t['apStudentCountHeader'] || "Student Count"}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell>{t['pdfMaleOption'] || "Male"}</TableCell>
+                              <TableCell className="text-right">{genderStatistics.male}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>{t['pdfFemaleOption'] || "Female"}</TableCell>
+                              <TableCell className="text-right">{genderStatistics.female}</TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <p className="text-muted-foreground">{t['apNoGenderStats'] || "No gender distribution data available."}</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -676,4 +802,3 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
-

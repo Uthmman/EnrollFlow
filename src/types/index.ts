@@ -35,6 +35,8 @@ export const ParticipantInfoSchema = z.object({
   guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Telegram phone invalid."),
   guardianUsePhone1ForTelegram: z.boolean().optional(),
   guardianUsePhone2ForTelegram: z.boolean().optional(),
+  certificateFile: z.any().optional(), // For File object during upload
+  certificateDataUri: z.string().optional(), // For storing as base64
 });
 export type ParticipantInfoData = z.infer<typeof ParticipantInfoSchema>;
 

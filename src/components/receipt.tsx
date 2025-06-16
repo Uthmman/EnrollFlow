@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft, Mail, Phone } from 'lucide-react';
+import { CheckCircle, Printer, User, Users, ShieldQuestion, CalendarDays, ArrowLeft, Mail, Phone, FileText as FileIcon } from 'lucide-react'; // Renamed FileText to FileIcon
 import { Button } from '@/components/ui/button';
 import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { format } from 'date-fns';
@@ -121,6 +121,12 @@ const Receipt: React.FC<ReceiptProps> = ({ data, onBack, allPrograms, paymentMet
                                 {participant.schoolGrade && <p><strong>{getTranslatedText("programs.specificFields.schoolGrade", currentLanguage, {defaultValue: "School Grade"})}:</strong> {participant.schoolGrade}</p>}
                                 {participant.quranLevel && <p><strong>{getTranslatedText("programs.specificFields.quranLevel", currentLanguage, {defaultValue: "Quran Level"})}:</strong> {participant.quranLevel}</p>}
                                 {participant.specialAttention && <p><strong>{getTranslatedText("programs.specificFields.specialAttention", currentLanguage, {defaultValue: "Special Attention"})}:</strong> {participant.specialAttention}</p>}
+                                {participant.certificateDataUri && (
+                                    <p className="flex items-center">
+                                        <FileIcon className="h-3.5 w-3.5 mr-1 text-muted-foreground"/>
+                                        <strong>{t.rCertificateSubmittedLabel || "Certificate:"}</strong>&nbsp;{t.rSubmittedStatus || "Submitted"}
+                                    </p>
+                                )}
 
                                 <div className="mt-2 pt-2 border-t border-dashed">
                                     <p className="text-xs font-medium text-muted-foreground flex items-center"><ShieldQuestion className="mr-1.5 h-3.5 w-3.5"/>{t.rGuardianContactForPrefix}{participant.firstName}:</p>

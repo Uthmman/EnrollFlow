@@ -52,6 +52,9 @@ export const ar: LocaleStrings = {
   "programs.specificFields.quranLevel": "مستوى القرآن",
   "programs.specificFields.arabicWomen.specialAttention": "مجالات الاهتمام أو الاحتياجات التعليمية المحددة",
 
+  efCertificateUploadLabel: "شهادة حديثة/العام الماضي (اختياري - لبرنامج قرآن للأطفال)",
+  efClickToUploadCertificate: "انقر لتحميل الشهادة",
+  efPdfOrImageLabel: "ملف PDF أو صورة",
   efWelcomeBackToastTitle: "مرحبا بعودتك!",
   efGuestSessionLoadedToastDesc: "تم تحميل تفاصيل جلسة الضيف السابقة. قم بتسجيل الدخول للحفظ بشكل دائم.",
   efAuthErrorToastTitle: "خطأ في المصادقة",
@@ -127,9 +130,9 @@ export const ar: LocaleStrings = {
   efDashManageEnrollmentsLabel: "إدارة التسجيلات",
   efDashViewProgramsLabel: "عرض البرامج",
   efDashPaymentSubmissionLabel: "الدفع والتقديم",
-  efDashEnrollmentsTabLabel: "التسجيلات", // For mobile
-  efDashProgramsTabLabel: "البرامج", // For mobile
-  efDashPaymentTabLabel: "الدفع", // For mobile
+  efDashEnrollmentsTabLabel: "التسجيلات", 
+  efDashProgramsTabLabel: "البرامج", 
+  efDashPaymentTabLabel: "الدفع", 
   efManageEnrollmentsTitle: "إدارة تسجيلاتك",
   efYourSubmittedEnrollments: "تسجيلاتك المقدمة:",
   efViewReceiptButton: "عرض الإيصال",
@@ -217,6 +220,8 @@ export const ar: LocaleStrings = {
   rSchoolGradeLabel: "الصف الدراسي:",
   rQuranLevelLabel: "مستوى القرآن:",
   rSpecialAttentionLabel: "عناية خاصة:",
+  rCertificateSubmittedLabel: "الشهادة:",
+  rSubmittedStatus: "مقدمة",
   rGuardianContactForPrefix: "جهة اتصال ولي الأمر لـ ",
   rGuardianNameLabel: "الاسم:",
   rGuardianPrimaryPhoneLabel: "الهاتف الأساسي:",
@@ -246,6 +251,9 @@ export const ar: LocaleStrings = {
   apStudentsTab: "الطلاب",
   apProgramsTab: "البرامج",
   apBankAccountsTab: "الحسابات البنكية",
+  apCouponsTab: "القسائم",
+  apCouponsTabTitle: "إدارة القسائم",
+  apCouponsTabDesc: "إضافة أو تعديل أو حذف رموز القسائم للخصومات.",
   apStatisticsTab: "الإحصائيات",
   apStudentsListTitle: "تسجيلات الطلاب",
   apStudentsListDesc: "عرض وإدارة جميع تسجيلات الطلاب وحالة دفعهم.",
@@ -273,6 +281,11 @@ export const ar: LocaleStrings = {
   apBankAccountsSettingsDescAdmin: "إضافة أو تعديل أو حذف تفاصيل الحسابات البنكية المستخدمة للمدفوعات.",
   apStatisticsTitle: "الإحصائيات والتقارير",
   apStatisticsDesc: "عرض إحصائيات التسجيل وإنشاء التقارير.",
+  apStudentsPerProgramTitle: "الطلاب لكل برنامج",
+  apStudentCountHeader: "عدد الطلاب",
+  apNoProgramStats: "لا توجد بيانات تسجيل برامج متاحة.",
+  apGenderDistributionTitle: "توزيع الجنس",
+  apNoGenderStats: "لا توجد بيانات توزيع جنس متاحة.",
   apAccessDeniedTitle: "تم رفض الوصول",
   apAccessDeniedMessage: "ليس لديك إذن لعرض هذه الصفحة. يرجى الاتصال بمسؤول إذا كنت تعتقد أن هذا خطأ.",
   apGoHomeButton: "الذهاب إلى الصفحة الرئيسية",
@@ -371,7 +384,6 @@ export const ar: LocaleStrings = {
   apBankDetailAddedTitle: "تمت إضافة الحساب البنكي",
   apBankDetailUpdatedTitle: "تم تحديث الحساب البنكي",
   apBankDetailDeletedTitle: "تم حذف الحساب البنكي",
-
 
   "fallback.error": "إدخال غير صالح أو معلومات مفقودة."
 };

@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText, ShieldCheck, ShieldAlert, UploadCloud, BarChart3 } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText, ShieldCheck, ShieldAlert, UploadCloud, BarChart3, FileUp } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation'; 
 
@@ -68,6 +68,8 @@ const defaultParticipantValues: ParticipantInfoData = {
   guardianTelegramPhoneNumber: '',
   guardianUsePhone1ForTelegram: false,
   guardianUsePhone2ForTelegram: false,
+  certificateFile: undefined,
+  certificateDataUri: undefined,
 };
 
 const defaultPaymentProofValues: FormPaymentProofData = {
@@ -96,6 +98,9 @@ const ParticipantDetailFields: React.FC<{
   const mainFormMethods = useFormContext<EnrollmentFormData>();
   const parentAccountInfo = mainFormMethods.getValues('parentInfo');
   const [t, setT] = useState<Record<string, string>>({});
+  const [selectedCertificateFileName, setSelectedCertificateFileName] = useState<string | null>(null);
+  const certificateFileInputRef = React.useRef<HTMLInputElement>(null);
+
 
   const translateParticipantDetailFieldsContent = useCallback((lang: LanguageCode) => {
     const newTranslations = getTranslationsForLanguage(lang);
@@ -134,6 +139,10 @@ const ParticipantDetailFields: React.FC<{
     setValue('schoolGrade', defaultParticipantValues.schoolGrade);
     setValue('quranLevel', defaultParticipantValues.quranLevel);
     setValue('guardianPhone2', defaultParticipantValues.guardianPhone2);
+    setValue('certificateFile', defaultParticipantValues.certificateFile);
+    setValue('certificateDataUri', defaultParticipantValues.certificateDataUri);
+    setSelectedCertificateFileName(null);
+
 
     if (selectedProgram.category !== 'arabic_women' || !parentAccountInfo.parentPhone1) {
       setValue('guardianTelegramPhoneNumber', defaultParticipantValues.guardianTelegramPhoneNumber);
@@ -150,9 +159,29 @@ const ParticipantDetailFields: React.FC<{
   const actualOnSave = (data: ParticipantInfoData) => {
     onSave(data);
     resetParticipantForm(defaultParticipantValues);
+    setSelectedCertificateFileName(null);
   };
 
+  const handleCertificateFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setValue('certificateFile', file, { shouldValidate: true });
+      setSelectedCertificateFileName(file.name);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setValue('certificateDataUri', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setValue('certificateFile', null);
+      setSelectedCertificateFileName(null);
+      setValue('certificateDataUri', undefined);
+    }
+  };
+
+
   const isArabicWomenProgram = selectedProgram.category === 'arabic_women';
+  const isQuranKidsProgram = selectedProgram.category === 'quran_kids';
 
   const programSpecificFieldsLabel = selectedProgram.translations[currentLanguage]?.label || selectedProgram.translations.en.label;
   const participantLabel = isArabicWomenProgram ? (t.pdfTraineeInfo) : (t.pdfParticipantInfo);
@@ -245,6 +274,42 @@ const ParticipantDetailFields: React.FC<{
             }
             return null;
         })}
+
+        {isQuranKidsProgram && (
+            <div>
+                <Label htmlFor="certificateFile">{t.efCertificateUploadLabel || "Recent/Last Year Certificate (Optional)"}</Label>
+                <div 
+                    className="mt-1 flex items-center justify-center w-full p-3 border-2 border-dashed rounded-md cursor-pointer border-primary/30 hover:border-primary/50 bg-background hover:bg-muted/50 transition-colors"
+                    onClick={() => certificateFileInputRef.current?.click()}
+                >
+                    <input
+                        type="file"
+                        id="certificateFile"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        ref={certificateFileInputRef}
+                        onChange={handleCertificateFileSelect}
+                    />
+                    <div className="text-center">
+                        <FileUp className="w-8 h-8 mx-auto text-primary/60 mb-1" />
+                        {selectedCertificateFileName ? (
+                            <>
+                                <p className="text-xs font-medium text-primary">{t.efFileSelectedLabel || "File Selected:"}</p>
+                                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{selectedCertificateFileName}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{t.efClickOrDragToChangeLabel || "Click to change"}</p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-xs font-medium text-primary">{t.efClickToUploadCertificate || "Click to upload certificate"}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{t.efPdfOrImageLabel || "PDF or Image"}</p>
+                            </>
+                        )}
+                    </div>
+                </div>
+                {participantErrors.certificateFile && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.certificateFile.message || "fallback.error", currentLanguage)}</p>}
+            </div>
+        )}
+
 
         <Separator className="my-4" />
         <p className="text-sm text-primary font-medium flex items-center"><ShieldQuestion className="mr-2 h-4 w-4" /> {contactLabel}</p>
@@ -399,7 +464,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 const querySnapshotFallback = await getDocs(qFallback);
                 const fetchedRegsFallback = querySnapshotFallback.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRegistrationRecord));
                 // Client-side sort as a fallback
-                fetchedRegsFallback.sort((a, b) => new Date(b.registrationDate as string).getTime() - new Date(a.registrationDate as string).getTime());
+                fetchedRegsFallback.sort((a, b) => {
+                    const dateA = a.registrationDate ? new Date(a.registrationDate as string | Date).getTime() : 0;
+                    const dateB = b.registrationDate ? new Date(b.registrationDate as string | Date).getTime() : 0;
+                    return dateB - dateA;
+                });
                 setUserRegistrations(fetchedRegsFallback); 
            } catch (fallbackError) {
                console.error("[Form] Error fetching user registrations (fallback without sort):", fallbackError);
@@ -736,7 +805,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const onSubmit = async (data: EnrollmentFormData) => {
     setIsLoading(true); // Moved to the very beginning
-    console.log("[Form] onSubmit triggered. Data:", data);
+    console.log("[Form] onSubmit triggered. Data:", JSON.stringify(data, null, 2));
     try {
       if (data.participants && data.participants.length > 0 && !data.paymentProof) {
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
@@ -818,6 +887,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     participantInfo: {
                         ...p.participantInfo,
                         dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
+                         certificateDataUri: p.participantInfo.certificateDataUri || undefined, // Ensure it's there or undefined
                     }
                 })),
             };
@@ -874,6 +944,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         participantInfo: {
                             ...p.participantInfo,
                             dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
+                            certificateDataUri: p.participantInfo.certificateDataUri || undefined,
                         }
                     })),
                 };
@@ -1205,7 +1276,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     {userRegistrations.map((reg) => (
                         <Card key={reg.id} className="p-3 bg-background/70">
                            <div className="flex justify-between items-start mb-1">
-                             <p className="text-xs text-muted-foreground">{t.rRegistrationDateLabel} {format(new Date(reg.registrationDate as string | Date), "MMM d, yyyy HH:mm")}</p>
+                             <p className="text-xs text-muted-foreground">{t.rRegistrationDateLabel} {reg.registrationDate ? format(new Date(reg.registrationDate as string | Date), "MMM d, yyyy HH:mm") : "N/A"}</p>
                                 {reg.paymentVerified ? (
                                 <Badge variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90">
                                     <ShieldCheck className="mr-1 h-3.5 w-3.5" /> {t['apVerifiedBadge'] || "Verified"}
