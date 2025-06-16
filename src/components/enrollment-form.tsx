@@ -505,7 +505,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setIsLoadingUserRegistrations(true);
     try {
       const regsCollection = collection(db, 'registrations');
-      const q = query(regsCollection, where('firebaseUserId', '==', userId)); // Removed orderBy for now
+      const q = query(regsCollection, where('firebaseUserId', '==', userId));
       
       const querySnapshot = await getDocs(q);
       let fetchedRegs = querySnapshot.docs.map(doc => {
@@ -787,44 +787,49 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const handleLoginAttempt = async () => {
     if (!auth) {
-        toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive"});
-        return;
+      toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive" });
+      return;
     }
+  
+    // Validate only login fields
     const isValid = await trigger(['loginEmail', 'loginPassword']);
+  
     if (isValid) {
       setIsLoading(true);
-      const { loginEmail, loginPassword } = getValues();
-
+      const { loginEmail, loginPassword } = getValues(); // Get all form values
+  
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, loginEmail!, loginPassword!);
+        const userCredential = await signInWithEmailAndPassword(auth, loginEmail!, loginPassword!); // Use destructured values
         const user = userCredential.user;
-        
-         if (typeof window !== 'undefined') {
-            localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-            localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+  
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
+          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
         }
-        
+  
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (user && user.email === effectiveAdminEmail) {
           console.log(`[EnrollmentForm] Admin user ${user.email} logged in successfully. Redirecting to /admin.`);
-          toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, { defaultValue: "Redirecting to admin panel..."}) });
-          router.push('/admin'); 
+          toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, { defaultValue: "Redirecting to admin panel..." }) });
+          router.push('/admin');
         } else {
-          const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: user.displayName || user.email! });
+          const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: user.displayName || user.email! });
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
+          // User dashboard transition will be handled by onAuthStateChanged
         }
       } catch (error: any) {
         console.error("Firebase login error:", error);
         let errorMessage = t.efInvalidEmailPasswordToastDesc || "Invalid credentials.";
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            errorMessage = t.efInvalidEmailPasswordToastDesc || "Invalid credentials.";
+          errorMessage = t.efInvalidEmailPasswordToastDesc || "Invalid credentials.";
         }
         toast({ title: t.efLoginFailedToastTitle || "Login Failed", description: errorMessage, variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
     } else {
-      toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efFillEmailPasswordToastDesc || "Fill email/password.", variant: "destructive" });
+      // This toast indicates that loginEmail or loginPassword validation failed
+      toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password.", variant: "destructive" });
     }
   };
 
@@ -900,7 +905,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const onSubmit = async (data: EnrollmentFormData) => {
     console.log("[Form] onSubmit triggered. Beginning submission process...");
     setIsLoading(true); 
-    setAiVerificationError(null); // Clear previous AI errors
+    setAiVerificationError(null); 
     
     try {
       console.log("[Form] Current form data for submission (raw from RHF):", JSON.stringify(data, null, 2));
@@ -964,7 +969,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         registrationDate: new Date(),
         firebaseUserId: firebaseUser ? firebaseUser.uid : undefined, 
       };
-      console.log("[Form] Final registration data prepared for Firestore:", JSON.stringify(finalRegistrationData, null, 2));
+      console.log("[Form] Final registration data prepared for Firestore (before stringifying dates):", finalRegistrationData);
 
 
       if (result.isPaymentValid) {
@@ -981,7 +986,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
                     parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
                     parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
-                    // Do NOT save password to Firestore
                 },
                 participants: finalRegistrationData.participants.map(p => ({
                     ...p,
@@ -989,12 +993,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         ...p.participantInfo,
                         dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
                          certificateDataUri: p.participantInfo.certificateDataUri || undefined, 
-                         certificateFile: undefined, // Don't save File object
+                         certificateFile: undefined, 
                     }
                 })),
                 paymentProof: {
                     ...finalRegistrationData.paymentProof,
-                    screenshot: undefined // Don't save File object
+                    screenshot: undefined 
                 }
             };
             console.log("[Form] Attempting to save to Firestore (payment valid). Data:", JSON.stringify(firestoreReadyData, null, 2));
@@ -1046,7 +1050,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
                         parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
                         parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
-                        // Do NOT save password
                     },
                     participants: finalRegistrationData.participants.map(p => ({
                         ...p,
@@ -1054,12 +1057,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             ...p.participantInfo,
                             dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
                             certificateDataUri: p.participantInfo.certificateDataUri || undefined,
-                            certificateFile: undefined, // Don't save File object
+                            certificateFile: undefined, 
                         }
                     })),
                     paymentProof: {
                         ...finalRegistrationData.paymentProof,
-                        screenshot: undefined // Don't save File object
+                        screenshot: undefined 
                     }
                 };
                 console.log("[Form] Attempting to save to Firestore (payment NOT valid). Data:", JSON.stringify(firestoreReadyData, null, 2));
@@ -1278,7 +1281,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 </div>
             </CardContent>
             </Card>
-            <Button type="button" onClick={handleSubmit(handleLoginAttempt, onFormError)} disabled={isLoading} className="w-full">
+            <Button type="button" onClick={handleLoginAttempt} disabled={isLoading} className="w-full">
              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <KeyRound className="mr-2 h-4 w-4" />} {t.efLoginButton} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
         </TabsContent>
@@ -1461,7 +1464,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                 <p className="text-xs text-muted-foreground">{progTranslated.label} - Br{program?.price.toFixed(2)}</p>
                                 <p className="text-xs text-muted-foreground mt-1">{t.efContactLabel}: {enrolledParticipant.participantInfo.guardianFullName} ({enrolledParticipant.participantInfo.guardianPhone1})</p>
                             </div>
-                            {registrationDataForReceipt === null && ( // Only show edit/delete if not submitted
+                            {registrationDataForReceipt === null && ( 
                                 <div className="flex space-x-1">
                                     <Button type="button" variant="ghost" size="icon" onClick={() => handleEditParticipantClick(index)} className="text-primary hover:text-primary/80 p-1.5 h-7 w-7">
                                         <Edit3 className="h-4 w-4" />
@@ -1484,7 +1487,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 </div>
             )}
             
-            {registrationDataForReceipt === null && ( // Only show "Add New" if not in a submitted state
+            {registrationDataForReceipt === null && ( 
                 <Button type="button" variant="default" onClick={handleAddParticipantClick} className="w-full sm:w-auto mt-4" disabled={programsLoading || availablePrograms.length === 0}>
                     {programsLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} 
                     {participantFields.length > 0 ? (t.efAddAnotherParticipantButton || "Add Another Participant") : (t.efAddNewEnrollmentButton || "Start New Enrollment")}
@@ -1749,7 +1752,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                     setValue('paymentProof.screenshotDataUri', reader.result as string);
                                 };
                                 reader.readAsDataURL(e.dataTransfer.files[0]);
-                                setAiVerificationError(null); // Clear error on new file
+                                setAiVerificationError(null); 
                             }
                         }}
                     >
