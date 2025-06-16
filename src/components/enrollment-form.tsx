@@ -819,42 +819,38 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
   };
 
- const onFormError = (errorsFromRHF: any) => {
-    console.error(
-      "[EnrollmentForm] Main form validation failed. Argument `errorsFromRHF` to onFormError:", 
-      errorsFromRHF, 
-      " This object can sometimes be empty even if validation fails, check `formState.errors` below."
-    );
-    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` (from useForm hook, usually more reliable):", errors); // 'errors' is from useForm formState
-    
+  const onFormError = () => {
+    console.error("[EnrollmentForm] Validation failed. Using `formState.errors`:", errors);
+  
     let descriptionText = t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.";
-
-    // Use formState.errors (aliased as `errors` in this component's scope) for building the detailed toast.
+  
     if (Object.keys(errors || {}).length > 0) {
-        let specificErrorMessages = "";
-        // Helper function to recursively extract error messages from formState.errors
-        const extractErrorMessages = (errorObject: any, pathPrefix = "") => {
-            for (const key in errorObject) {
-                const currentPath = pathPrefix ? `${pathPrefix}.${key}` : key;
-                const errorEntry = errorObject[key];
-                if (errorEntry) {
-                    if (errorEntry.message && typeof errorEntry.message === 'string') {
-                        const labelKey = `ef${currentPath.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('')}Label`;
-                        const translatedField = getTranslatedText(labelKey, currentLanguage, { defaultValue: currentPath });
-                        const translatedMessage = getTranslatedText(errorEntry.message, currentLanguage, { defaultValue: errorEntry.message });
-                        specificErrorMessages += `${translatedField}: ${translatedMessage}\n`;
-                    } else if (Array.isArray(errorEntry)) {
-                        errorEntry.forEach((itemError, index) => {
-                            if (typeof itemError === 'object' && itemError !== null) {
-                                extractErrorMessages(itemError, `${currentPath}.${index}`);
-                            }
-                        });
-                    } else if (typeof errorEntry === 'object' && errorEntry !== null && !(errorEntry instanceof Date)) {
-                        extractErrorMessages(errorEntry, currentPath);
-                    }
-                }
-            }
-        };
+      let specificErrorMessages = "";
+      const extractErrorMessages = (errorObject: any, pathPrefix = "") => {
+        for (const key in errorObject) {
+          const currentPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+          const errorEntry = errorObject[key];
+          if (errorEntry?.message) {
+            const labelKey = `ef${currentPath.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('')}Label`;
+            const translatedField = getTranslatedText(labelKey, currentLanguage, { defaultValue: currentPath });
+            const translatedMessage = getTranslatedText(errorEntry.message, currentLanguage, { defaultValue: errorEntry.message });
+            specificErrorMessages += `${translatedField}: ${translatedMessage}\n`;
+          } else if (typeof errorEntry === 'object') {
+            extractErrorMessages(errorEntry, currentPath);
+          }
+        }
+      };
+      extractErrorMessages(errors);
+      if (specificErrorMessages) descriptionText = specificErrorMessages;
+    }
+  
+    toast({
+      title: t.efValidationErrorToastTitle || "Validation Error",
+      description: descriptionText.trim(),
+      variant: "destructive",
+      duration: 7000,
+    });
+  };
         
         extractErrorMessages(errors); // Use `errors` from formState here
 
