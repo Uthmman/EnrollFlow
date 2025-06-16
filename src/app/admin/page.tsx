@@ -36,7 +36,7 @@ const LS_LANGUAGE_KEY = 'hafsaAdminPreferredLanguage';
 const adminDashboardTabsConfig = [
   { value: 'students', labelKey: 'apStudentsTab', icon: Users },
   { value: 'programs', labelKey: 'apProgramsTab', icon: BookOpen },
-  { value: 'accounts', labelKey: 'apAccountsTab', icon: Building }, // Renamed
+  { value: 'accounts', labelKey: 'apAccountsTab', icon: Building },
   { value: 'coupons', labelKey: 'apCouponsTab', icon: PercentSquare },
   { value: 'statistics', labelKey: 'apStatisticsTab', icon: BarChart3 },
 ];
@@ -173,15 +173,18 @@ const AdminPage = () => {
     try {
       console.log("[AdminPage] Fetching registrations...");
       const registrationsCol = collection(db, 'registrations');
-      const regQuery = query(registrationsCol); 
+      const regQuery = query(registrationsCol);  // Removed orderBy for now
       const regSnapshot = await getDocs(regQuery);
       fetchedRegistrations = regSnapshot.docs.map(doc => {
         const data = doc.data() as RegistrationData;
+        console.log(`[AdminPage] Raw registration data from Firestore for doc ${doc.id}:`, data);
         let regDate = data.registrationDate;
         if (regDate && typeof (regDate as any).toDate === 'function') { 
           regDate = (regDate as any).toDate();
         } else if (typeof regDate === 'string') { 
           regDate = new Date(regDate);
+        } else if (regDate instanceof Timestamp) {
+          regDate = regDate.toDate();
         } else if (regDate === undefined || regDate === null) {
             console.warn(`[AdminPage] Registration ${doc.id} has missing registrationDate. Defaulting to now.`);
             regDate = new Date(); 
@@ -192,13 +195,14 @@ const AdminPage = () => {
           registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date()
         } as RegistrationRow;
       });
+      // Client-side sort as Firestore index might be missing
       fetchedRegistrations.sort((a, b) => {
         const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
         const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
         return dateB - dateA; 
       });
       setRegistrations(fetchedRegistrations);
-      console.log("[AdminPage] Fetched registrations:", fetchedRegistrations.length);
+      console.log("[AdminPage] Fetched registrations (after client sort):", fetchedRegistrations.length);
       if (fetchedRegistrations.length === 0) {
         console.warn("[AdminPage] No registrations found after fetching.");
       }
@@ -206,9 +210,9 @@ const AdminPage = () => {
       console.error("[AdminPage] Error fetching registrations:", err.message, err.stack ? err.stack : '', err);
       const errorMsg = getTranslatedText('apFetchRegError', currentLanguage, {defaultValue: 'Failed to fetch registrations:'});
       setError(prev => prev ? `${prev}\n${errorMsg} ${err.message}` : `${errorMsg} ${err.message}`);
-      if (err.code === 'failed-precondition') {
-        console.error("[AdminPage] Firestore index missing for registrations query. Please create the required index in Firebase Console.");
-        setError(prev => prev ? `${prev}\nFirestore index missing for registrations. Defaulting to unsorted list.` : `Firestore index missing for registrations. Defaulting to unsorted list.`);
+      if ((err.message as string).includes("firestore/failed-precondition") || (err.message as string).includes("query requires an index")) {
+        console.error("[AdminPage] Firestore index missing for registrations query. Please create the required index in Firebase Console. Displaying unsorted list if fallback works.");
+        setError(prev => prev ? `${prev}\nFirestore index missing. Ensure an index on 'registrationDate' (desc) exists for the 'registrations' collection.` : `Firestore index missing for registrations. Data may be unsorted or incomplete.`);
       }
     } finally {
       setIsLoadingRegistrations(false);
@@ -588,8 +592,8 @@ const AdminPage = () => {
                         key={tabConfig.value}
                         onClick={() => setActiveAdminTab(tabConfig.value)}
                         className={cn(
-                            "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary h-16 sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5", 
-                            "min-w-[110px] px-3 sm:px-4", 
+                            "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary", 
+                            "h-14 min-w-[60px] sm:h-16 sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:min-w-[100px] lg:min-w-[110px]", 
                             activeAdminTab === tabConfig.value
                                 ? "bg-primary-foreground text-primary scale-105 shadow-md"
                                 : "hover:bg-white/20"
@@ -1039,3 +1043,4 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
+

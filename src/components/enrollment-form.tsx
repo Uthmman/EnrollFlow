@@ -330,7 +330,7 @@ const ParticipantDetailFields: React.FC<{
                         )}
                     </div>
                 </div>
-                {participantErrors.certificateFile && <p className="text-sm text-destructive mt-1">{getTranslatedText(participantErrors.certificateFile.message || "fallback.error", currentLanguage)}</p>}
+                {participantErrors.certificateFile && <p className="text-sm text-destructive mt-1">{getTranslatedText((participantErrors.certificateFile as any)?.message || "fallback.error", currentLanguage)}</p>}
             </div>
         )}
 
@@ -505,7 +505,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setIsLoadingUserRegistrations(true);
     try {
       const regsCollection = collection(db, 'registrations');
-      const q = query(regsCollection, where('firebaseUserId', '==', userId)); 
+      const q = query(regsCollection, where('firebaseUserId', '==', userId)); // Removed orderBy for now
       
       const querySnapshot = await getDocs(q);
       let fetchedRegs = querySnapshot.docs.map(doc => {
@@ -527,10 +527,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         } as UserRegistrationRecord;
       });
 
+      // Client-side sort
       fetchedRegs.sort((a, b) => {
         const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
         const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
-        return dateB - dateA; 
+        return dateB - dateA; // Descending
       });
       
       setUserRegistrations(fetchedRegs);
@@ -544,38 +545,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             variant: "destructive", 
             duration: 10000
         });
-         // Attempt to fetch without ordering if index is missing
-        try {
-            console.warn("[Form] Index missing for registrations query. Attempting to fetch without date ordering for user.");
-            const regsCollectionRetry = collection(db, 'registrations');
-            const qRetry = query(regsCollectionRetry, where('firebaseUserId', '==', userId));
-            const querySnapshotRetry = await getDocs(qRetry);
-            let fetchedRegsRetry = querySnapshotRetry.docs.map(doc => {
-                const data = doc.data();
-                let regDate = data.registrationDate;
-                 if (regDate && typeof (regDate as any).toDate === 'function') {
-                    regDate = (regDate as any).toDate();
-                } else if (typeof regDate === 'string') {
-                    regDate = new Date(regDate);
-                } else if (regDate instanceof Timestamp) {
-                    regDate = regDate.toDate();
-                } else {
-                    regDate = new Date(); 
-                }
-                return { id: doc.id, ...data, registrationDate: regDate } as UserRegistrationRecord;
-            });
-            // Client-side sort as a fallback
-             fetchedRegsRetry.sort((a, b) => {
-                const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
-                const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
-                return dateB - dateA; 
-            });
-            setUserRegistrations(fetchedRegsRetry);
-            console.log(`[Form] Fallback fetch successful, ${fetchedRegsRetry.length} registrations for user ${userId} (unsorted by DB).`);
-        } catch (retryError: any) {
-            console.error("[Form] Error on fallback fetch for user registrations:", retryError);
-            toast({ title: t.efErrorToastTitle || "Error", description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations.", variant: "destructive"});
-        }
       } else {
         toast({ title: t.efErrorToastTitle || "Error", description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations.", variant: "destructive"});
       }
@@ -934,7 +903,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setAiVerificationError(null); // Clear previous AI errors
     
     try {
-      console.log("[Form] Current form data for submission:", JSON.stringify(data, null, 2));
+      console.log("[Form] Current form data for submission (raw from RHF):", JSON.stringify(data, null, 2));
       if (data.participants && data.participants.length > 0 && !data.paymentProof) {
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
         setActiveDashboardTab('payment');
@@ -958,8 +927,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           reader.onerror = reject;
           reader.readAsDataURL(selectedFile);
           });
-          // setValue('paymentProof.screenshotDataUri', screenshotDataUriForAI, { shouldValidate: true }); // This setValue might be redundant if 'data' already has it from form state
-          data.paymentProof.screenshotDataUri = screenshotDataUriForAI; // Ensure it's in the data being processed
+          if (data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUriForAI;
       }
 
 
@@ -996,7 +964,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         registrationDate: new Date(),
         firebaseUserId: firebaseUser ? firebaseUser.uid : undefined, 
       };
-      console.log("[Form] Final registration data prepared:", JSON.stringify(finalRegistrationData, null, 2));
+      console.log("[Form] Final registration data prepared for Firestore:", JSON.stringify(finalRegistrationData, null, 2));
 
 
       if (result.isPaymentValid) {
@@ -1013,6 +981,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
                     parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
                     parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
+                    // Do NOT save password to Firestore
                 },
                 participants: finalRegistrationData.participants.map(p => ({
                     ...p,
@@ -1020,8 +989,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         ...p.participantInfo,
                         dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
                          certificateDataUri: p.participantInfo.certificateDataUri || undefined, 
+                         certificateFile: undefined, // Don't save File object
                     }
                 })),
+                paymentProof: {
+                    ...finalRegistrationData.paymentProof,
+                    screenshot: undefined // Don't save File object
+                }
             };
             console.log("[Form] Attempting to save to Firestore (payment valid). Data:", JSON.stringify(firestoreReadyData, null, 2));
             const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
@@ -1048,7 +1022,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 variant: "destructive",
             });
             setRegistrationDataForReceipt(finalRegistrationData); 
-            setCurrentView('confirmation'); // Still go to confirmation even if DB save fails but payment was 'valid' by AI
+            setCurrentView('confirmation'); 
         }
 
       } else { 
@@ -1056,7 +1030,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         if (result.reason && result.reason !== result.message) {
             failureMessage += ` Reason: ${result.reason}`;
         }
-        setAiVerificationError(failureMessage); // Set AI error for display
+        setAiVerificationError(failureMessage); 
         toast({
           title: t.efPaymentIssueToastTitle || "Payment Issue",
           description: failureMessage,
@@ -1072,6 +1046,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
                         parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
                         parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
+                        // Do NOT save password
                     },
                     participants: finalRegistrationData.participants.map(p => ({
                         ...p,
@@ -1079,8 +1054,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             ...p.participantInfo,
                             dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
                             certificateDataUri: p.participantInfo.certificateDataUri || undefined,
+                            certificateFile: undefined, // Don't save File object
                         }
                     })),
+                    paymentProof: {
+                        ...finalRegistrationData.paymentProof,
+                        screenshot: undefined // Don't save File object
+                    }
                 };
                 console.log("[Form] Attempting to save to Firestore (payment NOT valid). Data:", JSON.stringify(firestoreReadyData, null, 2));
                 const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
@@ -1095,12 +1075,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 console.error("[Form] Error saving non-verified registration to Firestore:", dbError);
                 toast({ title: t.efSavingErrorToastTitle, description: getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: dbError.message}), variant: "destructive" });
                 setRegistrationDataForReceipt(finalRegistrationData); 
-                setCurrentView('confirmation'); // Proceed to receipt even on DB save error if AI check was done
+                setCurrentView('confirmation'); 
            }
         } else {
              console.warn("[Form] DB not available or user not logged in/no email, cannot save non-verified registration.");
              setRegistrationDataForReceipt(finalRegistrationData); 
-             setCurrentView('confirmation'); // Proceed to receipt to show what was processed by AI
+             setCurrentView('confirmation'); 
         }
       }
     } catch (error: any) {
@@ -1273,7 +1253,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     </div>
                 </CardContent>
             </Card>
-            <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
+            <Button type="button" onClick={handleSubmit(handleAccountCreation, onFormError)} disabled={isLoading} className="w-full">
                 {isLoading ? <Loader2 className="animate-spin mr-2"/> : <Mail className="mr-2 h-4 w-4" />} {t.efCreateAccountButton} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
         </TabsContent>
@@ -1298,7 +1278,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 </div>
             </CardContent>
             </Card>
-            <Button type="button" onClick={handleLoginAttempt} disabled={isLoading} className="w-full">
+            <Button type="button" onClick={handleSubmit(handleLoginAttempt, onFormError)} disabled={isLoading} className="w-full">
              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <KeyRound className="mr-2 h-4 w-4" />} {t.efLoginButton} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
         </TabsContent>
@@ -1858,7 +1838,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             {currentView === 'addParticipant' && renderAddParticipant()}
           </CardContent>
 
-          {currentView === 'dashboard' && registrationDataForReceipt === null && ( // Only show footer if not in confirmation view
+          {currentView === 'dashboard' && registrationDataForReceipt === null && ( 
             <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-3 sm:pt-4 p-3 sm:p-6 gap-y-2 sm:gap-y-0">
                 {activeDashboardTab !== 'payment' ? (
                     <Button
@@ -1894,7 +1874,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         ) : (
                             <>
                                 <CheckCircle className="mr-2 h-4 w-4" />
-                                {t.efSubmitRegistrationButtonPrefix}{calculatedPrice.toFixed(2)})
+                                {getTranslatedText('efSubmitRegistrationButtonPrefix', currentLanguage, { defaultValue: "Submit Registration (Br"})}{calculatedPrice.toFixed(2)})
                             </>
                         )}
                     </Button>
@@ -1951,3 +1931,4 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+
