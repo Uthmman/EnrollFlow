@@ -9,10 +9,11 @@ export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters."),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format."),
   parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX)."),
-  password: z.string().min(6, "Password must be at least 6 characters.").optional(), // Optional for updates/reads
-  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(), // Optional for updates/reads
+  // Made password and confirmPassword non-optional as they are fundamentally required for account creation.
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
 }).superRefine((data, ctx) => {
-  if (data.password && data.password !== data.confirmPassword) { // Only validate if password is being set/changed
+  if (data.password !== data.confirmPassword) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['confirmPassword'],
@@ -67,6 +68,7 @@ export const EnrollmentFormSchema = z.object({
   }),
   couponCode: z.string().optional(),
   paymentProof: PaymentProofSchema.optional(),
+  // loginEmail and loginPassword are for the login form specifically
   loginEmail: z.string().regex(emailRegex, "Invalid email address format.").optional(),
   loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(),
 })
@@ -81,10 +83,9 @@ export const EnrollmentFormSchema = z.object({
                 path: ['paymentProof'], // General error for the paymentProof object
                 message: 'Payment details are required when participants are enrolled.',
             });
-            return; // Stop further paymentProof validation if the object itself is missing
+            return; 
         }
 
-        // If paymentProof object exists, validate its specific fields
         const { paymentType, proofSubmissionType, transactionId, screenshot, pdfLink, screenshotDataUri } = data.paymentProof;
 
         if (!paymentType) {
@@ -101,9 +102,9 @@ export const EnrollmentFormSchema = z.object({
                 path: ['paymentProof', 'proofSubmissionType'],
                 message: 'Please select a proof submission method.',
             });
-        } else { // Only validate specific proof details if proofSubmissionType is selected
+        } else { 
             if (proofSubmissionType === 'transactionId') {
-                if (!transactionId || transactionId.trim().length < 3) { // Added trim()
+                if (!transactionId || transactionId.trim().length < 3) { 
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'transactionId'],
@@ -124,15 +125,12 @@ export const EnrollmentFormSchema = z.object({
                      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'Screenshot is required for this submission type (ensure it is uploaded).' });
                 }
             } else if (proofSubmissionType === 'pdfLink') {
-                if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) { // Added trim()
+                if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) { 
                     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'pdfLink'], message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.' });
                 }
             }
         }
     }
-    // If no participants are enrolled, paymentProof is optional.
-    // The schema definition `paymentProof: PaymentProofSchema.optional()` handles this.
-    // The `disabled` state of the final submit button should prevent submission if no participants.
 });
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
@@ -196,6 +194,4 @@ export type CouponData = ConstantCouponData;
 
 
 export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };
-
-
     
