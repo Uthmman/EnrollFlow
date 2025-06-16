@@ -10,7 +10,7 @@ import type { RegistrationData, HafsaProgram, HafsaPaymentMethod, CouponData } f
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
-import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3, PercentSquare, CheckSquare, XSquare, CalendarIcon } from 'lucide-react';
+import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3, PercentSquare, CheckSquare, XSquare, CalendarIcon, Eye as ViewProofIcon } from 'lucide-react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,6 +26,7 @@ import { getTranslationsForLanguage as getTranslations, getTranslatedText } from
 import type { LanguageCode } from '@/locales';
 import AppHeader from '@/components/app-header';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 interface RegistrationRow extends RegistrationData {
   id: string;
@@ -78,6 +79,8 @@ const AdminPage = () => {
   const [showAdminAccountDialog, setShowAdminAccountDialog] = useState(false);
   const [registrationToDelete, setRegistrationToDelete] = useState<RegistrationRow | null>(null);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+  const [showProofDialog, setShowProofDialog] = useState(false);
+  const [currentProof, setCurrentProof] = useState<RegistrationRow | null>(null);
 
 
   const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>('en');
@@ -374,7 +377,6 @@ const AdminPage = () => {
   };
 
   const handleEditRegistration = (registrationId: string) => {
-    // Placeholder: Future implementation for full registration edit
     toast({ title: getTranslatedText('apFeatureComingSoon', currentLanguage), description: `${getTranslatedText('apEditButton', currentLanguage)} ${getTranslatedText('apRegistrationSingular', currentLanguage)} ID: ${registrationId}` });
   };
 
@@ -388,7 +390,7 @@ const AdminPage = () => {
       });
       setRegistrationToDelete(null);
       setShowDeleteConfirmDialog(false);
-      await fetchAllData(); // Refresh the list
+      await fetchAllData(); 
     } catch (error: any) {
       console.error("Error deleting registration:", error);
       toast({ title: getTranslatedText('apDeleteErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
@@ -402,8 +404,8 @@ const AdminPage = () => {
     setShowDeleteConfirmDialog(true);
   };
 
-  const togglePaymentVerification = async (registration: RegistrationRow) => {
-    if (!db) return;
+  const handleTogglePaymentVerification = async (registration: RegistrationRow) => {
+    if (!db || !user?.email) return;
     const newStatus = !registration.paymentVerified;
     try {
       const regRef = doc(db, "registrations", registration.id);
@@ -411,20 +413,31 @@ const AdminPage = () => {
         paymentVerified: newStatus,
         paymentVerificationDetails: {
           ...(registration.paymentVerificationDetails || {}),
-          message: newStatus ? getTranslatedText('apManuallyVerified', currentLanguage, {defaultValue: "Manually verified by admin."}) : getTranslatedText('apManuallyUnverified', currentLanguage, {defaultValue: "Marked as not verified by admin."}),
-          reason: newStatus ? getTranslatedText('apAdminVerification', currentLanguage, {defaultValue: "Admin verification."}) : getTranslatedText('apAdminUnverification', currentLanguage, {defaultValue: "Admin un-verification."}),
-          isPaymentValid: newStatus, // Ensure this aligns
+          message: newStatus 
+            ? getTranslatedText('apManuallyVerifiedBy', currentLanguage, { admin: user.email }) 
+            : getTranslatedText('apManuallyUnverifiedBy', currentLanguage, { admin: user.email }),
+          reason: newStatus 
+            ? getTranslatedText('apAdminVerification', currentLanguage) 
+            : getTranslatedText('apAdminUnverification', currentLanguage),
+          isPaymentValid: newStatus,
+          verifiedAt: newStatus ? Timestamp.now() : null,
+          verifiedBy: newStatus ? user.uid : null,
         }
       });
       toast({
-        title: getTranslatedText('apPaymentStatusUpdatedTitle', currentLanguage, {defaultValue: "Payment Status Updated"}),
-        description: `${getTranslatedText('apRegistrationForPrefix', currentLanguage, {defaultValue: "Registration for"})} ${registration.parentInfo.parentFullName} ${newStatus ? (getTranslatedText('apMarkedVerifiedToast', currentLanguage, {defaultValue: "marked as Verified."})) : (getTranslatedText('apMarkedNotVerifiedToast', currentLanguage, {defaultValue: "marked as Not Verified."}))}`
+        title: getTranslatedText('apPaymentStatusUpdatedTitle', currentLanguage),
+        description: `${getTranslatedText('apRegistrationForPrefix', currentLanguage)} ${registration.parentInfo.parentFullName} ${newStatus ? getTranslatedText('apMarkedVerifiedToast', currentLanguage) : getTranslatedText('apMarkedNotVerifiedToast', currentLanguage)}`
       });
-      await fetchAllData(); // Refresh list
+      await fetchAllData(); 
     } catch (error: any) {
       console.error("Error updating payment verification:", error);
-      toast({ title: getTranslatedText('apUpdateErrorTitle', currentLanguage, {defaultValue: "Update Error"}), description: error.message, variant: "destructive" });
+      toast({ title: getTranslatedText('apUpdateErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
     }
+  };
+
+  const openProofDialog = (registration: RegistrationRow) => {
+    setCurrentProof(registration);
+    setShowProofDialog(true);
   };
 
   const handleAddBankDetail = () => {
@@ -631,6 +644,7 @@ const AdminPage = () => {
                           <TableHead className="text-center">{t['apParticipantsCountHeader'] || "Participants"}</TableHead>
                           <TableHead>{t['apRegDateHeader'] || "Reg. Date"}</TableHead>
                           <TableHead>{t['apPaymentStatusHeader'] || "Payment Status"}</TableHead>
+                          <TableHead>{t['apProofHeader'] || "Proof"}</TableHead>
                           <TableHead>{t['apActionsHeader'] || "Actions"}</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -651,24 +665,28 @@ const AdminPage = () => {
                                 <Badge variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90">
                                   <ShieldCheck className="mr-1 h-3.5 w-3.5" /> {t['apVerifiedBadge'] || "Verified"}
                                 </Badge>
-                              ) : reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("human review") ? (
-                                <Badge variant="outline" className="border-orange-500 text-orange-600">
-                                  <ShieldAlert className="mr-1 h-3.5 w-3.5" /> {t['apPendingReviewBadge'] || "Pending Review"}
-                                </Badge>
                               ) : (
-                                 <Badge variant="destructive">
+                                 <Badge variant="outline" className="border-orange-500 text-orange-600">
                                   <ShieldAlert className="mr-1 h-3.5 w-3.5" />
-                                  {t['apNotVerifiedBadge'] || "Not Verified"}
+                                  {t['apPendingReviewBadge'] || "Pending Review"}
                                 </Badge>
                               )}
+                               {reg.paymentVerificationDetails?.message && (
+                                <p className="text-xs text-muted-foreground mt-1">{getTranslatedText(String(reg.paymentVerificationDetails.message), currentLanguage, { defaultValue: String(reg.paymentVerificationDetails.message) })}</p>
+                               )}
+                            </TableCell>
+                            <TableCell>
+                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => openProofDialog(reg)} title={t['apViewProofTooltip'] || "View Proof"}>
+                                    <ViewProofIcon className="h-4 w-4 text-primary"/>
+                                </Button>
                             </TableCell>
                              <TableCell className="space-x-1">
                                 {reg.paymentVerified ? (
-                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => togglePaymentVerification(reg)} title={t['apMarkNotVerifiedTooltip'] || "Mark as Not Verified"}>
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleTogglePaymentVerification(reg)} title={t['apMarkNotVerifiedTooltip'] || "Mark as Not Verified"}>
                                         <XSquare className="h-4 w-4 text-orange-600" />
                                     </Button>
                                 ) : (
-                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => togglePaymentVerification(reg)} title={t['apMarkVerifiedTooltip'] || "Mark as Verified"}>
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleTogglePaymentVerification(reg)} title={t['apMarkVerifiedTooltip'] || "Mark as Verified"}>
                                         <CheckSquare className="h-4 w-4 text-green-600" />
                                     </Button>
                                 )}
@@ -917,6 +935,61 @@ const AdminPage = () => {
 
         </Tabs>
 
+        <Dialog open={showProofDialog} onOpenChange={setShowProofDialog}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{t['apPaymentProofDialogTitle'] || "Payment Proof"} for {currentProof?.parentInfo.parentFullName}</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                    {currentProof?.paymentProof?.proofSubmissionType === 'transactionId' && (
+                        <p><strong>{t['rTransactionIdLabel'] || "Transaction ID:"}</strong> {currentProof.paymentProof.transactionId}</p>
+                    )}
+                    {currentProof?.paymentProof?.proofSubmissionType === 'pdfLink' && currentProof.paymentProof.pdfLink && (
+                        <p>
+                            <strong>{t['rPdfLinkLabel'] || "PDF Link:"}</strong>&nbsp;
+                            <a href={currentProof.paymentProof.pdfLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                {t['apViewPdfLinkAdmin'] || "Open PDF Link"}
+                            </a>
+                        </p>
+                    )}
+                    {currentProof?.paymentProof?.documentDataUriForStorage && (
+                       currentProof.paymentProof.proofSubmissionType === 'screenshot' || 
+                       (currentProof.paymentProof.proofSubmissionType === 'transactionId' && currentProof.paymentProof.paymentType === 'cbe') || 
+                       (currentProof.paymentProof.proofSubmissionType === 'pdfLink')
+                    ) && (
+                        <div>
+                            <p className="font-semibold mb-2">{currentProof.paymentProof.proofSubmissionType === 'screenshot' ? (t['apScreenshotProofLabel'] || "Screenshot Proof:") : (t['apFetchedDocumentLabel'] || "Fetched Document:")}</p>
+                            <Image src={currentProof.paymentProof.documentDataUriForStorage} alt="Payment Proof Document" width={400} height={600} className="rounded-md border" />
+                        </div>
+                    )}
+                    {!currentProof?.paymentProof?.documentDataUriForStorage && currentProof?.paymentProof?.proofSubmissionType === 'screenshot' && (
+                         <p className="text-muted-foreground">{t['apNoScreenshotProvided'] || "No screenshot was provided or it could not be loaded."}</p>
+                    )}
+                     {!currentProof?.paymentProof?.documentDataUriForStorage && 
+                       (currentProof?.paymentProof?.proofSubmissionType === 'transactionId' && currentProof?.paymentProof?.paymentType === 'cbe') && (
+                         <p className="text-muted-foreground">{t['apCbeDocFetchFailed'] || "CBE document could not be automatically fetched. Please verify the transaction ID manually."}</p>
+                    )}
+                     {!currentProof?.paymentProof?.documentDataUriForStorage && 
+                       (currentProof?.paymentProof?.proofSubmissionType === 'pdfLink') && !currentProof?.paymentProof?.pdfLink && (
+                         <p className="text-muted-foreground">{t['apPdfLinkFetchFailed'] || "PDF document could not be automatically fetched from the link. Please verify the link manually."}</p>
+                    )}
+
+
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => {
+                        if (currentProof) handleTogglePaymentVerification(currentProof);
+                        setShowProofDialog(false);
+                    }} variant={currentProof?.paymentVerified ? "destructive" : "default"}>
+                        {currentProof?.paymentVerified ? (t['apMarkNotVerifiedTooltip'] || "Mark as Not Verified") : (t['apMarkVerifiedTooltip'] || "Mark as Verified")}
+                    </Button>
+                    <DialogClose asChild>
+                        <Button variant="outline">{t['efDialogCloseButton'] || "Close"}</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
         <Dialog open={showAddProgramDialog} onOpenChange={(isOpen) => {
           setShowAddProgramDialog(isOpen);
           if (!isOpen) setEditingProgram(null);
@@ -1043,4 +1116,3 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
-

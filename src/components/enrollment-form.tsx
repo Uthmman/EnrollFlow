@@ -42,7 +42,7 @@ import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData, LoginData as FormLoginData } from '@/types';
 import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, LoginSchema as RHFLoginSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
-import { handlePaymentVerification } from '@/app/actions';
+import { preparePaymentProofForStorage } from '@/app/actions'; // Updated import
 import Receipt from '@/components/receipt';
 import { getTranslationsForLanguage, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
@@ -441,7 +441,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const [t, setT] = useState<Record<string, string>>({});
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [aiVerificationError, setAiVerificationError] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
 
   const methods = useForm<EnrollmentFormData>({
@@ -825,16 +825,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       errorsFromRHF, 
       " This object can sometimes be empty even if validation fails, check `formState.errors` below."
     );
-    // 'errors' here is `formState.errors` from the useForm hook, which should contain the actual validation details.
-    console.error(
-      "[EnrollmentForm] For detailed validation issues, inspect `formState.errors` (logged as `errors` from useForm hook):", 
-      errors 
-    );
+    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` (from useForm hook, usually more reliable):", errors); // 'errors' is from useForm formState
     
     let descriptionText = t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.";
 
-    // Always use `formState.errors` (aliased as `errors` in component scope) to build the detailed toast message
-    // as errorsFromRHF argument can be unreliable (empty) for some complex Zod/superRefine cases.
+    // Use formState.errors (aliased as `errors` in this component's scope) for building the detailed toast.
     if (Object.keys(errors || {}).length > 0) {
         let specificErrorMessages = "";
         // Helper function to recursively extract error messages from formState.errors
@@ -844,26 +839,24 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 const errorEntry = errorObject[key];
                 if (errorEntry) {
                     if (errorEntry.message && typeof errorEntry.message === 'string') {
-                        // Try to get a translated label for the field path
                         const labelKey = `ef${currentPath.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('')}Label`;
                         const translatedField = getTranslatedText(labelKey, currentLanguage, { defaultValue: currentPath });
                         const translatedMessage = getTranslatedText(errorEntry.message, currentLanguage, { defaultValue: errorEntry.message });
                         specificErrorMessages += `${translatedField}: ${translatedMessage}\n`;
-                    } else if (Array.isArray(errorEntry)) { // Handle errors in FieldArrays (like participants)
+                    } else if (Array.isArray(errorEntry)) {
                         errorEntry.forEach((itemError, index) => {
                             if (typeof itemError === 'object' && itemError !== null) {
                                 extractErrorMessages(itemError, `${currentPath}.${index}`);
                             }
                         });
                     } else if (typeof errorEntry === 'object' && errorEntry !== null && !(errorEntry instanceof Date)) {
-                        // Recursively check nested objects
                         extractErrorMessages(errorEntry, currentPath);
                     }
                 }
             }
         };
         
-        extractErrorMessages(errors); // Use `errors` (from formState) directly
+        extractErrorMessages(errors); // Use `errors` from formState here
 
         if (specificErrorMessages) {
             descriptionText = specificErrorMessages;
@@ -872,7 +865,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
     toast({
         title: t.efValidationErrorToastTitle || "Validation Error",
-        description: descriptionText.trim() || (t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again."),
+        description: descriptionText.trim(), // No need for fallback here as it's already in descriptionText
         variant: "destructive",
         duration: 7000,
     });
@@ -966,7 +959,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const onSubmit = async (data: EnrollmentFormData) => {
     console.log("[Form] onSubmit triggered for final registration submission.");
     setIsLoading(true);
-    setAiVerificationError(null);
+    setSubmissionError(null);
 
     try {
       console.log("[Form] Current form data for submission (raw from RHF):", data);
@@ -983,23 +976,19 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         return;
       }
 
-      let screenshotDataUriForAI: string | undefined = data.paymentProof?.screenshotDataUri;
-
-      const selectedBankMethod = paymentMethods.find(m => m.value === data.paymentProof?.paymentType);
-      const selectedBankDetails = selectedBankMethod ? (selectedBankMethod.translations[currentLanguage] || selectedBankMethod.translations.en) : undefined;
-
-      const verificationInput = {
-        paymentProof: {
-            ...data.paymentProof!, // We've checked data.paymentProof exists
-            screenshotDataUri: screenshotDataUriForAI,
-        },
-        expectedAmount: calculatedPrice,
-        expectedAccountName: selectedBankDetails?.accountName,
-        expectedAccountNumber: selectedBankMethod?.accountNumber,
-      };
-      console.log("[Form] Calling handlePaymentVerification with input:", verificationInput);
-      const result = await handlePaymentVerification(verificationInput);
-      console.log("[Form] handlePaymentVerification result:", result);
+      const paymentProofPreparationResult = await preparePaymentProofForStorage({ paymentProof: data.paymentProof });
+      
+      if (!paymentProofPreparationResult.isSubmitted || !paymentProofPreparationResult.preparedProof) {
+        toast({
+          title: t.efProofProcessingErrorToastTitle || "Proof Processing Error",
+          description: paymentProofPreparationResult.message || (t.efProofProcessingErrorDesc || "Could not process payment proof. Please check your submission and try again."),
+          variant: "destructive",
+          duration: 7000
+        });
+        setSubmissionError(paymentProofPreparationResult.message || (t.efProofProcessingErrorDesc || "Could not process payment proof."));
+        setIsLoading(false);
+        return;
+      }
 
       const parentInfoForStorage: ParentInfoData = {
         parentFullName: getValues('parentInfo.parentFullName') || firebaseUser?.displayName || 'N/A',
@@ -1013,12 +1002,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         participants: data.participants || [],
         agreeToTerms: data.agreeToTerms,
         couponCode: data.couponCode,
-        paymentProof: {
-            ...data.paymentProof!,
-        },
+        paymentProof: paymentProofPreparationResult.preparedProof, // Use the prepared proof
         calculatedPrice: calculatedPrice,
-        paymentVerified: result.isPaymentValid,
-        paymentVerificationDetails: result,
+        paymentVerified: false, // Default to false for manual verification
+        paymentVerificationDetails: {
+          message: getTranslatedText('efPendingManualReviewMsg', currentLanguage, {defaultValue: "Pending manual verification by admin."}),
+          submittedProofType: data.paymentProof.proofSubmissionType,
+          ...(paymentProofPreparationResult?.transactionNumber ? { transactionId: paymentProofPreparationResult.transactionNumber} : {}),
+        },
         registrationDate: new Date(),
         firebaseUserId: firebaseUser ? firebaseUser.uid : undefined,
       };
@@ -1031,17 +1022,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               participantInfo: {
                   ...p.participantInfo,
                   dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
-                  certificateFile: undefined, // Do not store the File object
-                  certificateDataUri: p.participantInfo.certificateDataUri || undefined, // Store base64 if present
+                  certificateFile: undefined, 
+                  certificateDataUri: p.participantInfo.certificateDataUri || undefined, 
               }
           })),
           paymentProof: {
               ...finalRegistrationData.paymentProof,
-              screenshot: undefined, // Do not store the FileList object
+              screenshot: undefined, 
           }
       };
       console.log("[Form] Final registration data prepared for Firestore (object):", firestoreReadyData);
-      // console.log("[Form] Final registration data prepared for Firestore (stringified):", JSON.stringify(firestoreReadyData, null, 2));
 
 
       if (!db) {
@@ -1050,36 +1040,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           return;
       }
 
-      console.log(`[Form] Attempting to save to Firestore. Payment valid according to AI/rules: ${result.isPaymentValid}`);
       const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
       console.log("[Form] Registration data saved to Firestore. Document ID:", docRef.id);
       
-      if (result.isPaymentValid) {
-        toast({
-          title: t.efPaymentSubmittedSavedToastTitle || "Payment Submitted & Saved",
-          description: result.message || (t.efPaymentVerifiedSavedToastDesc || "Payment verified and saved."),
-          variant: "default",
-          className: "bg-accent text-accent-foreground",
-        });
-      } else {
-        let failureMessage = result.message || (t.efPaymentVerificationFailedToastDesc || "Payment verification failed.");
-        if (result.reason && result.reason !== result.message) {
-            failureMessage += ` Reason: ${result.reason}`;
-        }
-        setAiVerificationError(failureMessage);
-        toast({
-          title: t.efPaymentIssueToastTitle || "Payment Issue",
-          description: failureMessage,
-          variant: "destructive",
-          duration: 8000,
-        });
-         toast({ title: t.efRegSubmittedForReviewToastTitle || "Submitted for Review", description: t.efRegSubmittedForReviewToastDesc || "Your registration is submitted and will be reviewed."});
-      }
+      toast({
+        title: t.efRegSubmittedForReviewToastTitle || "Submitted for Review",
+        description: t.efRegSubmittedForReviewToastDesc || "Your registration is submitted and will be reviewed.",
+        variant: "default",
+        className: "bg-accent text-accent-foreground",
+      });
       
       setRegistrationDataForReceipt(finalRegistrationData);
       setCurrentView('confirmation');
       clearLocalStorageData();
-      localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY); // Ensure this is cleared
+      localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
       setSelectedFile(null);
       resetField('paymentProof.screenshotDataUri');
       resetField('paymentProof.screenshot');
@@ -1091,7 +1065,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     } catch (error: any) {
       console.error("[Form] Submission error:", error);
       const errorMessage = error.message || (t.efUnexpectedErrorToastDesc || "Unexpected error.");
-      setAiVerificationError(errorMessage);
+      setSubmissionError(errorMessage);
       toast({
         title: t.efErrorToastTitle || "Error",
         description: errorMessage,
@@ -1110,7 +1084,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     resetField('paymentProof');
     setValue('paymentProof', {...defaultPaymentProofValues, paymentType: paymentMethods[0]?.value || '' });
     setSelectedFile(null);
-    setAiVerificationError(null);
+    setSubmissionError(null);
 
 
     if (!firebaseUser) {
@@ -1181,16 +1155,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     if (file) {
         setValue('paymentProof.screenshot', event.target.files, { shouldValidate: true }); 
         setSelectedFile(file);
-        setAiVerificationError(null); 
+        setSubmissionError(null); 
         
         const reader = new FileReader();
         reader.onloadend = async () => {
             setValue('paymentProof.screenshotDataUri', reader.result as string, { shouldValidate: true });
-            // Explicitly trigger validation for screenshotDataUri *after* it's set by FileReader
             const validationSuccessful = await trigger('paymentProof.screenshotDataUri');
             if (!validationSuccessful) {
-                // If validation fails here, the error message should appear under the field
-                // via RHF's default error display. We can also toast if needed.
                 console.warn("[Form] ScreenshotDataUri validation failed immediately after file select.");
                 const screenshotError = errors.paymentProof?.screenshotDataUri?.message || errors.paymentProof?.screenshot?.message;
                  if(screenshotError){
@@ -1441,7 +1412,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                 <Badge variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90">
                                     <CheckCircle className="mr-1 h-3.5 w-3.5" /> {t['apVerifiedBadge'] || "Verified"}
                                 </Badge>
-                                ) : reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("human review") ? (
+                                ) : reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("pending") ? ( // Updated check
                                 <Badge variant="outline" className="border-orange-500 text-orange-600">
                                     <Info className="mr-1 h-3.5 w-3.5" /> {t['apPendingReviewBadge'] || "Pending Review"}
                                 </Badge>
@@ -1727,7 +1698,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                   control={control}
                   render={({ field }) => (
                     <RadioGroup
-                      onValueChange={(value) => {field.onChange(value); setAiVerificationError(null);}}
+                      onValueChange={(value) => {field.onChange(value); setSubmissionError(null);}}
                       value={field.value}
                       className="flex flex-col sm:flex-row gap-2 sm:gap-4"
                     >
@@ -1806,11 +1777,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 )}
               </div>
             )}
-             {aiVerificationError && (
+             {submissionError && (
                 <Alert variant="destructive" className="mt-4">
                     <AlertTriangle className="h-4 w-4" />
                     <UITitle>{t.efPaymentVerificationErrorTitle || "Payment Verification Error"}</UITitle>
-                    <UIDescription>{aiVerificationError}</UIDescription>
+                    <UIDescription>{submissionError}</UIDescription>
                 </Alert>
             )}
         </TabsContent>
@@ -1948,4 +1919,3 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
-
