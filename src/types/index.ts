@@ -17,9 +17,9 @@ export type LoginData = z.infer<typeof LoginSchema>;
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim(),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
-  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim(),
-  password: z.string().min(6, "Password must be at least 6 characters."),
-  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
+  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters.").optional(),
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(),
 }).superRefine((data, ctx) => {
   // Password confirmation is only relevant if both password and confirmPassword are provided
   // This is primarily for the account creation step.
@@ -53,8 +53,8 @@ export const ParticipantInfoSchema = z.object({
   guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Telegram phone invalid.").trim(),
   guardianUsePhone1ForTelegram: z.boolean().optional(),
   guardianUsePhone2ForTelegram: z.boolean().optional(),
-  certificateFile: z.any().optional(),
-  certificateDataUri: z.string().optional(),
+  certificateFile: z.any().optional(), // For File object
+  certificateDataUri: z.string().optional(), // For base64 string
 });
 export type ParticipantInfoData = z.infer<typeof ParticipantInfoSchema>;
 
@@ -64,102 +64,113 @@ export const EnrolledParticipantSchema = z.object({
 });
 export type EnrolledParticipantData = z.infer<typeof EnrolledParticipantSchema>;
 
+// Simplified PaymentProofSchema focusing on individual field types
 export const PaymentProofSchema = z.object({
-  paymentType: z.string().min(1, "Payment method is required."),
+  paymentType: z.string().min(1, "Payment method is required."), // Basic check
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
-    required_error: "Proof submission method is required.",
+    required_error: "Proof submission method is required.", // Basic check
   }),
   screenshot: z.any().optional(), // For the File object
-  screenshotDataUri: z.string().optional(), // For the base64 string
-  pdfLink: z.string().url("Invalid URL for PDF link.").optional().or(z.literal('')),
-  transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional().or(z.literal('')),
-})
-.refine(data => {
-  if (data.proofSubmissionType === 'transactionId') {
-    return data.transactionId && data.transactionId.trim().length >= 3;
-  }
-  return true;
-}, {
-  message: 'Transaction ID is required and must be at least 3 characters when submission type is Transaction ID.',
-  path: ['transactionId'],
-})
-.refine(data => {
-  if (data.proofSubmissionType === 'screenshot') {
-    return data.screenshotDataUri && data.screenshotDataUri.trim() !== '';
-  }
-  return true;
-}, {
-  message: 'Please upload a screenshot for verification when submission type is Screenshot.',
-  path: ['screenshot'], // Corrected path: relative to PaymentProofSchema
-})
-.refine(data => {
-  if (data.proofSubmissionType === 'pdfLink') {
-    return data.pdfLink && data.pdfLink.trim() !== '' && (data.pdfLink.startsWith('http://') || data.pdfLink.startsWith('https://'));
-  }
-  return true;
-}, {
-  message: 'A valid PDF link (starting with http:// or https://) is required when submission type is PDF Link.',
-  path: ['pdfLink'],
+  screenshotDataUri: z.string().optional().or(z.literal('')), // Allow empty initially
+  pdfLink: z.string().url("Invalid URL format. Must be http:// or https://").optional().or(z.literal('')),
+  transactionId: z.string().optional().or(z.literal('')), // Allow empty initially
 });
 export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  // For a logged-in user, these parentInfo fields are typically pre-filled or not re-validated at final submission.
-  // For a new user flow that was interrupted, they might be present.
-  // Making them optional here as the main schema is for the *enrollment submission itself*.
-  // Account creation and login have their own, stricter schemas.
-  parentInfo: z.object({
+  parentInfo: z.object({ // Manually define as optional for submission context
     parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim().optional(),
     parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim().optional(),
     parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
-    // password and confirmPassword are not part of the final enrollment data, so they are not here.
   }).optional(),
   participants: z.array(EnrolledParticipantSchema).min(1, "At least one participant must be enrolled."),
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
-  paymentProof: PaymentProofSchema, // PaymentProof is now required if participants are present (handled by superRefine)
+  paymentProof: PaymentProofSchema.optional(), // Make the whole object optional initially
   loginEmail: z.string().regex(emailRegex, "Invalid email address format for login.").trim().optional(),
   loginPassword: z.string().min(6, "Password for login must be at least 6 characters.").optional(),
 })
 .superRefine((data, ctx) => {
     const hasParticipants = data.participants && data.participants.length > 0;
 
-    // This superRefine now focuses on the presence of paymentProof if participants exist.
-    // The internal validity of paymentProof (including its fields like paymentType, proofSubmissionType, etc.)
-    // is handled by PaymentProofSchema itself and its .refine methods.
     if (hasParticipants) {
+        // If there are participants, paymentProof object must exist
         if (!data.paymentProof) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['paymentProof'], // Path for the entire paymentProof object
                 message: 'Payment details are required when participants are enrolled.',
             });
-        } else {
-            // Specific checks for paymentType and proofSubmissionType within an existing paymentProof object
-            // are already handled by PaymentProofSchema's `min(1)` and `enum` requirements.
-            // Additional explicit checks here can be redundant if PaymentProofSchema is correctly defined as required.
-            // However, if PaymentProofSchema itself were optional, these would be needed.
-            // Since PaymentProofSchema is now non-optional in this branch of logic, its own field requirements take precedence.
+            return; // Stop further validation of paymentProof if it's not provided
+        }
+
+        // Validate paymentType within paymentProof
+        if (!data.paymentProof.paymentType || data.paymentProof.paymentType.trim() === '') {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof', 'paymentType'],
+                message: 'Payment method (bank) selection is required.',
+            });
+        }
+        
+        // Validate proofSubmissionType within paymentProof
+        if (!data.paymentProof.proofSubmissionType) {
+             ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof', 'proofSubmissionType'],
+                message: 'Proof submission method selection is required.',
+            });
+        }
+
+        // Conditional validation based on proofSubmissionType
+        if (data.paymentProof.proofSubmissionType === 'transactionId') {
+            if (!data.paymentProof.transactionId || data.paymentProof.transactionId.trim().length < 3) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['paymentProof', 'transactionId'],
+                    message: 'Transaction ID is required and must be at least 3 characters.',
+                });
+            }
+        } else if (data.paymentProof.proofSubmissionType === 'screenshot') {
+            if (!data.paymentProof.screenshotDataUri || data.paymentProof.screenshotDataUri.trim() === '') {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    // The UI field that the user interacts with for upload is typically associated with 'screenshot' (the File object).
+                    // The 'screenshotDataUri' is an internal representation.
+                    // Pointing the error to 'screenshot' might make more sense for RHF field error display.
+                    path: ['paymentProof', 'screenshot'], 
+                    message: 'A screenshot file is required for this submission type.',
+                });
+            }
+        } else if (data.paymentProof.proofSubmissionType === 'pdfLink') {
+            if (!data.paymentProof.pdfLink || data.paymentProof.pdfLink.trim() === '' || !z.string().url().safeParse(data.paymentProof.pdfLink).success) {
+                 ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['paymentProof', 'pdfLink'],
+                    message: 'A valid PDF link (e.g., https://...) is required.',
+                });
+            }
         }
     }
 });
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
+// For storing in Firestore, we ensure ParentInfoData is used fully
 export type RegistrationData = {
-  parentInfo: ParentInfoData; // This uses the stricter ParentInfoData for what's stored
+  parentInfo: ParentInfoData; 
   participants: EnrolledParticipantData[];
   agreeToTerms: boolean;
   couponCode?: string;
-  paymentProof: PaymentProofData;
+  paymentProof: PaymentProofData; // The submitted proof, which would have passed validation
   calculatedPrice: number;
   paymentVerified: boolean;
-  paymentVerificationDetails?: any;
-  registrationDate: Date | string;
-  firebaseUserId?: string;
+  paymentVerificationDetails?: any; // For admin notes, AI results (if any), etc.
+  registrationDate: Date | string; // Store as ISO string in Firestore, convert to Date in app
+  firebaseUserId?: string; // Link to Firebase Auth user
 };
 
 
@@ -208,4 +219,5 @@ export type CouponData = ConstantCouponData;
 
 
 export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };
+
     
