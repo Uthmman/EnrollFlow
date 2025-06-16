@@ -41,7 +41,7 @@ import type { HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData, LoginData as FormLoginData } from '@/types';
-import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema, LoginSchema as RHFLoginSchema } from '@/types';
+import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, LoginSchema as RHFLoginSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 import { getTranslationsForLanguage, getTranslatedText } from '@/lib/translationService';
@@ -703,50 +703,51 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setCalculatedPrice(total);
   }, [watchedParticipants, availablePrograms]);
 
+
   const handleAccountCreation = async () => {
     if (!auth) {
-      toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive" });
-      return;
+        toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive"});
+        return;
     }
-    const parentDataToValidate = getValues('parentInfo');
+    const parentDataToValidate: ParentInfoData = {
+        parentFullName: getValues('parentInfo.parentFullName') || '',
+        parentEmail: getValues('parentInfo.parentEmail') || '',
+        parentPhone1: getValues('parentInfo.parentPhone1') || '',
+        password: getValues('parentInfo.password') || '',
+        confirmPassword: getValues('parentInfo.confirmPassword') || ''
+    };
     console.log("[Form] handleAccountCreation: Validating data:", parentDataToValidate);
     
-    // Ensure RHFParentInfoSchema is used here for account creation specific validation
     const validationResult = RHFParentInfoSchema.safeParse(parentDataToValidate);
 
     if (validationResult.success) {
-      setIsLoading(true);
-      const { parentFullName, parentEmail, password, parentPhone1 } = validationResult.data;
-      try {
-        if (!password) { // Should be caught by RHFParentInfoSchema if not optional there
-          toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: "Password is required for new account.", variant: "destructive" });
-          setIsLoading(false);
-          return;
+        setIsLoading(true);
+        const { parentFullName, parentEmail, password, parentPhone1 } = validationResult.data;
+        try {
+            await createUserWithEmailAndPassword(auth, parentEmail!, password!);
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
+                localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+            }
+            const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, {name: parentFullName});
+            toast({ title: t.efAccountCreatedToastTitle || "Account Created!", description: desc });
+        } catch (error: any) {
+            console.error("Firebase registration error:", error);
+            let errorMessage = t.efRegistrationFailedToastDesc || "Registration failed.";
+            if (error.code === 'auth/email-already-in-use') {
+                errorMessage = t.efEmailInUseToastDesc || "Email already in use.";
+            } else if (error.code === 'auth/weak-password') {
+                errorMessage = t.efWeakPasswordToastDesc || "Password too weak.";
+            }
+            toast({ title: t.efRegistrationErrorToastTitle || "Registration Error", description: errorMessage, variant: "destructive" });
+        } finally {
+            setIsLoading(false);
         }
-        await createUserWithEmailAndPassword(auth, parentEmail!, password);
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
-        }
-        const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, { name: parentFullName });
-        toast({ title: t.efAccountCreatedToastTitle || "Account Created!", description: desc });
-      } catch (error: any) {
-        console.error("Firebase registration error:", error);
-        let errorMessage = t.efRegistrationFailedToastDesc || "Registration failed.";
-        if (error.code === 'auth/email-already-in-use') {
-          errorMessage = t.efEmailInUseToastDesc || "Email already in use.";
-        } else if (error.code === 'auth/weak-password') {
-          errorMessage = t.efWeakPasswordToastDesc || "Password too weak.";
-        }
-        toast({ title: t.efRegistrationErrorToastTitle || "Registration Error", description: errorMessage, variant: "destructive" });
-      } finally {
-        setIsLoading(false);
-      }
     } else {
       console.error("[Form] handleAccountCreation: ParentInfo validation failed:", validationResult.error.flatten().fieldErrors);
       let errorMessages = "";
       for (const field in validationResult.error.flatten().fieldErrors) {
-        const fieldTyped = field as keyof ParentInfoData; // RHFParentInfoSchema implies these fields
+        const fieldTyped = field as keyof ParentInfoData;
         const fieldErrorMessages = validationResult.error.flatten().fieldErrors[fieldTyped];
         if (fieldErrorMessages) {
             const messageKey = fieldErrorMessages[0];
@@ -757,9 +758,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         }
       }
       toast({
-        title: t.efValidationErrorToastTitle || "Validation Error",
-        description: errorMessages || (t.efCheckEntriesToastDesc || "Check entries."),
-        variant: "destructive"
+          title: t.efValidationErrorToastTitle || "Validation Error",
+          description: errorMessages || (t.efCheckEntriesToastDesc || "Check entries."),
+          variant: "destructive"
       });
     }
   };
@@ -816,20 +817,49 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         }
       }
       toast({
-        title: t.efValidationErrorToastTitle || "Validation Error",
-        description: errorMessages || (t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password."),
-        variant: "destructive"
+          title: t.efValidationErrorToastTitle || "Validation Error",
+          description: errorMessages || (t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password."),
+          variant: "destructive"
       });
     }
   };
 
  const onFormError = (errorsFromRHF: any) => {
     console.error("[EnrollmentForm] Main form validation failed. Argument `errorsFromRHF` to onFormError:", errorsFromRHF);
-    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` from useForm (MORE RELIABLE):", errors); 
+    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` (from useForm hook, usually more reliable):", errors);
     
     let descriptionText = t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.";
+    
+    // Attempt to build a more specific error message if formState.errors has content
+    // This part is for better toast messages if errorsFromRHF is empty but formState.errors isn't.
     if (Object.keys(errorsFromRHF).length === 0 && Object.keys(errors).length > 0) {
-        descriptionText = t.efCheckFormEntriesToastDesc || "Validation failed. Check console for details (formState.errors).";
+        let specificErrorMessages = "";
+        for (const field in errors) {
+            const fieldTyped = field as keyof EnrollmentFormData;
+            // @ts-ignore
+            const fieldError = errors[fieldTyped];
+            if (fieldError && fieldError.message) {
+                const translatedField = getTranslatedText(`ef${fieldTyped.charAt(0).toUpperCase() + fieldTyped.slice(1)}Label`, currentLanguage, {defaultValue: field});
+                // @ts-ignore
+                const translatedMessage = getTranslatedText(fieldError.message || "fallback.error", currentLanguage);
+                specificErrorMessages += `${translatedField}: ${translatedMessage}\n`;
+            } else if (field === "paymentProof" && typeof fieldError === "object" && fieldError !== null) {
+                // Handle nested errors in paymentProof if any
+                for (const subField in fieldError) {
+                    // @ts-ignore
+                    const subFieldError = fieldError[subField];
+                    if (subFieldError && subFieldError.message) {
+                         const translatedSubField = getTranslatedText(`efPaymentProof${subField.charAt(0).toUpperCase() + subField.slice(1)}Label`, currentLanguage, {defaultValue: subField});
+                         // @ts-ignore
+                         const translatedMessage = getTranslatedText(subFieldError.message || "fallback.error", currentLanguage);
+                         specificErrorMessages += `${translatedSubField}: ${translatedMessage}\n`;
+                    }
+                }
+            }
+        }
+        if (specificErrorMessages) {
+            descriptionText = specificErrorMessages;
+        }
     } else if (Object.keys(errorsFromRHF).length === 0 && Object.keys(errors).length === 0) {
         descriptionText = "An unknown validation error occurred. Please try again.";
     }
@@ -1143,22 +1173,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-        setValue('paymentProof.screenshot', event.target.files); // RHF expects a FileList
+        setValue('paymentProof.screenshot', event.target.files); 
         setSelectedFile(file);
-        setAiVerificationError(null); // Clear previous AI error on new file select
+        setAiVerificationError(null); 
         const reader = new FileReader();
         reader.onloadend = async () => {
             setValue('paymentProof.screenshotDataUri', reader.result as string, { shouldValidate: true });
-            // Explicitly trigger validation for the specific field if needed,
-            // or rely on overall form validation if this is part of it.
-            // await trigger('paymentProof.screenshotDataUri');
+            await trigger('paymentProof.screenshotDataUri'); 
         };
         reader.readAsDataURL(file);
     } else {
         setValue('paymentProof.screenshot', null);
         setSelectedFile(null);
         setValue('paymentProof.screenshotDataUri', undefined, { shouldValidate: true });
-        // await trigger('paymentProof.screenshotDataUri');
+        await trigger('paymentProof.screenshotDataUri');
     }
   };
 
