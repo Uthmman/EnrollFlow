@@ -3,9 +3,17 @@ import { z } from 'zod';
 import type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory, CouponData as ConstantCouponData, CouponDiscountType } from '@/lib/constants';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const phoneRegex = /^[0-9]{9,15}$/;
+const phoneRegex = /^[0-9]{9,15}$/; // Allows for international numbers, adjust if only local
 
-// Schema for Parent/Registrant Information (used for new account creation and as part of main enrollment)
+// Schema for Login (used directly in component logic)
+export const LoginSchema = z.object({
+    loginEmail: z.string().regex(emailRegex, "Invalid email address format for login.").trim(),
+    loginPassword: z.string().min(6, "Password for login must be at least 6 characters."),
+});
+export type LoginData = z.infer<typeof LoginSchema>;
+
+
+// Schema for Parent/Registrant Information (used directly for new account creation logic)
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim(),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
@@ -13,7 +21,7 @@ export const ParentInfoSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters.").optional(),
   confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(),
 }).superRefine((data, ctx) => {
-  if (data.password && data.confirmPassword) { // Only validate if both are provided (for new account registration)
+  if (data.password && data.confirmPassword) {
     if (data.password !== data.confirmPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -28,7 +36,7 @@ export const ParentInfoSchema = z.object({
         message: 'Please confirm your password.',
     });
   } else if (!data.password && data.confirmPassword) {
-    ctx.addIssue({
+     ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['password'],
         message: 'Please enter a password.',
@@ -36,13 +44,6 @@ export const ParentInfoSchema = z.object({
   }
 });
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
-
-// Schema specifically for Login action
-export const LoginSchema = z.object({
-    loginEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
-    loginPassword: z.string().min(6, "Password must be at least 6 characters."),
-});
-export type LoginData = z.infer<typeof LoginSchema>;
 
 
 export const ParticipantInfoSchema = z.object({
@@ -83,15 +84,21 @@ export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: ParentInfoSchema.optional(), // Optional here because it's handled separately for new registration
+  parentInfo: z.object({ // Manually defining ParentInfo as optional with optional fields
+    parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim().optional(),
+    parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim().optional(),
+    parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
+    password: z.string().min(6, "Password must be at least 6 characters.").optional(),
+    confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(),
+  }).optional(),
   participants: z.array(EnrolledParticipantSchema).optional().default([]),
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
   paymentProof: PaymentProofSchema.optional(),
-  loginEmail: z.string().regex(emailRegex, "Invalid email address format.").optional(), // Keep for RHF state, but validate with LoginSchema
-  loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(), // Keep for RHF state, but validate with LoginSchema
+  loginEmail: z.string().regex(emailRegex, "Invalid email address format for login.").trim().optional(),
+  loginPassword: z.string().min(6, "Password for login must be at least 6 characters.").optional(),
 })
 .superRefine((data, ctx) => {
     const hasParticipants = data.participants && data.participants.length > 0;
@@ -103,9 +110,10 @@ export const EnrollmentFormSchema = z.object({
                 path: ['paymentProof'],
                 message: 'Payment details are required when participants are enrolled.',
             });
-            return;
+            return z.NEVER;
         }
 
+        let issueAdded = false;
         const { paymentType, proofSubmissionType, transactionId, pdfLink, screenshotDataUri } = data.paymentProof;
 
         if (!paymentType || paymentType.trim() === '') {
@@ -114,6 +122,7 @@ export const EnrollmentFormSchema = z.object({
                 path: ['paymentProof', 'paymentType'],
                 message: 'Please select a payment method.',
             });
+            issueAdded = true;
         }
 
         if (!proofSubmissionType) {
@@ -122,6 +131,7 @@ export const EnrollmentFormSchema = z.object({
                 path: ['paymentProof', 'proofSubmissionType'],
                 message: 'Please select a proof submission method.',
             });
+            issueAdded = true;
         } else {
             if (proofSubmissionType === 'transactionId') {
                 if (!transactionId || transactionId.trim().length < 3) {
@@ -130,25 +140,29 @@ export const EnrollmentFormSchema = z.object({
                         path: ['paymentProof', 'transactionId'],
                         message: 'Transaction ID is required and must be at least 3 characters.',
                     });
+                    issueAdded = true;
                 }
             } else if (proofSubmissionType === 'screenshot') {
-                if (!screenshotDataUri || screenshotDataUri.trim() === '') {
-                    ctx.addIssue({
+                 if (!screenshotDataUri || screenshotDataUri.trim() === '') {
+                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
-                        path: ['paymentProof', 'screenshot'],
+                        path: ['paymentProof', 'screenshot'], // Report against user-facing field
                         message: 'Please upload a screenshot for verification.',
                     });
-                }
+                    issueAdded = true;
+                 }
             } else if (proofSubmissionType === 'pdfLink') {
                 if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) {
-                    ctx.addIssue({
+                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'pdfLink'],
-                        message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.',
+                        message: 'A valid PDF link (starting with http:// or https://) is required.',
                     });
+                    issueAdded = true;
                 }
             }
         }
+        if (issueAdded) return z.NEVER;
     }
 });
 
@@ -213,3 +227,5 @@ export type CouponData = ConstantCouponData;
 
 
 export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };
+
+    

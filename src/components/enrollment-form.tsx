@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { z } from 'zod';
+import type { z as ZodInfer } from 'zod'; // Renamed to avoid conflict with genkit's z
 import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText as FileIcon, UploadCloud, BarChart3, FileUp, Info, AlertTriangle, Edit3 } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -459,16 +459,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register, resetField } = methods;
 
-  const onFormError = (errorsFromRHF: any) => {
-    console.error("[EnrollmentForm] Main form validation failed. Errors reported by onFormError:", errorsFromRHF);
-    toast({
-        title: t.efValidationErrorToastTitle || "Validation Error",
-        description: t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.",
-        variant: "destructive",
-        duration: 7000,
-    });
-  };
-
 
   const translateEnrollmentFormContent = useCallback((lang: LanguageCode) => {
     const newTranslations = getTranslationsForLanguage(lang);
@@ -592,39 +582,18 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       setFirebaseUser(user);
       if (user && user.email) {
         fetchUserRegistrations(user.uid);
-        const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
-
-        if (savedParentInfoRaw) {
-            try {
-                const savedParentInfo = JSON.parse(savedParentInfoRaw) as ParentInfoData;
-                if (savedParentInfo.parentEmail === user.email) {
-                    setValue('parentInfo.parentFullName', savedParentInfo.parentFullName);
-                    setValue('parentInfo.parentEmail', savedParentInfo.parentEmail);
-                    setValue('parentInfo.parentPhone1', savedParentInfo.parentPhone1);
-                } else {
-                    localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-                    setValue('parentInfo.parentFullName', user.displayName || "");
-                    setValue('parentInfo.parentEmail', user.email);
-                    setValue('parentInfo.parentPhone1', '');
-                }
-            } catch (e) {
-                console.error("Error parsing parent info from LS on auth change", e);
-                localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-                setValue('parentInfo.parentFullName', user.displayName || "");
-                setValue('parentInfo.parentEmail', user.email);
-                setValue('parentInfo.parentPhone1', '');
-            }
-        } else {
-            setValue('parentInfo.parentFullName', user.displayName || "");
-            setValue('parentInfo.parentEmail', user.email);
-            setValue('parentInfo.parentPhone1', '');
-        }
+        
+        // Pre-fill ParentInfo from Firebase Auth user if available
+        setValue('parentInfo.parentFullName', user.displayName || "");
+        setValue('parentInfo.parentEmail', user.email);
+        // parentPhone1 might not be in auth, leave it or clear it
+        // setValue('parentInfo.parentPhone1', user.phoneNumber || ''); // User.phoneNumber might be null
 
         const savedParticipantsRaw = localStorage.getItem(LOCALSTORAGE_PARTICIPANTS_KEY);
         if (savedParticipantsRaw) {
             try {
                 const savedParticipants = JSON.parse(savedParticipantsRaw) as {parentEmail: string, data: EnrolledParticipantData[]};
-                if (savedParticipants.parentEmail === user.email) {
+                if (savedParticipants.parentEmail === user.email) { // Only load if for current user
                      replaceParticipants(savedParticipants.data.map((p: EnrolledParticipantData) => ({
                         ...p,
                         participantInfo: {
@@ -632,15 +601,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             dateOfBirth: p.participantInfo.dateOfBirth ? new Date(p.participantInfo.dateOfBirth) : undefined,
                         }
                     })));
-                } else {
+                } else { // Clear LS if it was for a different user
                     localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
-                     replaceParticipants([]);
+                    replaceParticipants([]);
                 }
             } catch (e) {
                 console.error("Error parsing participants from LS on auth change", e);
                 localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
                 replaceParticipants([]);
             }
+        } else {
+             replaceParticipants([]); // Ensure participants are cleared if nothing in LS
         }
 
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
@@ -652,9 +623,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
              setActiveDashboardTab('enrollments');
         }
         onStageChange('accountCreated');
-      } else {
+      } else { // No user logged in
         if (currentView === 'dashboard') {
-            clearLocalStorageData();
+            clearLocalStorageData(); // Clear any existing form data
             setUserRegistrations([]);
             setCurrentView('accountCreation');
             onStageChange('initial');
@@ -667,6 +638,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 
  useEffect(() => {
+    // This effect for loading guest session data should only run if NO user is logged in.
     if (typeof window !== 'undefined' && !firebaseUser && Object.keys(t).length > 0) {
       try {
         const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
@@ -681,7 +653,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
            setValue('parentInfo.parentPhone1', loadedParentInfo?.parentPhone1 || '');
         }
 
-        if (loadedParentInfo?.parentEmail && loadedParentInfo?.password) {
+        if (loadedParentInfo?.parentEmail && loadedParentInfo.password) { // A "guest session" marker
           setCurrentView('dashboard');
           onStageChange('accountCreated');
           setActiveDashboardTab('enrollments');
@@ -742,20 +714,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
     if (validationResult.success) {
         setIsLoading(true);
-        const { parentFullName, parentEmail, password } = validationResult.data;
+        const { parentFullName, parentEmail, password, parentPhone1 } = validationResult.data;
         try {
-            if (!password) { // Should be caught by schema if password is required
+            if (!password) { 
                 toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: "Password is required for new account.", variant: "destructive" });
                 setIsLoading(false);
                 return;
             }
             await createUserWithEmailAndPassword(auth, parentEmail!, password);
-            if (typeof window !== 'undefined') {
-                localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-                localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
-            }
+            // Firebase onAuthStateChanged will handle UI update and LS clearing
             const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, {name: parentFullName});
             toast({ title: t.efAccountCreatedToastTitle || "Account Created!", description: desc });
+             if (typeof window !== 'undefined') { // Store parent info locally after successful Firebase registration
+                localStorage.setItem(LOCALSTORAGE_PARENT_KEY, JSON.stringify({ parentFullName, parentEmail, parentPhone1, password })); // Store password for "guest session" persistence before full login
+             }
         } catch (error: any) {
             console.error("Firebase registration error:", error);
             let errorMessage = t.efRegistrationFailedToastDesc || "Registration failed.";
@@ -772,7 +744,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       console.error("[Form] handleAccountCreation: Validation failed:", validationResult.error.flatten().fieldErrors);
       let errorMessages = "";
       for (const field in validationResult.error.flatten().fieldErrors) {
-        errorMessages += `${field}: ${validationResult.error.flatten().fieldErrors[field as keyof ParentInfoData]?.join(', ')}\n`;
+        const fieldTyped = field as keyof ParentInfoData;
+        const messageKey = validationResult.error.flatten().fieldErrors[fieldTyped]?.[0];
+        errorMessages += `${field}: ${getTranslatedText(messageKey || "fallback.error", currentLanguage)}\n`;
       }
       toast({
           title: t.efValidationErrorToastTitle || "Validation Error",
@@ -801,17 +775,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       try {
         const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
         const user = userCredential.user;
-
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
-        }
+        // Firebase onAuthStateChanged will handle UI update and LS clearing
 
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (user && user.email === effectiveAdminEmail) {
           console.log(`[EnrollmentForm] Admin user ${user.email} logged in successfully. Redirecting to /admin.`);
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, { defaultValue: "Redirecting to admin panel..." }) });
-          router.push('/admin');
+          // router.push('/admin'); // onAuthStateChanged handles redirection
         } else {
           const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: user.displayName || user.email! });
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
@@ -830,7 +800,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       console.error("[Form] handleLoginAttempt: Validation failed:", validationResult.error.flatten().fieldErrors);
       let errorMessages = "";
       for (const field in validationResult.error.flatten().fieldErrors) {
-        errorMessages += `${field}: ${validationResult.error.flatten().fieldErrors[field as keyof FormLoginData]?.join(', ')}\n`;
+        const fieldTyped = field as keyof FormLoginData;
+        const messageKey = validationResult.error.flatten().fieldErrors[fieldTyped]?.[0];
+        errorMessages += `${field}: ${getTranslatedText(messageKey || "fallback.error", currentLanguage)}\n`;
       }
       toast({
           title: t.efValidationErrorToastTitle || "Validation Error",
@@ -840,9 +812,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
   };
 
+ const onFormError = (errorsFromRHF: any) => {
+    console.log("[EnrollmentForm] onFormError triggered. Value of agreeToTerms:", getValues('agreeToTerms'));
+    console.error("[EnrollmentForm] Main form validation failed. Argument `errorsFromRHF` to onFormError:", errorsFromRHF);
+    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` from useForm:", errors); // Log the one from useForm hook
+    toast({
+        title: t.efValidationErrorToastTitle || "Validation Error",
+        description: t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.",
+        variant: "destructive",
+        duration: 7000,
+    });
+  };
 
   const handleAddParticipantClick = () => {
-    if (registrationDataForReceipt) { // If a receipt is shown, new enrollments are blocked
+    if (registrationDataForReceipt) { 
         toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCompletePreviousEnrollmentToastDesc || "Please complete or clear the previous enrollment first (by going back from receipt)." });
         return;
     }
@@ -903,7 +886,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         toast({title: t.efParticipantAddedToastTitle || "Participant Added", description: `${participantData.firstName} added.`});
     }
 
-    const currentParentEmail = getValues('parentInfo.parentEmail');
+    const currentParentEmail = getValues('parentInfo.parentEmail') || firebaseUser?.email;
      if (typeof window !== 'undefined' && currentParentEmail) {
         localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify({parentEmail: currentParentEmail, data: getValues('participants')}));
     }
@@ -920,54 +903,42 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
     removeParticipant(index);
     const currentParticipants = getValues('participants');
-    const currentParentEmail = getValues('parentInfo.parentEmail');
+    const currentParentEmail = getValues('parentInfo.parentEmail') || firebaseUser?.email;
     if (typeof window !== 'undefined' && currentParentEmail) {
       localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify({parentEmail: currentParentEmail, data: currentParticipants}));
     }
   };
 
   const onSubmit = async (data: EnrollmentFormData) => {
-    console.log("[Form] onSubmit triggered for final submission. Beginning process...");
+    console.log("[Form] onSubmit triggered for final registration submission.");
     setIsLoading(true);
     setAiVerificationError(null);
 
     try {
       console.log("[Form] Current form data for submission (raw from RHF):", data);
-      if (data.participants && data.participants.length > 0 && !data.paymentProof) {
+      if (!data.participants || data.participants.length === 0) {
+        toast({ title: t.efNoEnrollmentsToastTitle || "No Enrollments", description: t.efAddParticipantBeforePaymentToastDesc || "Please add at least one participant.", variant: "destructive" });
+        setActiveDashboardTab('enrollments');
+        setIsLoading(false);
+        return;
+      }
+      if (!data.paymentProof) {
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
         setActiveDashboardTab('payment');
         setIsLoading(false);
         return;
       }
 
-      if (data.paymentProof && !data.paymentProof.proofSubmissionType) {
-        toast({ title: t.efProofSubmissionMissingToastTitle || "Proof Submission Missing", description: t.efSelectProofMethodToastDesc || "Select proof method.", variant: "destructive" });
-        setActiveDashboardTab('payment');
-        await trigger('paymentProof.proofSubmissionType');
-        setIsLoading(false);
-        return;
-      }
-
       let screenshotDataUriForAI: string | undefined = data.paymentProof?.screenshotDataUri;
-      if (data.paymentProof?.proofSubmissionType === 'screenshot' && selectedFile) {
-          screenshotDataUriForAI = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedFile);
-          });
-          if (data.paymentProof) data.paymentProof.screenshotDataUri = screenshotDataUriForAI;
-      }
-
+      // File processing for screenshotDataUri is handled by handleFileSelect and stored in form state.
 
       const selectedBankMethod = paymentMethods.find(m => m.value === data.paymentProof?.paymentType);
       const selectedBankDetails = selectedBankMethod ? (selectedBankMethod.translations[currentLanguage] || selectedBankMethod.translations.en) : undefined;
 
-
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUriForAI,
+            screenshotDataUri: screenshotDataUriForAI, // Use the one from form state
         },
         expectedAmount: calculatedPrice,
         expectedAccountName: selectedBankDetails?.accountName,
@@ -981,7 +952,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         parentFullName: getValues('parentInfo.parentFullName') || firebaseUser?.displayName || 'N/A',
         parentEmail: getValues('parentInfo.parentEmail') || firebaseUser?.email || 'N/A',
         parentPhone1: getValues('parentInfo.parentPhone1') || '',
-        // Passwords are not stored in registration data
+        // Passwords are NOT stored in registration data for security
       };
 
       const finalRegistrationData: RegistrationData = {
@@ -990,111 +961,76 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         agreeToTerms: data.agreeToTerms,
         couponCode: data.couponCode,
         paymentProof: {
-            ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUriForAI
+            ...data.paymentProof!, // Includes screenshotDataUri if present
         },
         calculatedPrice: calculatedPrice,
         paymentVerified: result.isPaymentValid,
         paymentVerificationDetails: result,
-        registrationDate: new Date(),
+        registrationDate: new Date(), // Use Date object here
         firebaseUserId: firebaseUser ? firebaseUser.uid : undefined,
       };
+
+      // Prepare for Firestore (convert Dates to ISO strings, remove raw file objects)
       const firestoreReadyData = {
           ...finalRegistrationData,
-          registrationDate: finalRegistrationData.registrationDate.toISOString(),
-          parentInfo: {
-              parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
-              parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
-              parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
-          },
+          registrationDate: (finalRegistrationData.registrationDate as Date).toISOString(),
           participants: finalRegistrationData.participants.map(p => ({
               ...p,
               participantInfo: {
                   ...p.participantInfo,
                   dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
-                   certificateDataUri: p.participantInfo.certificateDataUri || undefined,
-                   certificateFile: undefined,
+                  certificateFile: undefined, // Do not store raw file object
+                  certificateDataUri: p.participantInfo.certificateDataUri || undefined,
               }
           })),
           paymentProof: {
               ...finalRegistrationData.paymentProof,
-              screenshot: undefined
+              screenshot: undefined, // Do not store raw FileList object
           }
       };
       console.log("[Form] Final registration data prepared for Firestore (object):", firestoreReadyData);
       console.log("[Form] Final registration data prepared for Firestore (stringified):", JSON.stringify(firestoreReadyData, null, 2));
 
 
+      if (!db) {
+          toast({ title: t.efDbErrorToastTitle || "DB Error", description: t.efFirestoreInitFailedToastDesc || "Firestore not initialized.", variant: "destructive" });
+          setIsLoading(false);
+          return;
+      }
+
+      console.log(`[Form] Attempting to save to Firestore. Payment valid according to AI: ${result.isPaymentValid}`);
+      const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
+      console.log("[Form] Registration data saved to Firestore. Document ID:", docRef.id);
+      
       if (result.isPaymentValid) {
-        if (!db) {
-            toast({ title: t.efDbErrorToastTitle || "DB Error", description: t.efFirestoreInitFailedToastDesc || "Firestore not initialized.", variant: "destructive" });
-            setIsLoading(false);
-            return;
-        }
-        try {
-            console.log("[Form] Attempting to save to Firestore (payment valid).");
-            const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
-            console.log("[Form] Registration data saved to Firestore. Document ID:", docRef.id);
-
-            toast({
-              title: t.efPaymentSubmittedSavedToastTitle || "Payment Submitted & Saved",
-              description: result.message || (t.efPaymentVerifiedSavedToastDesc || "Payment verified and saved."),
-              variant: "default",
-              className: "bg-accent text-accent-foreground",
-            });
-            setRegistrationDataForReceipt(finalRegistrationData);
-            setCurrentView('confirmation');
-            clearLocalStorageData();
-            setSelectedFile(null);
-            if (firebaseUser) fetchUserRegistrations(firebaseUser.uid);
-
-        } catch (firestoreError: any) {
-            console.error("[Form] Error saving registration to Firestore (payment valid):", firestoreError);
-            const desc = getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: firestoreError.message});
-            toast({
-                title: t.efSavingErrorToastTitle || "Saving Error",
-                description: desc,
-                variant: "destructive",
-            });
-            setRegistrationDataForReceipt(finalRegistrationData);
-            setCurrentView('confirmation');
-        }
-
+        toast({
+          title: t.efPaymentSubmittedSavedToastTitle || "Payment Submitted & Saved",
+          description: result.message || (t.efPaymentVerifiedSavedToastDesc || "Payment verified and saved."),
+          variant: "default",
+          className: "bg-accent text-accent-foreground",
+        });
       } else {
         let failureMessage = result.message || (t.efPaymentVerificationFailedToastDesc || "Payment verification failed.");
         if (result.reason && result.reason !== result.message) {
             failureMessage += ` Reason: ${result.reason}`;
         }
-        setAiVerificationError(failureMessage);
+        setAiVerificationError(failureMessage); // Show error on payment tab if needed
         toast({
           title: t.efPaymentIssueToastTitle || "Payment Issue",
           description: failureMessage,
           variant: "destructive",
           duration: 8000,
         });
-        if (db && (firebaseUser || getValues('parentInfo.parentEmail')) ) {
-           try {
-                console.log("[Form] Attempting to save to Firestore (payment NOT valid).");
-                const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
-                console.log("[Form] Registration data (payment NOT valid) saved to Firestore. Document ID:", docRef.id);
-                toast({ title: t.efRegSubmittedForReviewToastTitle || "Submitted for Review", description: t.efRegSubmittedForReviewToastDesc || "Your registration is submitted and will be reviewed."});
-                setRegistrationDataForReceipt(finalRegistrationData);
-                setCurrentView('confirmation');
-                clearLocalStorageData();
-                setSelectedFile(null);
-                if (firebaseUser) fetchUserRegistrations(firebaseUser.uid);
-           } catch (dbError: any) {
-                console.error("[Form] Error saving non-verified registration to Firestore:", dbError);
-                toast({ title: t.efSavingErrorToastTitle, description: getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: dbError.message}), variant: "destructive" });
-                setRegistrationDataForReceipt(finalRegistrationData);
-                setCurrentView('confirmation');
-           }
-        } else {
-             console.warn("[Form] DB not available or user not logged in/no email, cannot save non-verified registration.");
-             setRegistrationDataForReceipt(finalRegistrationData);
-             setCurrentView('confirmation');
-        }
+         toast({ title: t.efRegSubmittedForReviewToastTitle || "Submitted for Review", description: t.efRegSubmittedForReviewToastDesc || "Your registration is submitted and will be reviewed."});
       }
+      
+      setRegistrationDataForReceipt(finalRegistrationData); // Use original data with Date objects for receipt
+      setCurrentView('confirmation');
+      clearLocalStorageData(); // Clear guest session data
+      localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY); // Clear draft participants
+      setSelectedFile(null); // Clear file input
+      if (firebaseUser) fetchUserRegistrations(firebaseUser.uid); // Refresh user's registrations
+
     } catch (error: any) {
       console.error("[Form] Submission error:", error);
       const errorMessage = error.message || (t.efUnexpectedErrorToastDesc || "Unexpected error.");
@@ -1860,7 +1796,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                 toast({title: t.efNoEnrollmentsToastTitle || "No Enrollments", description: t.efAddParticipantBeforePaymentToastDesc || "Add participant first.", variant: "destructive"});
                                 return;
                             }
-                             if (!firebaseUser && !localStorage.getItem(LOCALSTORAGE_PARENT_KEY)) {
+                             if (!firebaseUser && !localStorage.getItem(LOCALSTORAGE_PARENT_KEY) && !getValues('parentInfo.parentEmail')) { // Check form state too for guest
                                 toast({title: t.efAccountRequiredToastTitle || "Account Required", description: t.efCreateOrLoginToastDesc || "Create or login first.", variant: "destructive"});
                                 setCurrentView('accountCreation');
                                 return;
@@ -1901,18 +1837,18 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             <DialogTitle className="flex items-center"><UserCog className="mr-2 h-5 w-5 text-primary"/>{t.efAccountInfoDialogTitle}</DialogTitle>
             <DialogDescription>
                 {firebaseUser ? `${t.efLoggedInAsPrefix}${(firebaseUser.displayName || firebaseUser.email)}` :
-                 (parentInfoForDialog?.parentEmail && parentInfoForDialog.password ? `${t.efPrimaryAccountGuestPrefix}${parentInfoForDialog.parentEmail}` :
+                 (parentInfoForDialog?.parentEmail && localStorage.getItem(LOCALSTORAGE_PARENT_KEY) ? `${t.efPrimaryAccountGuestPrefix}${parentInfoForDialog.parentEmail}` :
                   parentInfoForDialog?.parentEmail ? `${t.efPrimaryAccountIncompletePrefix}${parentInfoForDialog.parentEmail}` :
                   t.efNoAccountActiveMsg)}
             </DialogDescription>
           </DialogHeader>
-          { (firebaseUser || (parentInfoForDialog?.parentEmail && parentInfoForDialog.password)) && (
+          { (firebaseUser || (parentInfoForDialog?.parentEmail && localStorage.getItem(LOCALSTORAGE_PARENT_KEY))) && (
             <div className="space-y-2 py-2 text-sm">
               <p><strong>{t.efDialogFullNameLabel}</strong> {parentInfoForDialog?.parentFullName || firebaseUser?.displayName || 'N/A'}</p>
               <p><strong>{t.efDialogEmailLabel}</strong> {parentInfoForDialog?.parentEmail || firebaseUser?.email || 'N/A'}</p>
               {parentInfoForDialog?.parentPhone1 && <p><strong>{t.efDialogPhoneLabel}</strong> {parentInfoForDialog.parentPhone1}</p>}
 
-              {parentInfoForDialog?.password && !firebaseUser && (
+              {parentInfoForDialog?.password && !firebaseUser && localStorage.getItem(LOCALSTORAGE_PARENT_KEY) && ( // Show password only for guest session
                 <div className="flex items-center justify-between">
                     <p><strong>{t.efDialogPasswordLabel}</strong> {showPasswordInDialog ? parentInfoForDialog.password : '••••••••'}</p>
                     <Button variant="ghost" size="icon" onClick={() => setShowPasswordInDialog(!showPasswordInDialog)} className="h-7 w-7">
