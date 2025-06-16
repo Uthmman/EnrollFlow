@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, FormProvider, Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText, ShieldCheck, ShieldAlert, UploadCloud } from 'lucide-react';
+import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText, ShieldCheck, ShieldAlert, UploadCloud, BarChart3 } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation'; 
 
@@ -26,7 +26,6 @@ import { cn } from '@/lib/utils';
 import { format } from "date-fns";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
-// Accordion removed as terms are now always visible
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 
@@ -382,9 +381,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setIsLoadingUserRegistrations(true);
     try {
       const regsCollection = collection(db, 'registrations');
-      const q = query(regsCollection, where('firebaseUserId', '==', userId), orderBy('registrationDate', 'desc'));
+      // TEMPORARY FIX: Removed orderBy to avoid index error. User should create the index.
+      const q = query(regsCollection, where('firebaseUserId', '==', userId));
+      // Original query requiring index:
+      // const q = query(regsCollection, where('firebaseUserId', '==', userId), orderBy('registrationDate', 'desc'));
       const querySnapshot = await getDocs(q);
       const fetchedRegs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRegistrationRecord));
+      
+      // Manual sort if orderBy was removed (less efficient than Firestore sort)
+      fetchedRegs.sort((a, b) => new Date(b.registrationDate as string).getTime() - new Date(a.registrationDate as string).getTime());
+
       setUserRegistrations(fetchedRegs);
       console.log(`[Form] Fetched ${fetchedRegs.length} registrations for user ${userId}`);
     } catch (error) {
@@ -462,19 +468,19 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     setValue('parentInfo.parentPhone1', savedParentInfo.parentPhone1);
                 } else {
                     localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-                    setValue('parentInfo.parentFullName', user.displayName || (getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: "User"}).split(" ")[1].replace(",", "")));
+                    setValue('parentInfo.parentFullName', user.displayName || "");
                     setValue('parentInfo.parentEmail', user.email);
                     setValue('parentInfo.parentPhone1', '');
                 }
             } catch (e) {
                 console.error("Error parsing parent info from LS on auth change", e);
                 localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-                setValue('parentInfo.parentFullName', user.displayName || (getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: "User"}).split(" ")[1].replace(",", "")));
+                setValue('parentInfo.parentFullName', user.displayName || "");
                 setValue('parentInfo.parentEmail', user.email);
                 setValue('parentInfo.parentPhone1', '');
             }
         } else {
-            setValue('parentInfo.parentFullName', user.displayName || (getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: "User"}).split(" ")[1].replace(",", "")));
+            setValue('parentInfo.parentFullName', user.displayName || "");
             setValue('parentInfo.parentEmail', user.email);
             setValue('parentInfo.parentPhone1', '');
         }
@@ -650,7 +656,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, { defaultValue: "Redirecting to admin panel..."}) });
           router.push('/admin');
         } else {
-          const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: (user.displayName || currentParentInfo.parentFullName) || user.email! });
+          const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, {nameOrEmail: user.displayName || user.email! });
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
         }
       } catch (error: any) {
@@ -1184,7 +1190,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     {userRegistrations.map((reg) => (
                         <Card key={reg.id} className="p-3 bg-background/70">
                            <div className="flex justify-between items-start mb-1">
-                             <p className="text-xs text-muted-foreground">{t.rRegistrationDateLabel} {format(new Date(reg.registrationDate), "MMM d, yyyy HH:mm")}</p>
+                             <p className="text-xs text-muted-foreground">{t.rRegistrationDateLabel} {format(new Date(reg.registrationDate as string), "MMM d, yyyy HH:mm")}</p>
                                 {reg.paymentVerified ? (
                                 <Badge variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90">
                                     <ShieldCheck className="mr-1 h-3.5 w-3.5" /> {t['apVerifiedBadge'] || "Verified"}
@@ -1483,7 +1489,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     {errors.paymentProof?.transactionId && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.transactionId.message || "fallback.error", currentLanguage)}</p>}
                   </div>
                 )}
-                {watchedProofSubmissionType === 'screenshot' && (
+                 {watchedProofSubmissionType === 'screenshot' && (
                   <div className="space-y-2">
                     <Label htmlFor="paymentProof.screenshotFile" className="text-sm">{t.efUploadScreenshotLabel}</Label>
                     <div 
