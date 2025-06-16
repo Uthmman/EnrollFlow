@@ -31,7 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 
 import { db, auth } from '@/lib/firebaseConfig';
-import { collection, addDoc, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 
 import { SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
@@ -395,7 +395,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const [registrationDataForReceipt, setRegistrationDataForReceipt] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const router = useRouter();
+  const router = useRouter(); 
 
   const [availablePrograms, setAvailablePrograms] = useState<HafsaProgram[]>([]);
   const [programsLoading, setProgramsLoading] = useState<boolean>(true);
@@ -447,35 +447,49 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setIsLoadingUserRegistrations(true);
     try {
       const regsCollection = collection(db, 'registrations');
-      // Query for registrations matching the user's Firebase UID
-      const q = query(regsCollection, where('firebaseUserId', '==', userId), orderBy('registrationDate', 'desc'));
+      // Temporarily remove orderBy to avoid index error, will sort client-side
+      const q = query(regsCollection, where('firebaseUserId', '==', userId)); 
       
       const querySnapshot = await getDocs(q);
-      const fetchedRegs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRegistrationRecord));
+      let fetchedRegs = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        let regDate = data.registrationDate;
+        // Handle both ISO string and Firestore Timestamp for registrationDate
+        if (regDate && typeof (regDate as any).toDate === 'function') { // Firestore Timestamp
+          regDate = (regDate as any).toDate();
+        } else if (typeof regDate === 'string') { // ISO string
+          regDate = new Date(regDate);
+        } else if (regDate instanceof Timestamp) { // Another way Firestore Timestamps can appear
+            regDate = regDate.toDate();
+        } else {
+            regDate = new Date(); // Default to now if undefined or invalid
+        }
+        return { 
+            id: doc.id, 
+            ...data,
+            registrationDate: regDate
+        } as UserRegistrationRecord;
+      });
+
+      // Client-side sort
+      fetchedRegs.sort((a, b) => {
+        const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
+        const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
+        return dateB - dateA; // Descending
+      });
       
       setUserRegistrations(fetchedRegs);
       console.log(`[Form] Fetched ${fetchedRegs.length} registrations for user ${userId}`);
     } catch (error: any) {
       console.error("[Form] Error fetching user registrations:", error);
-      if (error.code === 'failed-precondition') { // Specific error code for missing index
-          toast({ title: t.efErrorToastTitle || "Error", description: getTranslatedText('efMissingIndexErrorToastDesc', currentLanguage, {defaultValue: "A database index is required. Your previous enrollments might not be sorted correctly. Please contact support."}), variant: "destructive", duration: 10000});
-           // Attempt a fallback query without ordering if index is missing
-           try {
-                const regsCollection = collection(db, 'registrations');
-                const qFallback = query(regsCollection, where('firebaseUserId', '==', userId));
-                const querySnapshotFallback = await getDocs(qFallback);
-                const fetchedRegsFallback = querySnapshotFallback.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRegistrationRecord));
-                // Client-side sort as a fallback
-                fetchedRegsFallback.sort((a, b) => {
-                    const dateA = a.registrationDate ? new Date(a.registrationDate as string | Date).getTime() : 0;
-                    const dateB = b.registrationDate ? new Date(b.registrationDate as string | Date).getTime() : 0;
-                    return dateB - dateA;
-                });
-                setUserRegistrations(fetchedRegsFallback); 
-           } catch (fallbackError) {
-               console.error("[Form] Error fetching user registrations (fallback without sort):", fallbackError);
-                toast({ title: t.efErrorToastTitle || "Error", description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations even with fallback.", variant: "destructive"});
-           }
+      if (error.code === 'failed-precondition') { 
+        toast({ 
+            title: t.efErrorToastTitle || "Error", 
+            description: getTranslatedText('efMissingIndexErrorToastDesc', currentLanguage, {defaultValue: "A database index is required for optimal sorting of your enrollments. Please contact support or check the Firebase console for index creation instructions."}), 
+            variant: "destructive", 
+            duration: 10000
+        });
+         // Fallback: try to fetch without orderby (already done, so this part is redundant, but good for thought)
       } else {
         toast({ title: t.efErrorToastTitle || "Error", description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations.", variant: "destructive"});
       }
@@ -890,7 +904,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         registrationDate: new Date(),
         firebaseUserId: firebaseUser ? firebaseUser.uid : undefined, // Include Firebase User ID
       };
-      console.log("[Form] Final registration data prepared:", finalRegistrationData);
+      console.log("[Form] Final registration data prepared:", JSON.stringify(finalRegistrationData, null, 2));
 
 
       if (result.isPaymentValid) {
@@ -1336,15 +1350,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                              <p className="text-xs text-muted-foreground">{t.rRegistrationDateLabel} {reg.registrationDate ? format(new Date(reg.registrationDate as string | Date), "MMM d, yyyy HH:mm") : "N/A"}</p>
                                 {reg.paymentVerified ? (
                                 <Badge variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90">
-                                    <ShieldCheck className="mr-1 h-3.5 w-3.5" /> {t['apVerifiedBadge'] || "Verified"}
+                                    <CheckCircle className="mr-1 h-3.5 w-3.5" /> {t['apVerifiedBadge'] || "Verified"}
                                 </Badge>
                                 ) : reg.paymentVerificationDetails?.message && (reg.paymentVerificationDetails.message as string).toLowerCase().includes("human review") ? (
                                 <Badge variant="outline" className="border-orange-500 text-orange-600">
-                                    <ShieldAlert className="mr-1 h-3.5 w-3.5" /> {t['apPendingReviewBadge'] || "Pending Review"}
+                                    <Info className="mr-1 h-3.5 w-3.5" /> {t['apPendingReviewBadge'] || "Pending Review"}
                                 </Badge>
                                 ) : (
                                 <Badge variant="destructive">
-                                    <ShieldAlert className="mr-1 h-3.5 w-3.5" />
+                                    <ShieldQuestion className="mr-1 h-3.5 w-3.5" />
                                     {t['apNotVerifiedBadge'] || "Not Verified"}
                                 </Badge>
                                 )}
@@ -1833,3 +1847,4 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+
