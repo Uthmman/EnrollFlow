@@ -72,6 +72,7 @@ export const ar: LocaleStrings = {
   efWeakPasswordToastDesc: "كلمة المرور ضعيفة جدًا. يرجى اختيار كلمة مرور أقوى.",
   efValidationErrorToastTitle: "خطأ في التحقق",
   efCheckEntriesToastDesc: "يرجى التحقق من إدخالاتك والمحاولة مرة أخرى.",
+  efCheckFormEntriesToastDesc: "يرجى التحقق من النموذج بحثًا عن أخطاء وحاول مرة أخرى.",
   efLoginSuccessfulToastTitle: "تم تسجيل الدخول بنجاح!",
   efAdminRedirectToastDesc: "جاري التوجيه إلى لوحة الإدارة...",
   efWelcomeBackUserToastDescTpl: "مرحبًا بعودتك، {nameOrEmail}!",

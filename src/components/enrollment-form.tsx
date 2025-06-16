@@ -459,6 +459,34 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register, resetField } = methods;
 
+  const onFormError = (errorsFromRHF: any) => {
+    console.error("[EnrollmentForm] React Hook Form Validation Errors:", JSON.stringify(errorsFromRHF, null, 2));
+    toast({
+        title: t.efValidationErrorToastTitle || "Validation Error",
+        description: t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.",
+        variant: "destructive",
+        duration: 7000,
+    });
+    for (const fieldName in errorsFromRHF) {
+        if (errorsFromRHF[fieldName]) {
+            let message = errorsFromRHF[fieldName].message;
+            if (errorsFromRHF[fieldName].type === 'required' && !message) {
+                message = `${fieldName} is required.`;
+            }
+            if (message) {
+                 console.error(`[EnrollmentForm] Validation error for ${fieldName}: ${message}`);
+            }
+            if (typeof errorsFromRHF[fieldName] === 'object' && !errorsFromRHF[fieldName].message) {
+                for (const subFieldName in errorsFromRHF[fieldName]) {
+                    if (errorsFromRHF[fieldName][subFieldName] && errorsFromRHF[fieldName][subFieldName].message) {
+                        console.error(`[EnrollmentForm] Validation error for ${fieldName}.${subFieldName}: ${errorsFromRHF[fieldName][subFieldName].message}`);
+                    }
+                }
+            }
+        }
+    }
+  };
+
 
   const translateEnrollmentFormContent = useCallback((lang: LanguageCode) => {
     const newTranslations = getTranslationsForLanguage(lang);
@@ -516,6 +544,38 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             variant: "destructive", 
             duration: 10000
         });
+         // Attempt to fetch without ordering if index is missing
+        try {
+            console.warn("[Form] Index missing for registrations query. Attempting to fetch without date ordering for user.");
+            const regsCollectionRetry = collection(db, 'registrations');
+            const qRetry = query(regsCollectionRetry, where('firebaseUserId', '==', userId));
+            const querySnapshotRetry = await getDocs(qRetry);
+            let fetchedRegsRetry = querySnapshotRetry.docs.map(doc => {
+                const data = doc.data();
+                let regDate = data.registrationDate;
+                 if (regDate && typeof (regDate as any).toDate === 'function') {
+                    regDate = (regDate as any).toDate();
+                } else if (typeof regDate === 'string') {
+                    regDate = new Date(regDate);
+                } else if (regDate instanceof Timestamp) {
+                    regDate = regDate.toDate();
+                } else {
+                    regDate = new Date(); 
+                }
+                return { id: doc.id, ...data, registrationDate: regDate } as UserRegistrationRecord;
+            });
+            // Client-side sort as a fallback
+             fetchedRegsRetry.sort((a, b) => {
+                const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
+                const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
+                return dateB - dateA; 
+            });
+            setUserRegistrations(fetchedRegsRetry);
+            console.log(`[Form] Fallback fetch successful, ${fetchedRegsRetry.length} registrations for user ${userId} (unsorted by DB).`);
+        } catch (retryError: any) {
+            console.error("[Form] Error on fallback fetch for user registrations:", retryError);
+            toast({ title: t.efErrorToastTitle || "Error", description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations.", variant: "destructive"});
+        }
       } else {
         toast({ title: t.efErrorToastTitle || "Error", description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations.", variant: "destructive"});
       }
@@ -869,13 +929,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const onSubmit = async (data: EnrollmentFormData) => {
+    console.log("[Form] onSubmit triggered. Beginning submission process...");
     setIsLoading(true); 
     setAiVerificationError(null); // Clear previous AI errors
-    console.log("[Form] onSubmit triggered. Data:", JSON.stringify(data, null, 2));
+    
     try {
+      console.log("[Form] Current form data for submission:", JSON.stringify(data, null, 2));
       if (data.participants && data.participants.length > 0 && !data.paymentProof) {
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
         setActiveDashboardTab('payment');
+        setIsLoading(false);
         return; 
       }
 
@@ -883,6 +946,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         toast({ title: t.efProofSubmissionMissingToastTitle || "Proof Submission Missing", description: t.efSelectProofMethodToastDesc || "Select proof method.", variant: "destructive" });
         setActiveDashboardTab('payment');
         await trigger('paymentProof.proofSubmissionType');
+        setIsLoading(false);
         return; 
       }
 
@@ -894,7 +958,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           reader.onerror = reject;
           reader.readAsDataURL(selectedFile);
           });
-          setValue('paymentProof.screenshotDataUri', screenshotDataUriForAI, { shouldValidate: true });
+          // setValue('paymentProof.screenshotDataUri', screenshotDataUriForAI, { shouldValidate: true }); // This setValue might be redundant if 'data' already has it from form state
+          data.paymentProof.screenshotDataUri = screenshotDataUriForAI; // Ensure it's in the data being processed
       }
 
 
@@ -911,9 +976,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         expectedAccountName: selectedBankDetails?.accountName,
         expectedAccountNumber: selectedBankMethod?.accountNumber,
       };
-      console.log("[Form] Calling handlePaymentVerification with input:", verificationInput);
+      console.log("[Form] Calling handlePaymentVerification with input:", JSON.stringify(verificationInput, null, 2));
       const result = await handlePaymentVerification(verificationInput);
-      console.log("[Form] handlePaymentVerification result:", result);
+      console.log("[Form] handlePaymentVerification result:", JSON.stringify(result, null, 2));
 
 
       const finalRegistrationData: RegistrationData = {
@@ -937,6 +1002,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       if (result.isPaymentValid) {
         if (!db) {
             toast({ title: t.efDbErrorToastTitle || "DB Error", description: t.efFirestoreInitFailedToastDesc || "Firestore not initialized.", variant: "destructive" });
+            setIsLoading(false);
             return; 
         }
         try {
@@ -982,7 +1048,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 variant: "destructive",
             });
             setRegistrationDataForReceipt(finalRegistrationData); 
-            setCurrentView('confirmation');
+            setCurrentView('confirmation'); // Still go to confirmation even if DB save fails but payment was 'valid' by AI
         }
 
       } else { 
@@ -1029,12 +1095,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 console.error("[Form] Error saving non-verified registration to Firestore:", dbError);
                 toast({ title: t.efSavingErrorToastTitle, description: getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: dbError.message}), variant: "destructive" });
                 setRegistrationDataForReceipt(finalRegistrationData); 
-                setCurrentView('confirmation');
+                setCurrentView('confirmation'); // Proceed to receipt even on DB save error if AI check was done
            }
         } else {
              console.warn("[Form] DB not available or user not logged in/no email, cannot save non-verified registration.");
              setRegistrationDataForReceipt(finalRegistrationData); 
-             setCurrentView('confirmation');
+             setCurrentView('confirmation'); // Proceed to receipt to show what was processed by AI
         }
       }
     } catch (error: any) {
@@ -1515,7 +1581,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 <CardTitle className="text-md sm:text-lg">{t.efTermsConditionsTitle}</CardTitle>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
-                {uniqueProgramTerms.length > 0 ? (
+                 {uniqueProgramTerms.length > 0 ? (
                    uniqueProgramTerms.map((programTerm, index) => (
                       <div key={programTerm.programId} className={cn("mt-2", index > 0 && "pt-3 border-t")}>
                         <h4 className="text-sm sm:text-base font-semibold text-primary mb-1">
@@ -1760,7 +1826,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             key={tab.value}
                             onClick={() => setActiveDashboardTab(tab.value)}
                             className={cn(
-                                "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary h-14 sm:w-auto",
+                                "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary h-14",
                                 "w-[80px]", 
                                 activeDashboardTab === tab.value
                                     ? "bg-primary-foreground text-primary scale-105 shadow-md"
@@ -1783,7 +1849,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
+      <form onSubmit={handleSubmit(onSubmit, onFormError)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl border-none sm:border sm:rounded-lg">
 
            <CardContent className={cn("min-h-[300px] sm:min-h-[350px] p-3 sm:p-6", isMobile && currentView === 'dashboard' && "pb-24")}>

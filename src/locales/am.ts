@@ -72,6 +72,7 @@ export const am: LocaleStrings = {
   efWeakPasswordToastDesc: "የይለፍ ቃል በጣም ደካማ ነው። እባክዎ ጠንካራ የይለፍ ቃል ይምረጡ።",
   efValidationErrorToastTitle: "የማረጋገጫ ስህተት",
   efCheckEntriesToastDesc: "እባክዎ ያስገቡትን መረጃ ያረጋግጡ እና እንደገና ይሞክሩ።",
+  efCheckFormEntriesToastDesc: "እባክዎ ቅጹን ለስህተቶች ይፈትሹ እና እንደገና ይሞክሩ።",
   efLoginSuccessfulToastTitle: "በተሳካ ሁኔታ ገብተዋል!",
   efAdminRedirectToastDesc: "ወደ አስተዳዳሪ ፓነል በመምራት ላይ...",
   efWelcomeBackUserToastDescTpl: "እንኳን ደህና መጡ፣ {nameOrEmail}!",
