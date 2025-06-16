@@ -40,9 +40,9 @@ import { SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
 import type { HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
-import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData, LoginData as FormLoginData } from '@/types';
-import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, LoginSchema as RHFLoginSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
-import { preparePaymentProofForStorage } from '@/app/actions'; // Updated import
+import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData } from '@/types';
+import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema, LoginSchema } from '@/types';
+import { preparePaymentProofForStorage } from '@/app/actions';
 import Receipt from '@/components/receipt';
 import { getTranslationsForLanguage, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
@@ -459,6 +459,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register, resetField } = methods;
 
+  const watchedAgreeToTerms = watch('agreeToTerms');
+  const watchedCalculatedPrice = calculatedPrice; // Use state for this
+  const watchedPaymentType = watch('paymentProof.paymentType');
+  const watchedProofSubmissionType = watch('paymentProof.proofSubmissionType');
+  const watchedScreenshotDataUri = watch('paymentProof.screenshotDataUri');
+  const watchedTransactionId = watch('paymentProof.transactionId');
+  const watchedPdfLink = watch('paymentProof.pdfLink');
+
 
   const translateEnrollmentFormContent = useCallback((lang: LanguageCode) => {
     const newTranslations = getTranslationsForLanguage(lang);
@@ -681,8 +689,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 
   const watchedParticipants = watch('participants');
-  const watchedPaymentType = watch('paymentProof.paymentType');
-  const watchedProofSubmissionType = watch('paymentProof.proofSubmissionType');
 
   const dashboardTabsConfig = [
     { value: 'enrollments' as DashboardTab, desktopLabelKey: 'efDashManageEnrollmentsLabel', mobileLabelKey: 'efDashEnrollmentsTabLabel', icon: Users },
@@ -765,13 +771,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive" });
       return;
     }
-    const loginDataToValidate: FormLoginData = {
+    const loginDataToValidate = { // Define LoginData structure here for clarity
       loginEmail: getValues('loginEmail') || '',
       loginPassword: getValues('loginPassword') || ''
     };
     console.log("[Form] handleLoginAttempt: Validating data:", loginDataToValidate);
 
-    const validationResult = RHFLoginSchema.safeParse(loginDataToValidate);
+    const validationResult = LoginSchema.safeParse(loginDataToValidate); // Use LoginSchema from types
 
     if (validationResult.success) {
       setIsLoading(true);
@@ -801,7 +807,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       console.error("[Form] handleLoginAttempt: Login validation failed:", validationResult.error.flatten().fieldErrors);
       let errorMessages = "";
       for (const field in validationResult.error.flatten().fieldErrors) {
-        const fieldTyped = field as keyof FormLoginData; // Ensure field is key of LoginData
+        const fieldTyped = field as keyof typeof loginDataToValidate; 
         const fieldErrorMessages = validationResult.error.flatten().fieldErrors[fieldTyped];
         if (fieldErrorMessages) {
             const messageKey = fieldErrorMessages[0];
@@ -819,141 +825,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
   };
 
-  const onFormError = () => {
-    console.error("[EnrollmentForm] Validation failed. Using `formState.errors`:", errors);
-  
-    let descriptionText = t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.";
-  
-    if (Object.keys(errors || {}).length > 0) {
-      let specificErrorMessages = "";
-      const extractErrorMessages = (errorObject: any, pathPrefix = "") => {
-        for (const key in errorObject) {
-          const currentPath = pathPrefix ? `${pathPrefix}.${key}` : key;
-          const errorEntry = errorObject[key];
-          if (errorEntry?.message) {
-            const labelKey = `ef${currentPath.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('')}Label`;
-            const translatedField = getTranslatedText(labelKey, currentLanguage, { defaultValue: currentPath });
-            const translatedMessage = getTranslatedText(errorEntry.message, currentLanguage, { defaultValue: errorEntry.message });
-            specificErrorMessages += `${translatedField}: ${translatedMessage}\n`;
-          } else if (typeof errorEntry === 'object') {
-            extractErrorMessages(errorEntry, currentPath);
-          }
-        }
-      };
-      extractErrorMessages(errors);
-      if (specificErrorMessages) descriptionText = specificErrorMessages;
-    }
-  
-    toast({
-      title: t.efValidationErrorToastTitle || "Validation Error",
-      description: descriptionText.trim(),
-      variant: "destructive",
-      duration: 7000,
-    });
-  };
-        
-        extractErrorMessages(errors); // Use `errors` from formState here
-
-        if (specificErrorMessages) {
-            descriptionText = specificErrorMessages;
-        }
-    }
-
-    toast({
-        title: t.efValidationErrorToastTitle || "Validation Error",
-        description: descriptionText.trim(), // No need for fallback here as it's already in descriptionText
-        variant: "destructive",
-        duration: 7000,
-    });
-  };
-
-  const handleAddParticipantClick = () => {
-    if (registrationDataForReceipt) { 
-        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCompletePreviousEnrollmentToastDesc || "Please complete or clear the previous enrollment first (by going back from receipt)." });
-        return;
-    }
-    if (programsLoading) {
-        toast({ title: t.efProgramsLoadingToastTitle || "Programs Loading", description: t.efWaitProgramsLoadedToastDesc || "Wait for programs."});
-        return;
-    }
-    if (availablePrograms.length === 0) {
-        toast({ title: t.efNoProgramsToastTitle || "No Programs", description: t.efNoProgramsDesc || "No programs available.", variant: "destructive"});
-        return;
-    }
-    setProgramForNewParticipant(null);
-    setEditingParticipantIndex(null);
-    setCurrentView('addParticipant');
-  };
-
-  const handleEditParticipantClick = (index: number) => {
-    if (registrationDataForReceipt) {
-        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCannotEditSubmittedEnrollmentToastDesc || "Cannot edit participants of a submitted enrollment from this view." });
-        return;
-    }
-    const participantToEdit = participantFields[index];
-    const program = availablePrograms.find(p => p.id === participantToEdit.programId);
-    if (program) {
-        setProgramForNewParticipant(program);
-        setEditingParticipantIndex(index);
-        setCurrentView('addParticipant');
-    } else {
-        toast({title: t.efErrorToastTitle || "Error", description: "Program details not found for editing."});
-    }
-  };
-
-  const handleProgramCardClick = (program: HafsaProgram) => {
-    if (registrationDataForReceipt) {
-        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCompletePreviousEnrollmentToastDesc || "Please complete or clear the previous enrollment first." });
-        return;
-    }
-    setProgramForNewParticipant(program);
-    setEditingParticipantIndex(null);
-    setCurrentView('addParticipant');
-  };
-
-  const handleSaveParticipant = (participantData: ParticipantInfoData) => {
-    if (!programForNewParticipant) {
-        toast({ title: t.efErrorToastTitle || "Error", description: t.efNoProgramSelectedToastDesc || "No program selected.", variant: "destructive" });
-        return;
-    }
-    const newEnrolledParticipant: EnrolledParticipantData = {
-        programId: programForNewParticipant.id,
-        participantInfo: participantData,
-    };
-
-    if(editingParticipantIndex !== null) {
-        updateParticipant(editingParticipantIndex, newEnrolledParticipant);
-        toast({title: t.efParticipantUpdatedToastTitle || "Participant Updated", description: `${participantData.firstName} updated.`});
-    } else {
-        appendParticipant(newEnrolledParticipant);
-        toast({title: t.efParticipantAddedToastTitle || "Participant Added", description: `${participantData.firstName} added.`});
-    }
-
-    const currentParentEmail = getValues('parentInfo.parentEmail') || firebaseUser?.email;
-     if (typeof window !== 'undefined' && currentParentEmail) {
-        localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify({parentEmail: currentParentEmail, data: getValues('participants')}));
-    }
-    setCurrentView('dashboard');
-    setActiveDashboardTab('enrollments');
-    setEditingParticipantIndex(null);
-    setProgramForNewParticipant(null);
-  };
-
-  const handleRemoveParticipant = (index: number) => {
-    if (registrationDataForReceipt) {
-        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCannotEditSubmittedEnrollmentToastDesc || "Cannot remove participants of a submitted enrollment from this view." });
-        return;
-    }
-    removeParticipant(index);
-    const currentParticipants = getValues('participants');
-    const currentParentEmail = getValues('parentInfo.parentEmail') || firebaseUser?.email;
-    if (typeof window !== 'undefined' && currentParentEmail) {
-      localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify({parentEmail: currentParentEmail, data: currentParticipants}));
-    }
-  };
-
-  const onSubmit = async (data: EnrollmentFormData) => {
-    console.log("[Form] onSubmit triggered for final registration submission.");
+  const onSubmitRegistration = async (data: EnrollmentFormData) => {
+    console.log("[EnrollmentForm] onSubmitRegistration triggered. Form data:", data);
     setIsLoading(true);
     setSubmissionError(null);
 
@@ -965,7 +838,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setIsLoading(false);
         return;
       }
-      if (!data.paymentProof) { // This should be caught by Zod validation if participants exist
+      if (!data.paymentProof) { 
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
         setActiveDashboardTab('payment');
         setIsLoading(false);
@@ -1059,7 +932,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       if (firebaseUser) fetchUserRegistrations(firebaseUser.uid);
 
     } catch (error: any) {
-      console.error("[Form] Submission error:", error);
+      console.error("[Form] Submission error in onSubmitRegistration:", error);
       const errorMessage = error.message || (t.efUnexpectedErrorToastDesc || "Unexpected error.");
       setSubmissionError(errorMessage);
       toast({
@@ -1069,6 +942,140 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const onFormError = (errorsFromRHF: any) => {
+    console.error(
+      "[EnrollmentForm] Main form validation failed. Argument `errorsFromRHF` to onFormError:", 
+      errorsFromRHF, 
+      " This object can sometimes be empty even if validation fails, check `formState.errors` below."
+    );
+    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` (from useForm hook, usually more reliable):", errors); // 'errors' is from useForm formState
+    
+    let descriptionText = t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.";
+  
+    // Prioritize formState.errors (aliased as 'errors') for detailed messages
+    const sourceErrors = (Object.keys(errors || {}).length > 0 && errors) || errorsFromRHF;
+
+    if (Object.keys(sourceErrors || {}).length > 0) {
+      let specificErrorMessages = "";
+      const extractErrorMessages = (errorObject: any, pathPrefix = "") => {
+        for (const key in errorObject) {
+          const currentPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+          const errorEntry = errorObject[key];
+          if (errorEntry?.message && typeof errorEntry.message === 'string') {
+            const labelKey = `ef${currentPath.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('')}Label`;
+            const translatedField = getTranslatedText(labelKey, currentLanguage, { defaultValue: currentPath.replace(/\[\d+\]/g, '').replace(/\.\d+\./g, '.') });
+            const translatedMessage = getTranslatedText(errorEntry.message, currentLanguage, { defaultValue: errorEntry.message });
+            specificErrorMessages += `${translatedField}: ${translatedMessage}\n`;
+          } else if (Array.isArray(errorEntry)) {
+             errorEntry.forEach((item, index) => {
+                if (item && typeof item === 'object') {
+                    extractErrorMessages(item, `${currentPath}[${index}]`);
+                }
+             });
+          } else if (typeof errorEntry === 'object') {
+            extractErrorMessages(errorEntry, currentPath);
+          }
+        }
+      };
+      extractErrorMessages(sourceErrors);
+      if (specificErrorMessages) {
+        descriptionText = specificErrorMessages.trim();
+      }
+    }
+  
+    toast({
+      title: t.efValidationErrorToastTitle || "Validation Error",
+      description: descriptionText,
+      variant: "destructive",
+      duration: 7000,
+    });
+  };
+
+  const handleAddParticipantClick = () => {
+    if (registrationDataForReceipt) { 
+        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCompletePreviousEnrollmentToastDesc || "Please complete or clear the previous enrollment first (by going back from receipt)." });
+        return;
+    }
+    if (programsLoading) {
+        toast({ title: t.efProgramsLoadingToastTitle || "Programs Loading", description: t.efWaitProgramsLoadedToastDesc || "Wait for programs."});
+        return;
+    }
+    if (availablePrograms.length === 0) {
+        toast({ title: t.efNoProgramsToastTitle || "No Programs", description: t.efNoProgramsDesc || "No programs available.", variant: "destructive"});
+        return;
+    }
+    setProgramForNewParticipant(null);
+    setEditingParticipantIndex(null);
+    setCurrentView('addParticipant');
+  };
+
+  const handleEditParticipantClick = (index: number) => {
+    if (registrationDataForReceipt) {
+        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCannotEditSubmittedEnrollmentToastDesc || "Cannot edit participants of a submitted enrollment from this view." });
+        return;
+    }
+    const participantToEdit = participantFields[index];
+    const program = availablePrograms.find(p => p.id === participantToEdit.programId);
+    if (program) {
+        setProgramForNewParticipant(program);
+        setEditingParticipantIndex(index);
+        setCurrentView('addParticipant');
+    } else {
+        toast({title: t.efErrorToastTitle || "Error", description: "Program details not found for editing."});
+    }
+  };
+
+  const handleProgramCardClick = (program: HafsaProgram) => {
+    if (registrationDataForReceipt) {
+        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCompletePreviousEnrollmentToastDesc || "Please complete or clear the previous enrollment first." });
+        return;
+    }
+    setProgramForNewParticipant(program);
+    setEditingParticipantIndex(null);
+    setCurrentView('addParticipant');
+  };
+
+  const handleSaveParticipant = (participantData: ParticipantInfoData) => {
+    if (!programForNewParticipant) {
+        toast({ title: t.efErrorToastTitle || "Error", description: t.efNoProgramSelectedToastDesc || "No program selected.", variant: "destructive" });
+        return;
+    }
+    const newEnrolledParticipant: EnrolledParticipantData = {
+        programId: programForNewParticipant.id,
+        participantInfo: participantData,
+    };
+
+    if(editingParticipantIndex !== null) {
+        updateParticipant(editingParticipantIndex, newEnrolledParticipant);
+        toast({title: t.efParticipantUpdatedToastTitle || "Participant Updated", description: `${participantData.firstName} updated.`});
+    } else {
+        appendParticipant(newEnrolledParticipant);
+        toast({title: t.efParticipantAddedToastTitle || "Participant Added", description: `${participantData.firstName} added.`});
+    }
+
+    const currentParentEmail = getValues('parentInfo.parentEmail') || firebaseUser?.email;
+     if (typeof window !== 'undefined' && currentParentEmail) {
+        localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify({parentEmail: currentParentEmail, data: getValues('participants')}));
+    }
+    setCurrentView('dashboard');
+    setActiveDashboardTab('enrollments');
+    setEditingParticipantIndex(null);
+    setProgramForNewParticipant(null);
+  };
+
+  const handleRemoveParticipant = (index: number) => {
+    if (registrationDataForReceipt) {
+        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCannotEditSubmittedEnrollmentToastDesc || "Cannot remove participants of a submitted enrollment from this view." });
+        return;
+    }
+    removeParticipant(index);
+    const currentParticipants = getValues('participants');
+    const currentParentEmail = getValues('parentInfo.parentEmail') || firebaseUser?.email;
+    if (typeof window !== 'undefined' && currentParentEmail) {
+      localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify({parentEmail: currentParentEmail, data: currentParticipants}));
     }
   };
 
@@ -1813,7 +1820,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit, onFormError)} className="space-y-6 sm:space-y-8">
+      <form onSubmit={handleSubmit(onSubmitRegistration, onFormError)} className="space-y-6 sm:space-y-8">
         <Card className="w-full max-w-2xl mx-auto shadow-xl border-none sm:border sm:rounded-lg">
 
            <CardContent className={cn("min-h-[300px] sm:min-h-[350px] p-3 sm:p-6", isMobile && currentView === 'dashboard' && "pb-24")}>
@@ -1846,8 +1853,19 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         {t.efProceedToPaymentButton} <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 ) : (
-                    <Button type="submit"
-                        disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType') || paymentMethodsLoading || participantFields.length === 0}
+                     <Button type="submit"
+                        disabled={
+                            isLoading ||
+                            !watchedAgreeToTerms ||
+                            watchedCalculatedPrice <= 0 ||
+                            paymentMethodsLoading ||
+                            participantFields.length === 0 ||
+                            !watchedPaymentType || // Add this
+                            !watchedProofSubmissionType || // Add this
+                            (watchedProofSubmissionType === 'screenshot' && !watchedScreenshotDataUri) ||
+                            (watchedProofSubmissionType === 'transactionId' && (!watchedTransactionId || watchedTransactionId.length < 3)) ||
+                            (watchedProofSubmissionType === 'pdfLink' && (!watchedPdfLink || (!watchedPdfLink.startsWith('http://') && !watchedPdfLink.startsWith('https://'))))
+                        }
                         className="w-full sm:ml-auto sm:w-auto"
                     >
                         {isLoading ? (
@@ -1915,3 +1933,4 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
+
