@@ -704,7 +704,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   }, [watchedParticipants, availablePrograms]);
 
 
-  const handleAccountCreation = async () => {
+ const handleAccountCreation = async () => {
     if (!auth) {
         toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive"});
         return;
@@ -718,7 +718,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setIsLoading(true);
         const { parentFullName, parentEmail, password, parentPhone1 } = validationResult.data;
         try {
-            await createUserWithEmailAndPassword(auth, parentEmail!, password!); // password is now required by ParentInfoSchema
+            await createUserWithEmailAndPassword(auth, parentEmail, password!); // password is required by ParentInfoSchema
             if (typeof window !== 'undefined') {
                 localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
                 localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
@@ -741,10 +741,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       console.error("[Form] handleAccountCreation: ParentInfo validation failed:", validationResult.error.flatten().fieldErrors);
       let errorMessages = "";
       for (const field in validationResult.error.flatten().fieldErrors) {
-        const fieldTyped = field as keyof ParentInfoData;
+        const fieldTyped = field as keyof ParentInfoData; // Ensure field is a key of ParentInfoData
         const fieldErrorMessages = validationResult.error.flatten().fieldErrors[fieldTyped];
         if (fieldErrorMessages) {
-            const messageKey = fieldErrorMessages[0];
+            const messageKey = fieldErrorMessages[0]; // Use the first message
             const translatedField = getTranslatedText(`ef${fieldTyped.charAt(0).toUpperCase() + fieldTyped.slice(1)}Label`, currentLanguage, { defaultValue: field });
             const translatedMessage = getTranslatedText(messageKey || "fallback.error", currentLanguage);
             errorMessages += `${translatedField}: ${translatedMessage}\n`;
@@ -753,11 +753,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       }
       toast({
           title: t.efValidationErrorToastTitle || "Validation Error",
-          description: errorMessages || (t.efCheckEntriesToastDesc || "Check entries."),
+          description: errorMessages.trim() || (t.efCheckEntriesToastDesc || "Check entries."),
           variant: "destructive"
       });
     }
   };
+
 
   const handleLoginAttempt = async () => {
     if (!auth) {
@@ -800,7 +801,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       console.error("[Form] handleLoginAttempt: Login validation failed:", validationResult.error.flatten().fieldErrors);
       let errorMessages = "";
       for (const field in validationResult.error.flatten().fieldErrors) {
-        const fieldTyped = field as keyof FormLoginData;
+        const fieldTyped = field as keyof FormLoginData; // Ensure field is key of LoginData
         const fieldErrorMessages = validationResult.error.flatten().fieldErrors[fieldTyped];
         if (fieldErrorMessages) {
             const messageKey = fieldErrorMessages[0];
@@ -812,23 +813,31 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       }
       toast({
           title: t.efValidationErrorToastTitle || "Validation Error",
-          description: errorMessages || (t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password."),
+          description: errorMessages.trim() || (t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password."),
           variant: "destructive"
       });
     }
   };
 
  const onFormError = (errorsFromRHF: any) => {
-    console.error("[EnrollmentForm] Main form validation failed. Argument `errorsFromRHF` to onFormError:", errorsFromRHF);
-    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` (from useForm hook, usually more reliable):", errors); // 'errors' is from useForm formState
+    console.error(
+      "[EnrollmentForm] Main form validation failed. Argument `errorsFromRHF` to onFormError:", 
+      errorsFromRHF, 
+      " This object can sometimes be empty even if validation fails, check `formState.errors` below."
+    );
+    // 'errors' here is `formState.errors` from the useForm hook, which should contain the actual validation details.
+    console.error(
+      "[EnrollmentForm] For detailed validation issues, inspect `formState.errors` (logged as `errors` from useForm hook):", 
+      errors 
+    );
     
     let descriptionText = t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.";
 
-    // If errorsFromRHF is empty, try to build a message from formState.errors (the 'errors' variable from useForm)
-    // This is now the primary way to build the detailed error message due to issues with errorsFromRHF being empty.
-    if (Object.keys(errors).length > 0) {
+    // Always use `formState.errors` (aliased as `errors` in component scope) to build the detailed toast message
+    // as errorsFromRHF argument can be unreliable (empty) for some complex Zod/superRefine cases.
+    if (Object.keys(errors || {}).length > 0) {
         let specificErrorMessages = "";
-        // Helper function to recursively extract error messages
+        // Helper function to recursively extract error messages from formState.errors
         const extractErrorMessages = (errorObject: any, pathPrefix = "") => {
             for (const key in errorObject) {
                 const currentPath = pathPrefix ? `${pathPrefix}.${key}` : key;
@@ -836,36 +845,28 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 if (errorEntry) {
                     if (errorEntry.message && typeof errorEntry.message === 'string') {
                         // Try to get a translated label for the field path
-                        // This is a simplified way to get a label; more sophisticated mapping might be needed for complex paths
                         const labelKey = `ef${currentPath.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('')}Label`;
                         const translatedField = getTranslatedText(labelKey, currentLanguage, { defaultValue: currentPath });
                         const translatedMessage = getTranslatedText(errorEntry.message, currentLanguage, { defaultValue: errorEntry.message });
                         specificErrorMessages += `${translatedField}: ${translatedMessage}\n`;
-                    } else if (typeof errorEntry === 'object' && !Array.isArray(errorEntry) && errorEntry !== null && !(errorEntry instanceof Date)) {
-                        // Recursively check nested objects (but not arrays of participants, etc.)
+                    } else if (Array.isArray(errorEntry)) { // Handle errors in FieldArrays (like participants)
+                        errorEntry.forEach((itemError, index) => {
+                            if (typeof itemError === 'object' && itemError !== null) {
+                                extractErrorMessages(itemError, `${currentPath}.${index}`);
+                            }
+                        });
+                    } else if (typeof errorEntry === 'object' && errorEntry !== null && !(errorEntry instanceof Date)) {
+                        // Recursively check nested objects
                         extractErrorMessages(errorEntry, currentPath);
                     }
                 }
             }
         };
         
-        extractErrorMessages(errors);
+        extractErrorMessages(errors); // Use `errors` (from formState) directly
 
         if (specificErrorMessages) {
             descriptionText = specificErrorMessages;
-        } else if (Object.keys(errorsFromRHF).length > 0) {
-            // Fallback to errorsFromRHF if formState.errors was empty but errorsFromRHF wasn't (unlikely given the problem)
-            let rhfErrorMessages = "";
-            for (const field in errorsFromRHF) {
-                const fieldError = errorsFromRHF[field as keyof EnrollmentFormData];
-                if (fieldError && fieldError.message) {
-                    const translatedField = getTranslatedText(`ef${field.charAt(0).toUpperCase() + field.slice(1)}Label`, currentLanguage, {defaultValue: field});
-                    // @ts-ignore
-                    const translatedMessage = getTranslatedText(fieldError.message as string, currentLanguage, { defaultValue: fieldError.message as string });
-                    rhfErrorMessages += `${translatedField}: ${translatedMessage}\n`;
-                }
-            }
-            if (rhfErrorMessages) descriptionText = rhfErrorMessages;
         }
     }
 
@@ -1185,17 +1186,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         const reader = new FileReader();
         reader.onloadend = async () => {
             setValue('paymentProof.screenshotDataUri', reader.result as string, { shouldValidate: true });
-            // Trigger validation specifically for screenshotDataUri after it's set
-            const screenshotValidationResult = await trigger('paymentProof.screenshotDataUri');
-            console.log('[Form] ScreenshotDataUri validation result after file select:', screenshotValidationResult);
-            if(!screenshotValidationResult) {
-                 // Manually show a toast if this specific validation fails, as form-wide validation might not run yet
-                 const currentErrors = getValues('paymentProof.screenshotDataUri'); // This is not how to get errors
-                 const screenshotError = errors.paymentProof?.screenshotDataUri?.message || errors.paymentProof?.screenshot?.message;
+            // Explicitly trigger validation for screenshotDataUri *after* it's set by FileReader
+            const validationSuccessful = await trigger('paymentProof.screenshotDataUri');
+            if (!validationSuccessful) {
+                // If validation fails here, the error message should appear under the field
+                // via RHF's default error display. We can also toast if needed.
+                console.warn("[Form] ScreenshotDataUri validation failed immediately after file select.");
+                const screenshotError = errors.paymentProof?.screenshotDataUri?.message || errors.paymentProof?.screenshot?.message;
                  if(screenshotError){
                     toast({
                         title: t.efValidationErrorToastTitle || "Validation Error",
-                        description: getTranslatedText(screenshotError, currentLanguage, {defaultValue: "Invalid screenshot."}),
+                        description: getTranslatedText(screenshotError, currentLanguage, {defaultValue: "Invalid screenshot file."}),
                         variant: "destructive"
                     });
                  }
@@ -1206,7 +1207,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setValue('paymentProof.screenshot', null, { shouldValidate: true });
         setSelectedFile(null);
         setValue('paymentProof.screenshotDataUri', undefined, { shouldValidate: true });
-        await trigger('paymentProof.screenshotDataUri');
+        await trigger('paymentProof.screenshotDataUri'); // Validate after clearing
     }
   };
 
