@@ -3,17 +3,17 @@ import { z } from 'zod';
 import type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory, CouponData as ConstantCouponData, CouponDiscountType } from '@/lib/constants';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const phoneRegex = /^[0-9]{9,15}$/; 
+const phoneRegex = /^[0-9]{9,15}$/;
 
+// Schema for Parent/Registrant Information (used for new account creation and as part of main enrollment)
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim(),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
-  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(), // Made optional
-  password: z.string().min(6, "Password must be at least 6 characters.").optional(), // Made optional
-  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(), // Made optional
+  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters.").optional(),
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(),
 }).superRefine((data, ctx) => {
-  // Only validate password confirmation if both password and confirmPassword are provided (typically during new account registration)
-  if (data.password && data.confirmPassword) {
+  if (data.password && data.confirmPassword) { // Only validate if both are provided (for new account registration)
     if (data.password !== data.confirmPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -22,14 +22,12 @@ export const ParentInfoSchema = z.object({
       });
     }
   } else if (data.password && !data.confirmPassword) {
-    // If password is provided but confirmPassword is not (relevant for registration flow)
     ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['confirmPassword'],
         message: 'Please confirm your password.',
     });
   } else if (!data.password && data.confirmPassword) {
-     // If confirmPassword is provided but password is not (relevant for registration flow)
     ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['password'],
@@ -38,6 +36,14 @@ export const ParentInfoSchema = z.object({
   }
 });
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
+
+// Schema specifically for Login action
+export const LoginSchema = z.object({
+    loginEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
+    loginPassword: z.string().min(6, "Password must be at least 6 characters."),
+});
+export type LoginData = z.infer<typeof LoginSchema>;
+
 
 export const ParticipantInfoSchema = z.object({
   firstName: z.string().min(2, "Participant's/Trainee's first name must be at least 2 characters.").trim(),
@@ -52,8 +58,8 @@ export const ParticipantInfoSchema = z.object({
   guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Telegram phone invalid.").trim(),
   guardianUsePhone1ForTelegram: z.boolean().optional(),
   guardianUsePhone2ForTelegram: z.boolean().optional(),
-  certificateFile: z.any().optional(), 
-  certificateDataUri: z.string().optional(), 
+  certificateFile: z.any().optional(),
+  certificateDataUri: z.string().optional(),
 });
 export type ParticipantInfoData = z.infer<typeof ParticipantInfoSchema>;
 
@@ -77,15 +83,15 @@ export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: ParentInfoSchema,
+  parentInfo: ParentInfoSchema.optional(), // Optional here because it's handled separately for new registration
   participants: z.array(EnrolledParticipantSchema).optional().default([]),
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
   paymentProof: PaymentProofSchema.optional(),
-  loginEmail: z.string().regex(emailRegex, "Invalid email address format.").optional(),
-  loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(),
+  loginEmail: z.string().regex(emailRegex, "Invalid email address format.").optional(), // Keep for RHF state, but validate with LoginSchema
+  loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(), // Keep for RHF state, but validate with LoginSchema
 })
 .superRefine((data, ctx) => {
     const hasParticipants = data.participants && data.participants.length > 0;
@@ -97,7 +103,7 @@ export const EnrollmentFormSchema = z.object({
                 path: ['paymentProof'],
                 message: 'Payment details are required when participants are enrolled.',
             });
-            return; 
+            return;
         }
 
         const { paymentType, proofSubmissionType, transactionId, pdfLink, screenshotDataUri } = data.paymentProof;
@@ -109,16 +115,16 @@ export const EnrollmentFormSchema = z.object({
                 message: 'Please select a payment method.',
             });
         }
-        
+
         if (!proofSubmissionType) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['paymentProof', 'proofSubmissionType'],
                 message: 'Please select a proof submission method.',
             });
-        } else { 
+        } else {
             if (proofSubmissionType === 'transactionId') {
-                if (!transactionId || transactionId.trim().length < 3) { 
+                if (!transactionId || transactionId.trim().length < 3) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'transactionId'],
@@ -126,15 +132,15 @@ export const EnrollmentFormSchema = z.object({
                     });
                 }
             } else if (proofSubmissionType === 'screenshot') {
-                 if (!screenshotDataUri || screenshotDataUri.trim() === '') { // Validate the data URI
+                if (!screenshotDataUri || screenshotDataUri.trim() === '') {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
-                        path: ['paymentProof', 'screenshot'], // Point error to the file input field
+                        path: ['paymentProof', 'screenshot'],
                         message: 'Please upload a screenshot for verification.',
                     });
                 }
             } else if (proofSubmissionType === 'pdfLink') {
-                if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) { 
+                if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'pdfLink'],
@@ -150,14 +156,14 @@ export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
 
 export type RegistrationData = {
   parentInfo: ParentInfoData;
-  participants: EnrolledParticipantData[]; 
+  participants: EnrolledParticipantData[];
   agreeToTerms: boolean;
   couponCode?: string;
-  paymentProof: PaymentProofData; 
+  paymentProof: PaymentProofData;
   calculatedPrice: number;
   paymentVerified: boolean;
   paymentVerificationDetails?: any;
-  registrationDate: Date | string; 
+  registrationDate: Date | string;
   firebaseUserId?: string;
 };
 
@@ -207,4 +213,3 @@ export type CouponData = ConstantCouponData;
 
 
 export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };
-    

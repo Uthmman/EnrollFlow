@@ -40,8 +40,8 @@ import { SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
 import type { HafsaProgram, HafsaPaymentMethod } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
-import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData } from '@/types';
-import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema } from '@/types';
+import type { EnrollmentFormData, ParentInfoData, ParticipantInfoData, EnrolledParticipantData, RegistrationData, PaymentProofData as FormPaymentProofData, LoginData as FormLoginData } from '@/types';
+import { EnrollmentFormSchema, ParentInfoSchema as RHFParentInfoSchema, ParticipantInfoSchema as RHFParticipantInfoSchema, LoginSchema as RHFLoginSchema } from '@/types';
 import { handlePaymentVerification } from '@/app/actions';
 import Receipt from '@/components/receipt';
 import { getTranslationsForLanguage, getTranslatedText } from '@/lib/translationService';
@@ -130,23 +130,23 @@ const ParticipantDetailFields: React.FC<{
         }
     } else {
         if (selectedProgram.category === 'arabic_women') {
-            setValue('firstName', parentAccountInfo.parentFullName || '');
-            setValue('guardianFullName', parentAccountInfo.parentFullName || '');
-            setValue('guardianPhone1', parentAccountInfo.parentPhone1 || '');
-            setValue('guardianTelegramPhoneNumber', parentAccountInfo.parentPhone1 || '');
-            setValue('guardianUsePhone1ForTelegram', !!parentAccountInfo.parentPhone1);
+            setValue('firstName', parentAccountInfo?.parentFullName || '');
+            setValue('guardianFullName', parentAccountInfo?.parentFullName || '');
+            setValue('guardianPhone1', parentAccountInfo?.parentPhone1 || '');
+            setValue('guardianTelegramPhoneNumber', parentAccountInfo?.parentPhone1 || '');
+            setValue('guardianUsePhone1ForTelegram', !!parentAccountInfo?.parentPhone1);
             setValue('gender', 'female');
             setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
         } else if (selectedProgram.isChildProgram) {
-            setValue('guardianFullName', parentAccountInfo.parentFullName || '');
-            setValue('guardianPhone1', parentAccountInfo.parentPhone1 || '');
+            setValue('guardianFullName', parentAccountInfo?.parentFullName || '');
+            setValue('guardianPhone1', parentAccountInfo?.parentPhone1 || '');
             setValue('firstName', defaultParticipantValues.firstName);
             setValue('gender', defaultParticipantValues.gender);
             setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
         } else {
-            setValue('firstName', parentAccountInfo.parentFullName || '');
-            setValue('guardianFullName', parentAccountInfo.parentFullName || '');
-            setValue('guardianPhone1', parentAccountInfo.parentPhone1 || '');
+            setValue('firstName', parentAccountInfo?.parentFullName || '');
+            setValue('guardianFullName', parentAccountInfo?.parentFullName || '');
+            setValue('guardianPhone1', parentAccountInfo?.parentPhone1 || '');
             setValue('dateOfBirth', defaultParticipantValues.dateOfBirth);
             setValue('gender', defaultParticipantValues.gender);
         }
@@ -160,7 +160,7 @@ const ParticipantDetailFields: React.FC<{
         setSelectedCertificateFileName(null);
 
 
-        if (selectedProgram.category !== 'arabic_women' || !parentAccountInfo.parentPhone1) {
+        if (selectedProgram.category !== 'arabic_women' || !parentAccountInfo?.parentPhone1) {
         setValue('guardianTelegramPhoneNumber', defaultParticipantValues.guardianTelegramPhoneNumber);
         setValue('guardianUsePhone1ForTelegram', defaultParticipantValues.guardianUsePhone1ForTelegram);
         }
@@ -460,31 +460,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register, resetField } = methods;
 
   const onFormError = (errorsFromRHF: any) => {
-    console.error("[EnrollmentForm] React Hook Form Validation Errors:", errorsFromRHF);
+    console.error("[EnrollmentForm] Main form validation failed. Errors reported by onFormError:", errorsFromRHF);
     toast({
         title: t.efValidationErrorToastTitle || "Validation Error",
         description: t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.",
         variant: "destructive",
         duration: 7000,
     });
-    for (const fieldName in errorsFromRHF) {
-        if (errorsFromRHF[fieldName]) {
-            let message = errorsFromRHF[fieldName].message;
-            if (errorsFromRHF[fieldName].type === 'required' && !message) {
-                message = `${fieldName} is required.`;
-            }
-            if (message) {
-                 console.error(`[EnrollmentForm] Validation error for ${fieldName}: ${message}`);
-            }
-            if (typeof errorsFromRHF[fieldName] === 'object' && !errorsFromRHF[fieldName].message) {
-                for (const subFieldName in errorsFromRHF[fieldName]) {
-                    if (errorsFromRHF[fieldName][subFieldName] && errorsFromRHF[fieldName][subFieldName].message) {
-                        console.error(`[EnrollmentForm] Validation error for ${fieldName}.${subFieldName}: ${errorsFromRHF[fieldName][subFieldName].message}`);
-                    }
-                }
-            }
-        }
-    }
   };
 
 
@@ -551,7 +533,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     } finally {
       setIsLoadingUserRegistrations(false);
     }
-  }, [toast, t.efErrorToastTitle, t.efFetchUserRegErrorToastDesc, currentLanguage]);
+  }, [toast, t.efErrorToastTitle, t.efFetchUserRegErrorToastDesc, currentLanguage, getTranslatedText]);
 
 
   useEffect(() => {
@@ -754,23 +736,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive"});
         return;
     }
-    // Log values IMMEDIATELY before triggering validation
-    const currentParentInfoValues = getValues('parentInfo');
-    console.log("[Form] handleAccountCreation: Values from getValues() before validation trigger:", currentParentInfoValues);
 
-    const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentEmail', 'parentPhone1', 'password', 'confirmPassword'];
-    const isValid = await trigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
+    const parentDataToValidate = getValues('parentInfo');
+    const validationResult = RHFParentInfoSchema.safeParse(parentDataToValidate);
 
-    // Log validation outcome and errors
-    console.log("[Form] handleAccountCreation: Validation trigger result (isValid):", isValid);
-    console.log("[Form] handleAccountCreation: Current formState.errors after trigger:", errors); // errors is from useForm
-
-    if (isValid) {
+    if (validationResult.success) {
         setIsLoading(true);
-        // Use the values obtained *before* validation, which we logged
-        const { parentFullName, parentEmail, password, parentPhone1 } = currentParentInfoValues; // Use the logged values
+        const { parentFullName, parentEmail, password } = validationResult.data;
         try {
-            await createUserWithEmailAndPassword(auth, parentEmail!, password!); // Added non-null assertion for password
+            if (!password) { // Should be caught by schema if password is required
+                toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: "Password is required for new account.", variant: "destructive" });
+                setIsLoading(false);
+                return;
+            }
+            await createUserWithEmailAndPassword(auth, parentEmail!, password);
             if (typeof window !== 'undefined') {
                 localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
                 localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
@@ -790,9 +769,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             setIsLoading(false);
         }
     } else {
-      toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efCheckEntriesToastDesc || "Check entries.", variant: "destructive" });
-      // The onFormError handler will also log these errors if handleSubmit was used, but here we ensure specific logging for this path.
-      console.log("[Form] handleAccountCreation: Validation failed path. Detailed errors from RHF state:", errors);
+      console.error("[Form] handleAccountCreation: Validation failed:", validationResult.error.flatten().fieldErrors);
+      let errorMessages = "";
+      for (const field in validationResult.error.flatten().fieldErrors) {
+        errorMessages += `${field}: ${validationResult.error.flatten().fieldErrors[field as keyof ParentInfoData]?.join(', ')}\n`;
+      }
+      toast({
+          title: t.efValidationErrorToastTitle || "Validation Error",
+          description: errorMessages || (t.efCheckEntriesToastDesc || "Check entries."),
+          variant: "destructive"
+      });
     }
   };
 
@@ -802,18 +788,18 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       return;
     }
 
-    console.log("[Form] handleLoginAttempt: Values before validation trigger:", getValues(['loginEmail', 'loginPassword']));
-    const isValid = await trigger(['loginEmail', 'loginPassword']);
-    console.log("[Form] handleLoginAttempt: Validation trigger result (isValid):", isValid);
-    console.log("[Form] handleLoginAttempt: Current formState.errors after trigger:", errors);
+    const loginDataToValidate: FormLoginData = {
+        loginEmail: getValues('loginEmail') || '',
+        loginPassword: getValues('loginPassword') || ''
+    };
+    const validationResult = RHFLoginSchema.safeParse(loginDataToValidate);
 
-
-    if (isValid) {
+    if (validationResult.success) {
       setIsLoading(true);
-      const { loginEmail, loginPassword } = getValues();
+      const { loginEmail, loginPassword } = validationResult.data;
 
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, loginEmail!, loginPassword!);
+        const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
         const user = userCredential.user;
 
         if (typeof window !== 'undefined') {
@@ -841,10 +827,19 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setIsLoading(false);
       }
     } else {
-      toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password.", variant: "destructive" });
-      console.log("[Form] handleLoginAttempt: Validation failed path. Detailed errors from RHF state:", errors);
+      console.error("[Form] handleLoginAttempt: Validation failed:", validationResult.error.flatten().fieldErrors);
+      let errorMessages = "";
+      for (const field in validationResult.error.flatten().fieldErrors) {
+        errorMessages += `${field}: ${validationResult.error.flatten().fieldErrors[field as keyof FormLoginData]?.join(', ')}\n`;
+      }
+      toast({
+          title: t.efValidationErrorToastTitle || "Validation Error",
+          description: errorMessages || (t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password."),
+          variant: "destructive"
+      });
     }
   };
+
 
   const handleAddParticipantClick = () => {
     if (registrationDataForReceipt) { // If a receipt is shown, new enrollments are blocked
@@ -932,7 +927,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const onSubmit = async (data: EnrollmentFormData) => {
-    console.log("[Form] onSubmit triggered. Beginning submission process...");
+    console.log("[Form] onSubmit triggered for final submission. Beginning process...");
     setIsLoading(true);
     setAiVerificationError(null);
 
@@ -982,9 +977,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       const result = await handlePaymentVerification(verificationInput);
       console.log("[Form] handlePaymentVerification result:", result);
 
+      const parentInfoForStorage: ParentInfoData = {
+        parentFullName: getValues('parentInfo.parentFullName') || firebaseUser?.displayName || 'N/A',
+        parentEmail: getValues('parentInfo.parentEmail') || firebaseUser?.email || 'N/A',
+        parentPhone1: getValues('parentInfo.parentPhone1') || '',
+        // Passwords are not stored in registration data
+      };
 
       const finalRegistrationData: RegistrationData = {
-        parentInfo: data.parentInfo,
+        parentInfo: parentInfoForStorage,
         participants: data.participants || [],
         agreeToTerms: data.agreeToTerms,
         couponCode: data.couponCode,
@@ -1942,6 +1943,3 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 };
 
 export default EnrollmentForm;
-
-    
-    
