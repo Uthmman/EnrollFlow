@@ -5,7 +5,7 @@ import type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCatego
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^[0-9]{9,15}$/; // Allows for international numbers, adjust if only local
 
-// Schema for Login (used directly in component logic)
+// Schema for Login
 export const LoginSchema = z.object({
     loginEmail: z.string().regex(emailRegex, "Invalid email address format for login.").trim(),
     loginPassword: z.string().min(6, "Password for login must be at least 6 characters."),
@@ -13,13 +13,13 @@ export const LoginSchema = z.object({
 export type LoginData = z.infer<typeof LoginSchema>;
 
 
-// Schema for Parent/Registrant Information (used directly for new account creation logic)
+// Schema for Parent/Registrant Information (used for new account creation)
 export const ParentInfoSchema = z.object({
   parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim(),
   parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
-  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
-  password: z.string().min(6, "Password must be at least 6 characters.").optional(),
-  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters.").optional(),
+  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim(),
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
 }).superRefine((data, ctx) => {
   if (data.password && data.confirmPassword) {
     if (data.password !== data.confirmPassword) {
@@ -75,8 +75,8 @@ export const PaymentProofSchema = z.object({
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
     required_error: "Proof submission method is required.",
   }),
-  screenshot: z.any().optional(),
-  screenshotDataUri: z.string().optional(),
+  screenshot: z.any().optional(), // For file input object
+  screenshotDataUri: z.string().optional(), // For base64 data
   pdfLink: z.string().url("Invalid URL for PDF link.").optional().or(z.literal('')),
   transactionId: z.string().min(3, "Transaction ID must be at least 3 characters.").optional().or(z.literal('')),
 });
@@ -84,7 +84,7 @@ export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: z.object({ // Manually defining ParentInfo as optional with optional fields
+  parentInfo: z.object({
     parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim().optional(),
     parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim().optional(),
     parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
@@ -110,59 +110,52 @@ export const EnrollmentFormSchema = z.object({
                 path: ['paymentProof'],
                 message: 'Payment details are required when participants are enrolled.',
             });
-            return z.NEVER;
-        }
-
-        let issueAdded = false;
-        const { paymentType, proofSubmissionType, transactionId, pdfLink, screenshotDataUri } = data.paymentProof;
-
-        if (!paymentType || paymentType.trim() === '') {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['paymentProof', 'paymentType'],
-                message: 'Please select a payment method.',
-            });
-            issueAdded = true;
-        }
-
-        if (!proofSubmissionType) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['paymentProof', 'proofSubmissionType'],
-                message: 'Please select a proof submission method.',
-            });
-            issueAdded = true;
+            // Allow Zod to collect other issues if any
         } else {
-            if (proofSubmissionType === 'transactionId') {
-                if (!transactionId || transactionId.trim().length < 3) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['paymentProof', 'transactionId'],
-                        message: 'Transaction ID is required and must be at least 3 characters.',
-                    });
-                    issueAdded = true;
-                }
-            } else if (proofSubmissionType === 'screenshot') {
-                 if (!screenshotDataUri || screenshotDataUri.trim() === '') {
-                     ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['paymentProof', 'screenshot'], // Report against user-facing field
-                        message: 'Please upload a screenshot for verification.',
-                    });
-                    issueAdded = true;
-                 }
-            } else if (proofSubmissionType === 'pdfLink') {
-                if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) {
-                     ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['paymentProof', 'pdfLink'],
-                        message: 'A valid PDF link (starting with http:// or https://) is required.',
-                    });
-                    issueAdded = true;
+            const { paymentType, proofSubmissionType, transactionId, pdfLink, screenshotDataUri } = data.paymentProof;
+
+            if (!paymentType || paymentType.trim() === '') {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['paymentProof', 'paymentType'],
+                    message: 'Please select a payment method.',
+                });
+            }
+
+            if (!proofSubmissionType) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['paymentProof', 'proofSubmissionType'],
+                    message: 'Please select a proof submission method.',
+                });
+            } else {
+                if (proofSubmissionType === 'transactionId') {
+                    if (!transactionId || transactionId.trim().length < 3) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: ['paymentProof', 'transactionId'],
+                            message: 'Transaction ID is required and must be at least 3 characters.',
+                        });
+                    }
+                } else if (proofSubmissionType === 'screenshot') {
+                     if (!screenshotDataUri || screenshotDataUri.trim() === '') {
+                         ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: ['paymentProof', 'screenshot'],
+                            message: 'Please upload a screenshot for verification.',
+                        });
+                     }
+                } else if (proofSubmissionType === 'pdfLink') {
+                    if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) {
+                         ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: ['paymentProof', 'pdfLink'],
+                            message: 'A valid PDF link (starting with http:// or https://) is required.',
+                        });
+                    }
                 }
             }
         }
-        if (issueAdded) return z.NEVER;
     }
 });
 
