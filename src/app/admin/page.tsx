@@ -105,8 +105,11 @@ const AdminPage = () => {
     }
 
     try {
+      console.log("[AdminPage] Fetching registrations...");
       const registrationsCol = collection(db, 'registrations');
-      const regQuery = query(registrationsCol, orderBy('registrationDate', 'desc'));
+      // Temporarily removed orderBy to prevent index errors. Admin should create index.
+      // const regQuery = query(registrationsCol, orderBy('registrationDate', 'desc'));
+      const regQuery = query(registrationsCol);
       const regSnapshot = await getDocs(regQuery);
       const fetchedRegistrations = regSnapshot.docs.map(doc => {
         const data = doc.data() as RegistrationData;
@@ -115,6 +118,9 @@ const AdminPage = () => {
           regDate = (regDate as any).toDate();
         } else if (typeof regDate === 'string') {
           regDate = new Date(regDate);
+        } else if (regDate === undefined || regDate === null) {
+            console.warn(`[AdminPage] Registration ${doc.id} has missing registrationDate. Defaulting to now.`);
+            regDate = new Date(); // Default to now if missing, or handle as error
         }
         return {
           id: doc.id,
@@ -122,12 +128,25 @@ const AdminPage = () => {
           registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date()
         } as RegistrationRow;
       });
+      // Client-side sort if orderBy was removed
+      fetchedRegistrations.sort((a, b) => {
+        const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
+        const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
+        return dateB - dateA;
+      });
       setRegistrations(fetchedRegistrations);
       console.log("[AdminPage] Fetched registrations:", fetchedRegistrations.length);
+      if (fetchedRegistrations.length === 0) {
+        console.warn("[AdminPage] No registrations found after fetching.");
+      }
     } catch (err: any) {
       console.error("[AdminPage] Error fetching registrations:", err.message, err.stack ? err.stack : '', err);
       const errorMsg = getTranslatedText('apFetchRegError', currentLanguage, {defaultValue: 'Failed to fetch registrations:'});
       setError(prev => prev ? `${prev}\n${errorMsg} ${err.message}` : `${errorMsg} ${err.message}`);
+      if (err.code === 'failed-precondition') {
+        console.error("[AdminPage] Firestore index missing for registrations query. Please create the required index in Firebase Console.");
+        setError(prev => prev ? `${prev}\nFirestore index missing. Contact admin.` : `Firestore index missing. Contact admin.`);
+      }
     } finally {
       setIsLoadingRegistrations(false);
     }
@@ -373,7 +392,7 @@ const AdminPage = () => {
                         key={tabConfig.value}
                         onClick={() => setActiveAdminTab(tabConfig.value)}
                         className={cn(
-                            "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[70px] h-14 sm:w-auto sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5",
+                            "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary w-[85px] h-16 sm:w-auto sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5", // Increased width w-[85px] and height h-16
                             activeAdminTab === tabConfig.value
                                 ? "bg-primary-foreground text-primary scale-105 shadow-md"
                                 : "hover:bg-white/20"
@@ -657,3 +676,4 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
+
