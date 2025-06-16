@@ -13,24 +13,9 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { getTranslationsForLanguage as getTranslations, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
 import type { HafsaPaymentMethod } from '@/types';
+import { BankDetailFormSchema as RHFBankDetailFormSchema } from '@/types'; // Use schema from types
 
-const BankDetailFormSchema = z.object({
-  value: z.string().min(3, "Bank ID must be at least 3 characters (e.g., 'cbe_branch_x').").regex(/^[a-z0-9_]+$/, "ID can only contain lowercase letters, numbers, and underscores."),
-  logoPlaceholder: z.string().url({ message: "Please enter a valid URL for the logo placeholder." }).optional().or(z.literal('')),
-  dataAiHint: z.string().optional(),
-  accountNumber: z.string().min(5, "Account number must be at least 5 digits.").optional().or(z.literal('')),
-  enLabel: z.string().min(1, "English label (Bank Name) is required."),
-  enAccountName: z.string().optional(),
-  enAdditionalInstructions: z.string().optional(),
-  amLabel: z.string().optional(),
-  amAccountName: z.string().optional(),
-  amAdditionalInstructions: z.string().optional(),
-  arLabel: z.string().optional(),
-  arAccountName: z.string().optional(),
-  arAdditionalInstructions: z.string().optional(),
-});
-
-export type BankDetailFormData = z.infer<typeof BankDetailFormSchema>;
+export type BankDetailFormData = z.infer<typeof RHFBankDetailFormSchema>;
 
 interface AddBankFormProps {
   onSubmit: (data: BankDetailFormData) => Promise<void>;
@@ -42,11 +27,13 @@ interface AddBankFormProps {
 export const AddBankForm: React.FC<AddBankFormProps> = ({ onSubmit, initialData, onCancel, currentLanguage }) => {
   const [t, setT] = useState<Record<string, string>>({});
   const { register, handleSubmit, control, formState: { errors, isSubmitting }, reset } = useForm<BankDetailFormData>({
-    resolver: zodResolver(BankDetailFormSchema),
+    resolver: zodResolver(RHFBankDetailFormSchema),
     defaultValues: initialData ? {
       value: initialData.value,
       logoPlaceholder: initialData.logoPlaceholder || '',
       dataAiHint: initialData.dataAiHint || '',
+      iconUrl: initialData.iconUrl || '',
+      iconDataAiHint: initialData.iconDataAiHint || '',
       accountNumber: initialData.accountNumber || '',
       enLabel: initialData.translations.en.label,
       enAccountName: initialData.translations.en.accountName || '',
@@ -61,6 +48,8 @@ export const AddBankForm: React.FC<AddBankFormProps> = ({ onSubmit, initialData,
       value: '',
       logoPlaceholder: 'https://placehold.co/48x48.png',
       dataAiHint: 'bank logo',
+      iconUrl: '',
+      iconDataAiHint: 'bank icon',
       accountNumber: '',
       enLabel: '',
       enAccountName: '',
@@ -86,8 +75,10 @@ export const AddBankForm: React.FC<AddBankFormProps> = ({ onSubmit, initialData,
     if (initialData) {
         reset({
             value: initialData.value,
-            logoPlaceholder: initialData.logoPlaceholder || '',
-            dataAiHint: initialData.dataAiHint || '',
+            logoPlaceholder: initialData.logoPlaceholder || 'https://placehold.co/48x48.png',
+            dataAiHint: initialData.dataAiHint || 'bank logo',
+            iconUrl: initialData.iconUrl || '',
+            iconDataAiHint: initialData.iconDataAiHint || 'bank icon',
             accountNumber: initialData.accountNumber || '',
             enLabel: initialData.translations.en.label,
             enAccountName: initialData.translations.en.accountName || '',
@@ -100,10 +91,12 @@ export const AddBankForm: React.FC<AddBankFormProps> = ({ onSubmit, initialData,
             arAdditionalInstructions: initialData.translations.ar?.additionalInstructions || '',
         });
     } else {
-        reset({
+        reset({ // Ensure default values are applied for new form
             value: '',
             logoPlaceholder: 'https://placehold.co/48x48.png',
             dataAiHint: 'bank logo',
+            iconUrl: '',
+            iconDataAiHint: 'bank icon',
             accountNumber: '',
             enLabel: '',
             enAccountName: '',
@@ -148,6 +141,18 @@ export const AddBankForm: React.FC<AddBankFormProps> = ({ onSubmit, initialData,
           <Label htmlFor="dataAiHint">{t['apLogoAiHintLabel'] || "Logo AI Hint (for image generation)"}</Label>
           <Input id="dataAiHint" {...register("dataAiHint")} placeholder={t['apLogoAiHintPlaceholder'] || "e.g., cbe logo, bank icon"} />
         </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <Label htmlFor="iconUrl">{t['apBankIconUrlLabel'] || "Bank Icon URL (Optional)"}</Label>
+            <Input id="iconUrl" {...register("iconUrl")} placeholder={t['apBankIconUrlPlaceholder'] || "e.g., https://example.com/icon.png"} />
+            {errors.iconUrl && <p className="text-sm text-destructive mt-1">{errors.iconUrl.message}</p>}
+        </div>
+        <div>
+            <Label htmlFor="iconDataAiHint">{t['apBankIconAiHintLabel'] || "Bank Icon AI Hint (Optional)"}</Label>
+            <Input id="iconDataAiHint" {...register("iconDataAiHint")} placeholder={t['apBankIconAiHintPlaceholder'] || "e.g., small bank icon"} />
+        </div>
+      </div>
       
       <div className="space-y-3 pt-2 border-t">
         <h4 className="text-md font-semibold text-primary">{t['apEnglishTranslationsLabel'] || "English Translations"}</h4>
@@ -209,5 +214,3 @@ export const AddBankForm: React.FC<AddBankFormProps> = ({ onSubmit, initialData,
     </form>
   );
 };
-
-    

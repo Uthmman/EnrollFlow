@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory } from '@/lib/constants';
+import type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory, CouponData as ConstantCouponData, CouponDiscountType } from '@/lib/constants';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^[0-9]{9,15}$/; 
@@ -82,10 +82,10 @@ export const EnrollmentFormSchema = z.object({
             });
             }
         } else if (proofSubmissionType === 'screenshot') {
-            if (typeof window !== 'undefined') {
+            if (typeof window !== 'undefined') { // Check if running in browser environment for FileList
                 const ssAsFileList = screenshot as FileList | undefined | null;
                 if (!ssAsFileList || ssAsFileList.length === 0) {
-                    if (!screenshotDataUri) {
+                    if (!screenshotDataUri) { // If no file selected and no existing data URI
                         ctx.addIssue({
                             code: z.ZodIssueCode.custom,
                             path: ['paymentProof', 'screenshot'],
@@ -105,8 +105,8 @@ export const EnrollmentFormSchema = z.object({
                         message: 'A valid screenshot file object is required.',
                     });
                 }
-            } else { 
-                 if (!screenshotDataUri && !screenshot) { 
+            } else { // Fallback for server-side or non-browser contexts (less likely here)
+                 if (!screenshotDataUri && !screenshot) { // Check if data URI is present
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: ['paymentProof', 'screenshot'],
@@ -125,6 +125,7 @@ export const EnrollmentFormSchema = z.object({
         }
     }
 
+    // Ensure payment proof details are provided if there are participants
     const hasParticipants = data.participants && data.participants.length > 0;
     const hasPaymentProofObject = !!data.paymentProof;
     const paymentMethodSelected = !!data.paymentProof?.paymentType;
@@ -152,9 +153,10 @@ export const EnrollmentFormSchema = z.object({
             });
         }
     } else if (!hasParticipants && hasPaymentProofObject && (paymentMethodSelected || proofSubmissionTypeSelected)) {
+      // This case means payment proof is being entered without participants, which is unusual
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['participants'],
+        path: ['participants'], // Or a more general form error
         message: 'At least one participant must be enrolled to submit payment proof.',
       });
     }
@@ -180,6 +182,8 @@ export const BankDetailFormSchema = z.object({
   value: z.string().min(3, "Bank ID must be at least 3 characters (e.g., 'cbe_branch_x').").regex(/^[a-z0-9_]+$/, "ID can only contain lowercase letters, numbers, and underscores."),
   logoPlaceholder: z.string().url({ message: "Please enter a valid URL for the logo placeholder." }).optional().or(z.literal('')),
   dataAiHint: z.string().optional(),
+  iconUrl: z.string().url({ message: "Please enter a valid URL for the icon." }).optional().or(z.literal('')),
+  iconDataAiHint: z.string().optional(),
   accountNumber: z.string().min(5, "Account number must be at least 5 digits.").optional().or(z.literal('')),
   enLabel: z.string().min(1, "English label (Bank Name) is required."),
   enAccountName: z.string().optional(),
@@ -194,7 +198,30 @@ export const BankDetailFormSchema = z.object({
 
 export type BankDetailFormData = z.infer<typeof BankDetailFormSchema>;
 
+const couponDiscountTypes: [CouponDiscountType, ...CouponDiscountType[]] = ['percentage', 'fixed_amount'];
+
+export const CouponFormSchema = z.object({
+  id: z.string().min(3, "Coupon ID must be at least 3 characters.").regex(/^[a-zA-Z0-9_.-]+$/, "ID can only contain letters, numbers, underscores, hyphens, and periods."),
+  couponCode: z.string().min(3, "Coupon Code must be at least 3 characters.").regex(/^[a-zA-Z0-9_-]+$/, "Code can only contain letters, numbers, underscores, and hyphens."),
+  discountType: z.enum(couponDiscountTypes, { required_error: "Discount type is required." }),
+  discountValue: z.coerce.number().min(0, "Discount value must be positive."),
+  description: z.string().optional(),
+  expiryDate: z.date().optional(),
+  isActive: z.boolean().default(true),
+  // usageCount: z.coerce.number().int().min(0).optional(),
+  // maxUsage: z.coerce.number().int().min(0).optional(),
+}).superRefine((data, ctx) => {
+  if (data.discountType === 'percentage' && (data.discountValue < 0 || data.discountValue > 100)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['discountValue'],
+      message: 'Percentage discount must be between 0 and 100.',
+    });
+  }
+});
+
+export type CouponFormData = z.infer<typeof CouponFormSchema>;
+export type CouponData = ConstantCouponData;
+
 
 export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };
-
-    

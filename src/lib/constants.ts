@@ -46,6 +46,8 @@ export type HafsaPaymentMethod = {
   value: string; // This value should match the document ID in Firestore
   logoPlaceholder?: string;
   dataAiHint?: string;
+  iconUrl?: string; // New field for specific icon URL
+  iconDataAiHint?: string; // New field for icon AI hint
   accountNumber?: string; // This is not typically translated, so it remains at the top level
   translations: {
     en: PaymentMethodTranslations;
@@ -115,3 +117,18 @@ export const PROGRAMS_BY_LEVEL: { [level: string]: Program[] } = {
 // Re-exporting HafsaProgramCategory for use in types/index.ts if needed there,
 // but primary definition remains here with HAFSA_PROGRAMS.
 export type { HafsaProgramCategory as ProgramCategoryType } from './constants';
+
+
+export type CouponDiscountType = 'percentage' | 'fixed_amount';
+
+export interface CouponData {
+  id: string; // Firestore document ID, same as couponCode
+  couponCode: string;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  description?: string;
+  expiryDate?: Date | string; // Store as ISO string in Firestore, convert to Date in app
+  isActive: boolean;
+  usageCount?: number; // Optional: track how many times it has been used
+  maxUsage?: number; // Optional: limit total uses
+}

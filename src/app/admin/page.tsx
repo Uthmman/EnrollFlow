@@ -5,12 +5,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { db, auth } from '@/lib/firebaseConfig';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, query, orderBy, doc, deleteDoc, setDoc } from 'firebase/firestore';
-import type { RegistrationData, HafsaProgram, HafsaPaymentMethod } from '@/types';
+import { collection, getDocs, query, orderBy, doc, deleteDoc, setDoc, Timestamp } from 'firebase/firestore';
+import type { RegistrationData, HafsaProgram, HafsaPaymentMethod, CouponData } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
-import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3, PercentSquare } from 'lucide-react';
+import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3, PercentSquare, CalendarIcon } from 'lucide-react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { AddProgramForm, type ProgramFormData } from '@/components/admin/add-program-form';
 import { AddBankForm, type BankDetailFormData } from '@/components/admin/add-bank-form';
+import { AddCouponForm, type CouponFormData } from '@/components/admin/add-coupon-form';
 import { useToast } from "@/hooks/use-toast";
 import { getTranslationsForLanguage as getTranslations, getTranslatedText } from '@/lib/translationService';
 import type { LanguageCode } from '@/locales';
@@ -59,6 +60,8 @@ const AdminPage = () => {
   const [isLoadingPrograms, setIsLoadingPrograms] = useState(true);
   const [paymentMethods, setPaymentMethods] = useState<HafsaPaymentMethod[]>([]);
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(true);
+  const [coupons, setCoupons] = useState<CouponData[]>([]);
+  const [isLoadingCoupons, setIsLoadingCoupons] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -67,6 +70,9 @@ const AdminPage = () => {
 
   const [showAddBankDialog, setShowAddBankDialog] = useState(false);
   const [editingBankDetail, setEditingBankDetail] = useState<HafsaPaymentMethod | null>(null);
+  
+  const [showAddCouponDialog, setShowAddCouponDialog] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<CouponData | null>(null);
 
   const [showAdminAccountDialog, setShowAdminAccountDialog] = useState(false);
 
@@ -147,6 +153,7 @@ const AdminPage = () => {
     setIsLoadingRegistrations(true);
     setIsLoadingPrograms(true);
     setIsLoadingPaymentMethods(true);
+    setIsLoadingCoupons(true);
     setError(null);
 
     if (!db) {
@@ -154,6 +161,7 @@ const AdminPage = () => {
       setIsLoadingRegistrations(false);
       setIsLoadingPrograms(false);
       setIsLoadingPaymentMethods(false);
+      setIsLoadingCoupons(false);
       return;
     }
 
@@ -163,14 +171,15 @@ const AdminPage = () => {
     try {
       console.log("[AdminPage] Fetching registrations...");
       const registrationsCol = collection(db, 'registrations');
-      const regQuery = query(registrationsCol);
+      const regQuery = query(registrationsCol); // No orderBy here to avoid initial index requirement
       const regSnapshot = await getDocs(regQuery);
       fetchedRegistrations = regSnapshot.docs.map(doc => {
         const data = doc.data() as RegistrationData;
         let regDate = data.registrationDate;
-        if (regDate && typeof (regDate as any).toDate === 'function') {
+        // Handle both ISO string and Firestore Timestamp for registrationDate
+        if (regDate && typeof (regDate as any).toDate === 'function') { // Firestore Timestamp
           regDate = (regDate as any).toDate();
-        } else if (typeof regDate === 'string') {
+        } else if (typeof regDate === 'string') { // ISO string
           regDate = new Date(regDate);
         } else if (regDate === undefined || regDate === null) {
             console.warn(`[AdminPage] Registration ${doc.id} has missing registrationDate. Defaulting to now.`);
@@ -179,13 +188,15 @@ const AdminPage = () => {
         return {
           id: doc.id,
           ...data,
+          // Ensure registrationDate is always a Date object for consistent sorting
           registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date()
         } as RegistrationRow;
       });
+      // Client-side sort if orderBy was removed from query
       fetchedRegistrations.sort((a, b) => {
         const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
         const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
-        return dateB - dateA;
+        return dateB - dateA; // Descending
       });
       setRegistrations(fetchedRegistrations);
       console.log("[AdminPage] Fetched registrations:", fetchedRegistrations.length);
@@ -198,7 +209,7 @@ const AdminPage = () => {
       setError(prev => prev ? `${prev}\n${errorMsg} ${err.message}` : `${errorMsg} ${err.message}`);
       if (err.code === 'failed-precondition') {
         console.error("[AdminPage] Firestore index missing for registrations query. Please create the required index in Firebase Console.");
-        setError(prev => prev ? `${prev}\nFirestore index missing. Contact admin.` : `Firestore index missing. Contact admin.`);
+        setError(prev => prev ? `${prev}\nFirestore index missing for registrations. Defaulting to unsorted list.` : `Firestore index missing for registrations. Defaulting to unsorted list.`);
       }
     } finally {
       setIsLoadingRegistrations(false);
@@ -227,6 +238,33 @@ const AdminPage = () => {
     } finally {
       setIsLoadingPaymentMethods(false);
     }
+    
+    try {
+        console.log("[AdminPage] Fetching coupons...");
+        const couponsCol = collection(db, 'coupons');
+        const couponQuery = query(couponsCol, orderBy('couponCode')); // Example sort
+        const couponSnapshot = await getDocs(couponQuery);
+        const fetchedCoupons = couponSnapshot.docs.map(d => {
+            const data = d.data();
+            return {
+                ...data,
+                id: d.id, // Ensure doc ID is included
+                expiryDate: data.expiryDate && data.expiryDate.toDate ? data.expiryDate.toDate() : undefined, // Convert Firestore Timestamp to Date
+            } as CouponData;
+        });
+        setCoupons(fetchedCoupons);
+        console.log("[AdminPage] Fetched coupons:", fetchedCoupons.length);
+    } catch (err: any) {
+        console.error("[AdminPage] Error fetching coupons:", err.message, err.stack ? err.stack : '', err);
+        const errorMsg = getTranslatedText('apFetchCouponsError', currentLanguage, { defaultValue: 'Failed to fetch coupons:' });
+        setError(prev => prev ? `${prev}\n${errorMsg} ${err.message}` : `${errorMsg} ${err.message}`);
+        if ((err.message as string).includes("firestore/failed-precondition")) {
+             setError(prev => prev ? `${prev}\nFirestore index missing for coupons. Please create it.` : `Firestore index missing for coupons. Please create it.`);
+        }
+    } finally {
+        setIsLoadingCoupons(false);
+    }
+
 
     // Calculate statistics after fetching registrations and programs
     if (fetchedRegistrations.length > 0 && fetchedPrograms.length > 0) {
@@ -366,6 +404,8 @@ const AdminPage = () => {
         accountNumber: data.accountNumber || undefined,
         logoPlaceholder: data.logoPlaceholder || undefined,
         dataAiHint: data.dataAiHint || undefined,
+        iconUrl: data.iconUrl || undefined,
+        iconDataAiHint: data.iconDataAiHint || undefined,
         translations: {
           en: {
             label: data.enLabel,
@@ -413,6 +453,63 @@ const AdminPage = () => {
         console.error("Error deleting bank detail:", error);
         toast({ title: getTranslatedText('apDeleteErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
       }
+    }
+  };
+
+  const handleAddCoupon = () => {
+    setEditingCoupon(null);
+    setShowAddCouponDialog(true);
+  };
+
+  const handleEditCoupon = (coupon: CouponData) => {
+    setEditingCoupon(coupon);
+    setShowAddCouponDialog(true);
+  };
+
+  const handleSaveCoupon = async (data: CouponFormData) => {
+    try {
+        if (!db) throw new Error("Firestore not initialized");
+        const couponToSave: CouponData = {
+            id: data.id, // This will be the document ID
+            couponCode: data.couponCode,
+            discountType: data.discountType,
+            discountValue: data.discountValue,
+            description: data.description || undefined,
+            expiryDate: data.expiryDate ? Timestamp.fromDate(data.expiryDate) : undefined,
+            isActive: data.isActive,
+        };
+
+        await setDoc(doc(db, "coupons", couponToSave.id), couponToSave, { merge: true });
+        toast({
+            title: editingCoupon ? getTranslatedText('apCouponUpdatedTitle', currentLanguage) : getTranslatedText('apCouponAddedTitle', currentLanguage),
+            description: `${getTranslatedText('apCouponPrefix', currentLanguage)} "${couponToSave.couponCode}" ${editingCoupon ? getTranslatedText('apUpdatedSuccess', currentLanguage) : getTranslatedText('apAddedSuccess', currentLanguage)}.`
+        });
+        setShowAddCouponDialog(false);
+        setEditingCoupon(null);
+        await fetchAllData(); // Refresh coupons list
+    } catch (error: any) {
+        console.error("Error saving coupon:", error);
+        toast({ title: getTranslatedText('apSaveErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
+    }
+  };
+  
+  const handleDeleteCoupon = async (couponId: string, couponCode?: string) => {
+    let message = `${getTranslatedText('apConfirmDeleteMessage', currentLanguage, { item: getTranslatedText('apCouponSingular', currentLanguage) })}`;
+    message += couponCode ? ` "${couponCode}"?` : ` with ID ${couponId}?`;
+
+    if (window.confirm(message)) {
+        try {
+            if (!db) throw new Error("Firestore not initialized");
+            await deleteDoc(doc(db, "coupons", couponId));
+            toast({
+                title: getTranslatedText('apCouponDeletedTitle', currentLanguage),
+                description: `${getTranslatedText('apCouponPrefix', currentLanguage)} "${couponCode || couponId}" ${getTranslatedText('apDeletedSuccess', currentLanguage)}.`
+            });
+            await fetchAllData(); // Refresh coupons list
+        } catch (error: any) {
+            console.error("Error deleting coupon:", error);
+            toast({ title: getTranslatedText('apDeleteErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
+        }
     }
   };
 
@@ -620,6 +717,7 @@ const AdminPage = () => {
                           </CardHeader>
                           <CardContent className="text-sm">
                               {translatedMethod.accountName && <p>{t['apAccountNameHeader'] || "Account Name"}: {translatedMethod.accountName}</p>}
+                              {method.iconUrl && <p className="mt-1 text-xs">Icon URL: <a href={method.iconUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{method.iconUrl}</a></p>}
                               {translatedMethod.additionalInstructions && <p className="mt-1 text-xs italic">{translatedMethod.additionalInstructions}</p>}
                           </CardContent>
                           <CardFooter className="flex justify-end space-x-2">
@@ -641,12 +739,66 @@ const AdminPage = () => {
           
           <TabsContent value="coupons">
              <Card>
-              <CardHeader>
-                <CardTitle>{t['apCouponsTabTitle'] || "Manage Coupons"}</CardTitle>
-                <CardDescription>{t['apCouponsTabDesc'] || "Add, edit, or delete coupon codes for discounts."}</CardDescription>
+              <CardHeader  className="flex flex-row justify-between items-center">
+                <div>
+                    <CardTitle>{t['apCouponsTabTitle'] || "Manage Coupons"}</CardTitle>
+                    <CardDescription>{t['apCouponsTabDesc'] || "Add, edit, or delete coupon codes for discounts."}</CardDescription>
+                </div>
+                 <Button onClick={handleAddCoupon}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> {t['apAddCouponButton'] || "Add Coupon"}
+                </Button>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground p-4 text-center">{t['apFeatureComingSoon'] || "Feature coming soon."}</p>
+                {isLoadingCoupons && <div className="flex justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+                {error && !isLoadingCoupons && <p className="text-destructive p-4 text-center">{error.includes(getTranslatedText('apCouponsText', currentLanguage, {defaultValue: 'coupons'})) ? error : (t['apFetchCouponsError'] || 'Failed to fetch coupons')}</p>}
+                {!isLoadingCoupons && !error && coupons.length === 0 && (
+                    <p className="text-muted-foreground p-4 text-center">{t['apNoCouponsFound'] || "No coupons found. Add one to get started."}</p>
+                )}
+                {!isLoadingCoupons && coupons.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t['apCouponCodeHeader'] || "Code"}</TableHead>
+                          <TableHead>{t['apCouponDescriptionHeader'] || "Description"}</TableHead>
+                          <TableHead>{t['apCouponDiscountHeader'] || "Discount"}</TableHead>
+                          <TableHead>{t['apCouponExpiryHeader'] || "Expiry"}</TableHead>
+                          <TableHead>{t['apCouponStatusHeader'] || "Status"}</TableHead>
+                          <TableHead>{t['apActionsHeader'] || "Actions"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {coupons.map((coupon) => (
+                          <TableRow key={coupon.id}>
+                            <TableCell className="font-medium">{coupon.couponCode}</TableCell>
+                            <TableCell className="text-xs max-w-xs truncate">{coupon.description || 'N/A'}</TableCell>
+                            <TableCell>
+                                {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `Br${coupon.discountValue.toFixed(2)}`}
+                            </TableCell>
+                            <TableCell>
+                                {coupon.expiryDate ? format(new Date(coupon.expiryDate as string | Date), "MMM d, yyyy") : (t['apNoExpiryText'] || 'No Expiry')}
+                            </TableCell>
+                            <TableCell>
+                                <Badge variant={coupon.isActive ? "default" : "outline"} className={coupon.isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"}>
+                                {coupon.isActive ? (t['apCouponActive'] || 'Active') : (t['apCouponInactive'] || 'Inactive')}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="space-x-1">
+                              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditCoupon(coupon)}>
+                                <Edit className="h-3.5 w-3.5" />
+                                <span className="sr-only">{t['apEditButton'] || 'Edit'}</span>
+                              </Button>
+                              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleDeleteCoupon(coupon.id, coupon.couponCode)}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                <span className="sr-only">{t['apDeleteButton'] || 'Delete'}</span>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -761,6 +913,29 @@ const AdminPage = () => {
               currentLanguage={currentLanguage}
             />
           </DialogContent>
+        </Dialog>
+
+        <Dialog open={showAddCouponDialog} onOpenChange={(isOpen) => {
+            setShowAddCouponDialog(isOpen);
+            if (!isOpen) setEditingCoupon(null);
+        }}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>{editingCoupon ? (t['apEditCouponTitle'] || "Edit Coupon") : (t['apAddCouponDialogTitle'] || "Add New Coupon")}</DialogTitle>
+                    <DialogDescription>
+                        {editingCoupon ? (t['apEditCouponDialogDesc'] || "Modify the details of the existing coupon.") : (t['apAddCouponDialogDesc'] || "Fill in the details for the new coupon.")}
+                    </DialogDescription>
+                </DialogHeader>
+                <AddCouponForm
+                    onSubmit={handleSaveCoupon}
+                    initialData={editingCoupon}
+                    onCancel={() => {
+                        setShowAddCouponDialog(false);
+                        setEditingCoupon(null);
+                    }}
+                    currentLanguage={currentLanguage}
+                />
+            </DialogContent>
         </Dialog>
       </>
     );
