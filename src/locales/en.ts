@@ -186,6 +186,7 @@ export const en = {
   efPdfLinkPlaceholder: "https://example.com/receipt.pdf",
   efProceedToPaymentButton: "Proceed to Payment",
   efSubmitRegistrationButtonPrefix: "Submit Registration (Br",
+  efSubmittingButton: "Verifying & Submitting...",
   efNoEnrollmentsToastTitle: "No Enrollments",
   efAddParticipantBeforePaymentToastDesc: "Please add at least one participant before proceeding to payment.",
   efAccountRequiredToastTitle: "Account Required",

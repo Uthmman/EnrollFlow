@@ -181,6 +181,7 @@ export const am: LocaleStrings = {
   efPdfLinkPlaceholder: "https://example.com/receipt.pdf",
   efProceedToPaymentButton: "ወደ ክፍያ ይቀጥሉ",
   efSubmitRegistrationButtonPrefix: "ምዝገባ አስገባ (ብር ",
+  efSubmittingButton: "በማረጋገጥ እና በማስገባት ላይ...",
   efNoEnrollmentsToastTitle: "ምንም ምዝገባዎች የሉም",
   efAddParticipantBeforePaymentToastDesc: "እባክዎ ወደ ክፍያ ከመቀጠልዎ በፊት ቢያንስ አንድ ተሳታፊ ያክሉ።",
   efAccountRequiredToastTitle: "መለያ ያስፈልጋል",

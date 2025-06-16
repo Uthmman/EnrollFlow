@@ -181,6 +181,7 @@ export const ar: LocaleStrings = {
   efPdfLinkPlaceholder: "https://example.com/receipt.pdf",
   efProceedToPaymentButton: "المتابعة إلى الدفع",
   efSubmitRegistrationButtonPrefix: "إرسال التسجيل (ريال ",
+  efSubmittingButton: "جاري التحقق والإرسال...",
   efNoEnrollmentsToastTitle: "لا توجد تسجيلات",
   efAddParticipantBeforePaymentToastDesc: "يرجى إضافة مشارك واحد على الأقل قبل المتابعة إلى الدفع.",
   efAccountRequiredToastTitle: "الحساب مطلوب",

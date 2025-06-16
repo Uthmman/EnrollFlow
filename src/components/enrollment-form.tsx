@@ -381,33 +381,29 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setIsLoadingUserRegistrations(true);
     try {
       const regsCollection = collection(db, 'registrations');
-      // Query requires a composite index on firebaseUserId (asc) and registrationDate (desc).
-      // The link for creation is usually provided in the Firestore console error.
-      // If the index is not created, this query might fail or return unsorted data.
-      // For now, to avoid app crash if index is missing, we simplify and sort client-side.
-      const q = query(regsCollection, where('firebaseUserId', '==', userId));
-      // const q = query(regsCollection, where('firebaseUserId', '==', userId), orderBy('registrationDate', 'desc')); // Ideal query with index
+      const q = query(regsCollection, where('firebaseUserId', '==', userId), orderBy('registrationDate', 'desc'));
+      
       const querySnapshot = await getDocs(q);
       const fetchedRegs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRegistrationRecord));
       
-      // Client-side sort as a fallback if orderBy is removed from query
-      fetchedRegs.sort((a, b) => new Date(b.registrationDate as string).getTime() - new Date(a.registrationDate as string).getTime());
-
       setUserRegistrations(fetchedRegs);
       console.log(`[Form] Fetched ${fetchedRegs.length} registrations for user ${userId}`);
     } catch (error: any) {
       console.error("[Form] Error fetching user registrations:", error);
       if (error.code === 'failed-precondition') {
-          toast({ title: t.efErrorToastTitle || "Error", description: "A Firestore index is required for fetching your registrations. Please ask the admin to create it. Displaying unsorted data for now.", variant: "destructive", duration: 10000});
-          // Attempt to fetch without sorting if index error
+          toast({ title: t.efErrorToastTitle || "Error", description: "A Firestore index is required for fetching your registrations. Please ask the admin to create it. Fetching unsorted data for now.", variant: "destructive", duration: 10000});
            try {
                 const regsCollection = collection(db, 'registrations');
-                const q = query(regsCollection, where('firebaseUserId', '==', userId));
-                const querySnapshot = await getDocs(q);
-                const fetchedRegs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRegistrationRecord));
-                setUserRegistrations(fetchedRegs); // Unsorted
+                // Fallback query without sorting
+                const qFallback = query(regsCollection, where('firebaseUserId', '==', userId));
+                const querySnapshotFallback = await getDocs(qFallback);
+                const fetchedRegsFallback = querySnapshotFallback.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRegistrationRecord));
+                // Client-side sort as a fallback
+                fetchedRegsFallback.sort((a, b) => new Date(b.registrationDate as string).getTime() - new Date(a.registrationDate as string).getTime());
+                setUserRegistrations(fetchedRegsFallback); 
            } catch (fallbackError) {
-               console.error("[Form] Error fetching user registrations (fallback):", fallbackError);
+               console.error("[Form] Error fetching user registrations (fallback without sort):", fallbackError);
+                toast({ title: t.efErrorToastTitle || "Error", description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations even with fallback.", variant: "destructive"});
            }
       } else {
         toast({ title: t.efErrorToastTitle || "Error", description: t.efFetchUserRegErrorToastDesc || "Failed to fetch your registrations.", variant: "destructive"});
@@ -739,22 +735,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const onSubmit = async (data: EnrollmentFormData) => {
+    setIsLoading(true); // Moved to the very beginning
     console.log("[Form] onSubmit triggered. Data:", data);
-    setIsLoading(true);
     try {
       if (data.participants && data.participants.length > 0 && !data.paymentProof) {
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
-        setIsLoading(false);
         setActiveDashboardTab('payment');
-        return;
+        return; // Return early, isLoading will be reset in finally
       }
 
       if (data.paymentProof && !data.paymentProof.proofSubmissionType) {
         toast({ title: t.efProofSubmissionMissingToastTitle || "Proof Submission Missing", description: t.efSelectProofMethodToastDesc || "Select proof method.", variant: "destructive" });
-        setIsLoading(false);
         setActiveDashboardTab('payment');
         await trigger('paymentProof.proofSubmissionType');
-        return;
+        return; // Return early
       }
 
       let screenshotDataUriForAI: string | undefined = data.paymentProof?.screenshotDataUri;
@@ -808,8 +802,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       if (result.isPaymentValid) {
         if (!db) {
             toast({ title: t.efDbErrorToastTitle || "DB Error", description: t.efFirestoreInitFailedToastDesc || "Firestore not initialized.", variant: "destructive" });
-            setIsLoading(false);
-            return;
+            return; // Return early
         }
         try {
             const firestoreReadyData = {
@@ -866,7 +859,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           description: failureMessage,
           variant: "destructive",
         });
-        if (db && (firebaseUser || getValues('parentInfo.parentEmail')) ) { // Allow saving if guest session with email
+        if (db && (firebaseUser || getValues('parentInfo.parentEmail')) ) { 
            try {
                 const firestoreReadyData = {
                     ...finalRegistrationData, 
@@ -910,7 +903,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Ensure isLoading is reset
     }
   };
 
@@ -992,7 +985,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     if (file) {
         setValue('paymentProof.screenshot', event.target.files, { shouldValidate: true });
         setSelectedFile(file);
-         // Generate Data URI for preview or direct submission if needed by AI flow without a separate upload step
         const reader = new FileReader();
         reader.onloadend = () => {
             setValue('paymentProof.screenshotDataUri', reader.result as string);
@@ -1579,7 +1571,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             onClick={() => setActiveDashboardTab(tab.value)}
                             className={cn(
                                 "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary h-14 sm:w-auto",
-                                "w-[80px]", // Increased width
+                                "w-[80px]", 
                                 activeDashboardTab === tab.value
                                     ? "bg-primary-foreground text-primary scale-105 shadow-md"
                                     : "hover:bg-white/20"
@@ -1638,8 +1630,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         disabled={isLoading || !getValues('agreeToTerms') || calculatedPrice <= 0 || !getValues('paymentProof.paymentType') || !getValues('paymentProof.proofSubmissionType') || paymentMethodsLoading || participantFields.length === 0}
                         className="w-full sm:ml-auto sm:w-auto"
                     >
-                        {isLoading || paymentMethodsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                        {t.efSubmitRegistrationButtonPrefix}{calculatedPrice.toFixed(2)})
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                {t.efSubmittingButton || "Verifying & Submitting..."}
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                {t.efSubmitRegistrationButtonPrefix}{calculatedPrice.toFixed(2)})
+                            </>
+                        )}
                     </Button>
                 )}
             </CardFooter>
