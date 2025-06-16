@@ -5,18 +5,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { db, auth } from '@/lib/firebaseConfig';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, query, orderBy, doc, deleteDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, deleteDoc, setDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import type { RegistrationData, HafsaProgram, HafsaPaymentMethod, CouponData } from '@/types';
 import { fetchProgramsFromFirestore } from '@/lib/programService';
 import { fetchPaymentMethodsFromFirestore } from '@/lib/paymentMethodService';
 import { format } from 'date-fns';
-import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3, PercentSquare, CalendarIcon } from 'lucide-react';
+import { Loader2, Users, Edit3, Banknote, ShieldCheck, ShieldAlert, Edit, Trash2, PlusCircle, BookOpen, Building, UserCog, LogOut, BarChart3, PercentSquare, CheckSquare, XSquare, CalendarIcon } from 'lucide-react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AddProgramForm, type ProgramFormData } from '@/components/admin/add-program-form';
 import { AddBankForm, type BankDetailFormData } from '@/components/admin/add-bank-form';
 import { AddCouponForm, type CouponFormData } from '@/components/admin/add-coupon-form';
@@ -35,7 +36,7 @@ const LS_LANGUAGE_KEY = 'hafsaAdminPreferredLanguage';
 const adminDashboardTabsConfig = [
   { value: 'students', labelKey: 'apStudentsTab', icon: Users },
   { value: 'programs', labelKey: 'apProgramsTab', icon: BookOpen },
-  { value: 'bank_accounts', labelKey: 'apBankAccountsTab', icon: Building },
+  { value: 'accounts', labelKey: 'apAccountsTab', icon: Building }, // Renamed
   { value: 'coupons', labelKey: 'apCouponsTab', icon: PercentSquare },
   { value: 'statistics', labelKey: 'apStatisticsTab', icon: BarChart3 },
 ];
@@ -75,6 +76,9 @@ const AdminPage = () => {
   const [editingCoupon, setEditingCoupon] = useState<CouponData | null>(null);
 
   const [showAdminAccountDialog, setShowAdminAccountDialog] = useState(false);
+  const [registrationToDelete, setRegistrationToDelete] = useState<RegistrationRow | null>(null);
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+
 
   const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>('en');
   const [t, setT] = useState<Record<string, string>>({});
@@ -118,7 +122,6 @@ const AdminPage = () => {
 
     regs.forEach(reg => {
       reg.participants?.forEach(participant => {
-        // Program statistics
         const programDetails = progs.find(p => p.id === participant.programId);
         const programName = programDetails?.translations[currentLanguage]?.label || programDetails?.translations.en?.label || participant.programId;
         
@@ -128,7 +131,6 @@ const AdminPage = () => {
           progStats[participant.programId] = { name: programName, count: 1 };
         }
 
-        // Gender statistics
         if (participant.participantInfo.gender === 'male') {
           maleCount++;
         } else if (participant.participantInfo.gender === 'female') {
@@ -171,15 +173,14 @@ const AdminPage = () => {
     try {
       console.log("[AdminPage] Fetching registrations...");
       const registrationsCol = collection(db, 'registrations');
-      const regQuery = query(registrationsCol); // No orderBy here to avoid initial index requirement
+      const regQuery = query(registrationsCol); 
       const regSnapshot = await getDocs(regQuery);
       fetchedRegistrations = regSnapshot.docs.map(doc => {
         const data = doc.data() as RegistrationData;
         let regDate = data.registrationDate;
-        // Handle both ISO string and Firestore Timestamp for registrationDate
-        if (regDate && typeof (regDate as any).toDate === 'function') { // Firestore Timestamp
+        if (regDate && typeof (regDate as any).toDate === 'function') { 
           regDate = (regDate as any).toDate();
-        } else if (typeof regDate === 'string') { // ISO string
+        } else if (typeof regDate === 'string') { 
           regDate = new Date(regDate);
         } else if (regDate === undefined || regDate === null) {
             console.warn(`[AdminPage] Registration ${doc.id} has missing registrationDate. Defaulting to now.`);
@@ -188,15 +189,13 @@ const AdminPage = () => {
         return {
           id: doc.id,
           ...data,
-          // Ensure registrationDate is always a Date object for consistent sorting
           registrationDate: regDate instanceof Date && !isNaN(regDate.valueOf()) ? regDate : new Date()
         } as RegistrationRow;
       });
-      // Client-side sort if orderBy was removed from query
       fetchedRegistrations.sort((a, b) => {
         const dateA = a.registrationDate instanceof Date ? a.registrationDate.getTime() : 0;
         const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
-        return dateB - dateA; // Descending
+        return dateB - dateA; 
       });
       setRegistrations(fetchedRegistrations);
       console.log("[AdminPage] Fetched registrations:", fetchedRegistrations.length);
@@ -242,14 +241,14 @@ const AdminPage = () => {
     try {
         console.log("[AdminPage] Fetching coupons...");
         const couponsCol = collection(db, 'coupons');
-        const couponQuery = query(couponsCol, orderBy('couponCode')); // Example sort
+        const couponQuery = query(couponsCol, orderBy('couponCode')); 
         const couponSnapshot = await getDocs(couponQuery);
         const fetchedCoupons = couponSnapshot.docs.map(d => {
             const data = d.data();
             return {
                 ...data,
-                id: d.id, // Ensure doc ID is included
-                expiryDate: data.expiryDate && data.expiryDate.toDate ? data.expiryDate.toDate() : undefined, // Convert Firestore Timestamp to Date
+                id: d.id, 
+                expiryDate: data.expiryDate && data.expiryDate.toDate ? data.expiryDate.toDate() : undefined, 
             } as CouponData;
         });
         setCoupons(fetchedCoupons);
@@ -265,8 +264,6 @@ const AdminPage = () => {
         setIsLoadingCoupons(false);
     }
 
-
-    // Calculate statistics after fetching registrations and programs
     if (fetchedRegistrations.length > 0 && fetchedPrograms.length > 0) {
       calculateStatistics(fetchedRegistrations, fetchedPrograms);
     } else {
@@ -373,16 +370,56 @@ const AdminPage = () => {
   };
 
   const handleEditRegistration = (registrationId: string) => {
+    // Placeholder: Future implementation for full registration edit
     toast({ title: getTranslatedText('apFeatureComingSoon', currentLanguage), description: `${getTranslatedText('apEditButton', currentLanguage)} ${getTranslatedText('apRegistrationSingular', currentLanguage)} ID: ${registrationId}` });
   };
 
-  const handleDeleteRegistration = (registrationId: string, parentName?: string) => {
-    let message = `${getTranslatedText('apConfirmDeleteMessage', currentLanguage, { item: getTranslatedText('apRegistrationSingular', currentLanguage) })}`;
-    if (parentName) message += ` for "${parentName}"?`; else message += ` with ID ${registrationId}?`;
-    
-    if (window.confirm(message)) {
-      console.log(`Placeholder: Would delete registration: ${registrationId}`);
-      toast({ title: getTranslatedText('apActionPlaceholderTitle', currentLanguage), description: `${getTranslatedText('apDeleteButton', currentLanguage)} ${getTranslatedText('apRegistrationSingular', currentLanguage)} ID: ${registrationId} - ${getTranslatedText('apActionNotImplemented', currentLanguage)}` });
+  const confirmDeleteRegistration = async () => {
+    if (!registrationToDelete || !db) return;
+    try {
+      await deleteDoc(doc(db, "registrations", registrationToDelete.id));
+      toast({ 
+        title: getTranslatedText('apRegistrationDeletedTitle', currentLanguage, {defaultValue: "Registration Deleted"}), 
+        description: `${getTranslatedText('apRegistrationForPrefix', currentLanguage, {defaultValue: "Registration for"})} "${registrationToDelete.parentInfo.parentFullName}" ${getTranslatedText('apDeletedSuccess', currentLanguage)}.`
+      });
+      setRegistrationToDelete(null);
+      setShowDeleteConfirmDialog(false);
+      await fetchAllData(); // Refresh the list
+    } catch (error: any) {
+      console.error("Error deleting registration:", error);
+      toast({ title: getTranslatedText('apDeleteErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
+      setRegistrationToDelete(null);
+      setShowDeleteConfirmDialog(false);
+    }
+  };
+
+  const openDeleteConfirmation = (registration: RegistrationRow) => {
+    setRegistrationToDelete(registration);
+    setShowDeleteConfirmDialog(true);
+  };
+
+  const togglePaymentVerification = async (registration: RegistrationRow) => {
+    if (!db) return;
+    const newStatus = !registration.paymentVerified;
+    try {
+      const regRef = doc(db, "registrations", registration.id);
+      await updateDoc(regRef, {
+        paymentVerified: newStatus,
+        paymentVerificationDetails: {
+          ...(registration.paymentVerificationDetails || {}),
+          message: newStatus ? getTranslatedText('apManuallyVerified', currentLanguage, {defaultValue: "Manually verified by admin."}) : getTranslatedText('apManuallyUnverified', currentLanguage, {defaultValue: "Marked as not verified by admin."}),
+          reason: newStatus ? getTranslatedText('apAdminVerification', currentLanguage, {defaultValue: "Admin verification."}) : getTranslatedText('apAdminUnverification', currentLanguage, {defaultValue: "Admin un-verification."}),
+          isPaymentValid: newStatus, // Ensure this aligns
+        }
+      });
+      toast({
+        title: getTranslatedText('apPaymentStatusUpdatedTitle', currentLanguage, {defaultValue: "Payment Status Updated"}),
+        description: `${getTranslatedText('apRegistrationForPrefix', currentLanguage, {defaultValue: "Registration for"})} ${registration.parentInfo.parentFullName} ${newStatus ? (getTranslatedText('apMarkedVerifiedToast', currentLanguage, {defaultValue: "marked as Verified."})) : (getTranslatedText('apMarkedNotVerifiedToast', currentLanguage, {defaultValue: "marked as Not Verified."}))}`
+      });
+      await fetchAllData(); // Refresh list
+    } catch (error: any) {
+      console.error("Error updating payment verification:", error);
+      toast({ title: getTranslatedText('apUpdateErrorTitle', currentLanguage, {defaultValue: "Update Error"}), description: error.message, variant: "destructive" });
     }
   };
 
@@ -470,7 +507,7 @@ const AdminPage = () => {
     try {
         if (!db) throw new Error("Firestore not initialized");
         const couponToSave: CouponData = {
-            id: data.id, // This will be the document ID
+            id: data.id, 
             couponCode: data.couponCode,
             discountType: data.discountType,
             discountValue: data.discountValue,
@@ -486,7 +523,7 @@ const AdminPage = () => {
         });
         setShowAddCouponDialog(false);
         setEditingCoupon(null);
-        await fetchAllData(); // Refresh coupons list
+        await fetchAllData(); 
     } catch (error: any) {
         console.error("Error saving coupon:", error);
         toast({ title: getTranslatedText('apSaveErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
@@ -505,7 +542,7 @@ const AdminPage = () => {
                 title: getTranslatedText('apCouponDeletedTitle', currentLanguage),
                 description: `${getTranslatedText('apCouponPrefix', currentLanguage)} "${couponCode || couponId}" ${getTranslatedText('apDeletedSuccess', currentLanguage)}.`
             });
-            await fetchAllData(); // Refresh coupons list
+            await fetchAllData(); 
         } catch (error: any) {
             console.error("Error deleting coupon:", error);
             toast({ title: getTranslatedText('apDeleteErrorTitle', currentLanguage), description: error.message, variant: "destructive" });
@@ -552,7 +589,7 @@ const AdminPage = () => {
                         onClick={() => setActiveAdminTab(tabConfig.value)}
                         className={cn(
                             "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary h-16 sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5", 
-                            "w-[85px]", // Increased width for all tabs
+                            "min-w-[110px] px-3 sm:px-4", 
                             activeAdminTab === tabConfig.value
                                 ? "bg-primary-foreground text-primary scale-105 shadow-md"
                                 : "hover:bg-white/20"
@@ -621,15 +658,22 @@ const AdminPage = () => {
                                 </Badge>
                               )}
                             </TableCell>
-                            <TableCell className="space-x-1">
-                              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditRegistration(reg.id)}>
-                                <Edit className="h-3.5 w-3.5" />
-                                <span className="sr-only">{t['apEditButton'] || 'Edit'}</span>
-                              </Button>
-                              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleDeleteRegistration(reg.id, reg.parentInfo.parentFullName)}>
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                <span className="sr-only">{t['apDeleteButton'] || 'Delete'}</span>
-                              </Button>
+                             <TableCell className="space-x-1">
+                                {reg.paymentVerified ? (
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => togglePaymentVerification(reg)} title={t['apMarkNotVerifiedTooltip'] || "Mark as Not Verified"}>
+                                        <XSquare className="h-4 w-4 text-orange-600" />
+                                    </Button>
+                                ) : (
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => togglePaymentVerification(reg)} title={t['apMarkVerifiedTooltip'] || "Mark as Verified"}>
+                                        <CheckSquare className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                )}
+                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditRegistration(reg.id)} title={t['apEditRegistrationTooltip'] || "Edit Registration"}>
+                                    <Edit3 className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => openDeleteConfirmation(reg)} title={t['apDeleteRegistrationTooltip'] || "Delete Registration"}>
+                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -688,7 +732,7 @@ const AdminPage = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="bank_accounts">
+          <TabsContent value="accounts">
             <Card>
               <CardHeader className="flex flex-row justify-between items-center">
                 <div>
@@ -937,6 +981,24 @@ const AdminPage = () => {
                 />
             </DialogContent>
         </Dialog>
+
+        <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{getTranslatedText('apConfirmDeletionTitle', currentLanguage, {defaultValue: "Confirm Deletion"})}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {getTranslatedText('apConfirmDeleteStudentMessage', currentLanguage, {defaultValue: "Are you sure you want to delete the registration for"})} {registrationToDelete?.parentInfo.parentFullName}? {getTranslatedText('apActionCannotBeUndone', currentLanguage, {defaultValue: "This action cannot be undone."})}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {setRegistrationToDelete(null); setShowDeleteConfirmDialog(false);}}>{t.apCancelButton || "Cancel"}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteRegistration} className="bg-destructive hover:bg-destructive/90">
+                {t.apDeleteButton || "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </>
     );
   };

@@ -19,6 +19,10 @@ export const en = {
 
   // EnrollmentForm - ParticipantDetailFields
   pdfAddDetailsFor: "Add Details for ",
+  efAddDetailsFor: "Add Details for ",
+  efEditDetailsFor: "Edit Details for ",
+  efUpdateParticipantButton: "Update Participant",
+  efExistingFilePlaceholder: "Existing Certificate on File",
   pdfParticipantInfo: "Participant's Information",
   pdfTraineeInfo: "Trainee's Information",
   pdfParticipantFullNameLabel: "Participant's Full Name",
@@ -84,6 +88,7 @@ export const en = {
   efNoProgramsToastTitle: "No Programs Available",
   efNoProgramsDesc: "There are no programs to enroll in at the moment.",
   efParticipantAddedToastTitle: "Participant Added",
+  efParticipantUpdatedToastTitle: "Participant Updated",
   efParticipantForProgramToastDescTpl: "{name} has been added for {program}.",
   efPaymentInfoMissingToastTitle: "Payment Information Missing",
   efProvidePaymentDetailsToastDesc: "Please provide payment details.",
@@ -100,7 +105,7 @@ export const en = {
   efPaymentIssueToastTitle: "Payment Issue",
   efPaymentVerificationFailedToastDesc: "Payment verification failed.",
   efErrorToastTitle: "Error",
-  efMissingIndexErrorToastDesc: "A database index is required. Your previous enrollments might not be sorted correctly. Please contact support.",
+  efMissingIndexErrorToastDesc: "A database index is required for optimal sorting of your enrollments. Please contact support or check the Firebase console for index creation instructions.",
   efFetchUserRegErrorToastDesc: "Failed to fetch your registrations.",
   efUnexpectedErrorToastDesc: "An unexpected error occurred. Please try again.",
   efNoProgramSelectedToastDesc: "No program selected.",
@@ -137,17 +142,18 @@ export const en = {
   efDashManageEnrollmentsLabel: "Manage Enrollments",
   efDashViewProgramsLabel: "View Programs",
   efDashPaymentSubmissionLabel: "Payment & Submission",
-  efDashEnrollmentsTabLabel: "Enrollments", // For mobile
-  efDashProgramsTabLabel: "Programs", // For mobile
-  efDashPaymentTabLabel: "Payment", // For mobile
+  efDashEnrollmentsTabLabel: "Enrollments", 
+  efDashProgramsTabLabel: "Programs", 
+  efDashPaymentTabLabel: "Payment", 
   efManageEnrollmentsTitle: "Manage Your Enrollments",
   efYourSubmittedEnrollments: "Your Submitted Enrollments:",
   efViewReceiptButton: "View Receipt",
-  efInProgressEnrollment: "Enrollment in Progress (Not Submitted):",
+  efInProgressEnrollment: "Enrollment in Progress (Draft):",
   efUnknownProgramText: "Unknown Program",
   efContactLabel: "Contact",
   efNoParticipantsMsg: "No participants added to the current enrollment. Click below to start a new enrollment.",
   efAddNewEnrollmentButton: "Start New Enrollment",
+  efAddAnotherParticipantButton: "Add Another Participant",
   efAvailableProgramsTitle: "Available Programs",
   efNoProgramsViewingMsg: "No programs are currently available for viewing. Please check back later or contact administration.",
   efAgeLabel: "Age",
@@ -208,6 +214,7 @@ export const en = {
   efDialogLogoutButton: "Logout",
   efDialogCloseButton: "Close",
   efLoadDataErrorToastDesc: "Failed to load initial data from the server. Some features might be unavailable.",
+  efPaymentVerificationErrorTitle: "Payment Verification Error",
 
 
   // Receipt
@@ -260,7 +267,8 @@ export const en = {
   apAccessDeniedMessageAdminPage: "You do not have permission to view this page. If you are an admin, please ensure you are logged in with the correct admin account.",
   apStudentsTab: "Students",
   apProgramsTab: "Programs",
-  apBankAccountsTab: "Bank Accounts",
+  apAccountsTab: "Accounts", // Renamed from apBankAccountsTab
+  apBankAccountsTab: "Bank Accounts", // Kept for backward compatibility if used anywhere else, but new one is apAccountsTab
   apCouponsTab: "Coupons",
   apCouponsTabTitle: "Manage Coupons",
   apCouponsTabDesc: "Add, edit, or delete coupon codes for discounts.",
@@ -325,7 +333,7 @@ export const en = {
   apManageProgramsTitle: "Manage Programs",
   apManageProgramsDescAdmin: "Add, edit, or delete academic programs offered.",
   apFeatureComingSoon: "Feature coming soon.",
-  apBankAccountsSettingsTitle: "Manage Bank Accounts",
+  apBankAccountsSettingsTitle: "Manage Bank Accounts", // This is now apAccountsTab
   apBankAccountsSettingsDescAdmin: "Add, edit, or delete bank account details used for payments.",
   apStatisticsTitle: "Statistics & Reports",
   apStatisticsDesc: "View enrollment statistics and generate reports.",
@@ -436,6 +444,24 @@ export const en = {
   apBankDetailAddedTitle: "Bank Account Added",
   apBankDetailUpdatedTitle: "Bank Account Updated",
   apBankDetailDeletedTitle: "Bank Account Deleted",
+
+  apMarkVerifiedTooltip: "Mark as Verified",
+  apMarkNotVerifiedTooltip: "Mark as Not Verified",
+  apEditRegistrationTooltip: "Edit Registration (Coming Soon)",
+  apDeleteRegistrationTooltip: "Delete Registration",
+  apRegistrationDeletedTitle: "Registration Deleted",
+  apRegistrationForPrefix: "Registration for",
+  apManuallyVerified: "Manually verified by admin.",
+  apAdminVerification: "Admin verification.",
+  apManuallyUnverified: "Marked as not verified by admin.",
+  apAdminUnverification: "Admin un-verification.",
+  apPaymentStatusUpdatedTitle: "Payment Status Updated",
+  apMarkedVerifiedToast: "marked as Verified.",
+  apMarkedNotVerifiedToast: "marked as Not Verified.",
+  apUpdateErrorTitle: "Update Error",
+  apConfirmDeletionTitle: "Confirm Deletion",
+  apConfirmDeleteStudentMessage: "Are you sure you want to delete the registration for",
+  apActionCannotBeUndone: "This action cannot be undone.",
 
 
   // Fallback for errors/missing keys
