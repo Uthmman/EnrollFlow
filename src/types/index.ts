@@ -71,95 +71,68 @@ export const EnrollmentFormSchema = z.object({
   loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(),
 })
 .superRefine((data, ctx) => {
-    if (data.participants && data.participants.length > 0 && data.paymentProof) { // Check if participants exist before validating paymentProof details
-        const { proofSubmissionType, transactionId, screenshot, pdfLink, screenshotDataUri } = data.paymentProof;
-        if (proofSubmissionType === 'transactionId') {
-            if (!transactionId || transactionId.length < 3) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['paymentProof', 'transactionId'],
-                message: 'Transaction ID is required and must be at least 3 characters.',
-            });
-            }
-        } else if (proofSubmissionType === 'screenshot') {
-            if (typeof window !== 'undefined') { // Check if running in browser environment for FileList
-                const ssAsFileList = screenshot as FileList | undefined | null;
-                if (!ssAsFileList || ssAsFileList.length === 0) {
-                    if (!screenshotDataUri) { // If no file selected and no existing data URI
-                        ctx.addIssue({
-                            code: z.ZodIssueCode.custom,
-                            path: ['paymentProof', 'screenshot'],
-                            message: 'Please upload a screenshot file for verification.',
-                        });
-                    }
-                } else if (ssAsFileList.length > 1) {
-                     ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['paymentProof', 'screenshot'],
-                        message: 'Only one screenshot can be uploaded.',
-                    });
-                } else if (!(ssAsFileList[0] instanceof File)) {
-                     ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['paymentProof', 'screenshot'],
-                        message: 'A valid screenshot file object is required.',
-                    });
-                }
-            } else { // Fallback for server-side or non-browser contexts (less likely here)
-                 if (!screenshotDataUri && !screenshot) { // Check if data URI is present
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['paymentProof', 'screenshot'],
-                        message: 'Screenshot is required for this submission type (ensure it is uploaded).',
-                    });
-                 }
-            }
-        } else if (proofSubmissionType === 'pdfLink') {
-            if (!pdfLink || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['paymentProof', 'pdfLink'],
-                message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.',
-            });
-            }
-        }
-    }
-
-    // Ensure payment proof details are provided if there are participants
     const hasParticipants = data.participants && data.participants.length > 0;
-    const hasPaymentProofObject = !!data.paymentProof;
-    const paymentMethodSelected = !!data.paymentProof?.paymentType;
-    const proofSubmissionTypeSelected = !!data.paymentProof?.proofSubmissionType;
 
-    if (hasParticipants && !hasPaymentProofObject) {
-       ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['paymentProof', 'paymentType'], // Point to a general payment proof field
-            message: 'Payment details are required when participants are enrolled.',
-        });
-    } else if (hasParticipants && hasPaymentProofObject) {
-        if (!paymentMethodSelected) {
+    if (hasParticipants) {
+        // If participants are enrolled, payment proof is mandatory.
+        if (!data.paymentProof) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof'], // General error for the paymentProof object
+                message: 'Payment details are required when participants are enrolled.',
+            });
+            return; // Stop further paymentProof validation if the object itself is missing
+        }
+
+        // If paymentProof object exists, validate its specific fields
+        const { paymentType, proofSubmissionType, transactionId, screenshot, pdfLink, screenshotDataUri } = data.paymentProof;
+
+        if (!paymentType) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['paymentProof', 'paymentType'],
                 message: 'Please select a payment method.',
             });
         }
-        if (!proofSubmissionTypeSelected) {
+        
+        if (!proofSubmissionType) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['paymentProof', 'proofSubmissionType'],
                 message: 'Please select a proof submission method.',
             });
+        } else { // Only validate specific proof details if proofSubmissionType is selected
+            if (proofSubmissionType === 'transactionId') {
+                if (!transactionId || transactionId.trim().length < 3) { // Added trim()
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'transactionId'],
+                        message: 'Transaction ID is required and must be at least 3 characters.',
+                    });
+                }
+            } else if (proofSubmissionType === 'screenshot') {
+                if (typeof window !== 'undefined') { 
+                    const ssAsFileList = screenshot as FileList | undefined | null;
+                    if ((!ssAsFileList || ssAsFileList.length === 0) && !screenshotDataUri) {
+                        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'Please upload a screenshot file for verification.' });
+                    } else if (ssAsFileList && ssAsFileList.length > 1) {
+                         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'Only one screenshot can be uploaded.' });
+                    } else if (ssAsFileList && ssAsFileList[0] && !(ssAsFileList[0] instanceof File)) {
+                         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'A valid screenshot file object is required.' });
+                    }
+                } else if (!screenshotDataUri && !screenshot) { 
+                     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'Screenshot is required for this submission type (ensure it is uploaded).' });
+                }
+            } else if (proofSubmissionType === 'pdfLink') {
+                if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) { // Added trim()
+                    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'pdfLink'], message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.' });
+                }
+            }
         }
-    } else if (!hasParticipants && hasPaymentProofObject && (paymentMethodSelected || proofSubmissionTypeSelected)) {
-      // This case means payment proof is being entered without participants, which is unusual
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['participants'], // Or a more general form error
-        message: 'At least one participant must be enrolled to submit payment proof.',
-      });
     }
+    // If no participants are enrolled, paymentProof is optional.
+    // The schema definition `paymentProof: PaymentProofSchema.optional()` handles this.
+    // The `disabled` state of the final submit button should prevent submission if no participants.
 });
 
 export type EnrollmentFormData = z.infer<typeof EnrollmentFormSchema>;
@@ -208,8 +181,6 @@ export const CouponFormSchema = z.object({
   description: z.string().optional(),
   expiryDate: z.date().optional(),
   isActive: z.boolean().default(true),
-  // usageCount: z.coerce.number().int().min(0).optional(),
-  // maxUsage: z.coerce.number().int().min(0).optional(),
 }).superRefine((data, ctx) => {
   if (data.discountType === 'percentage' && (data.discountValue < 0 || data.discountValue > 100)) {
     ctx.addIssue({
@@ -225,3 +196,6 @@ export type CouponData = ConstantCouponData;
 
 
 export type { HafsaProgram, ProgramField, HafsaPaymentMethod, HafsaProgramCategory };
+
+
+    
