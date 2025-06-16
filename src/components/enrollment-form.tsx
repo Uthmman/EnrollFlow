@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
 import { User, CreditCard, CheckCircle, ArrowRight, Loader2, CalendarIcon, Users, PlusCircle, Trash2, UserCog, BookOpenText, Baby, GraduationCap, Briefcase, LayoutList, Copy, ArrowLeft, LogIn, Eye, EyeOff, Mail, ShieldQuestion, KeyRound, Phone, FileText as FileIcon, UploadCloud, BarChart3, FileUp, Info, AlertTriangle, Edit3 } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation'; 
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +33,7 @@ import { Alert, AlertDescription as UIDescription, AlertTitle as UITitle } from 
 
 
 import { db, auth } from '@/lib/firebaseConfig';
-import { collection, addDoc, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, orderBy, Timestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 
 import { SCHOOL_GRADES, QURAN_LEVELS } from '@/lib/constants';
@@ -210,9 +210,9 @@ const ParticipantDetailFields: React.FC<{
     <Card className="mb-4 sm:mb-6 p-3 sm:p-4 border-dashed">
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1">
         <CardTitle className="text-lg sm:text-xl font-headline">
-            {existingParticipantData ? 
-             getTranslatedText('efEditDetailsFor', currentLanguage, {defaultValue: "Edit Details for"}) 
-             : 
+            {existingParticipantData ?
+             getTranslatedText('efEditDetailsFor', currentLanguage, {defaultValue: "Edit Details for"})
+             :
              getTranslatedText('efAddDetailsFor', currentLanguage, {defaultValue: "Add Details for"})
             } {programSpecificFieldsLabel}
         </CardTitle>
@@ -302,7 +302,7 @@ const ParticipantDetailFields: React.FC<{
         {isQuranKidsProgram && (
             <div>
                 <Label htmlFor="certificateFile">{t.efCertificateUploadLabel || "Recent/Last Year Certificate (Optional)"}</Label>
-                <div 
+                <div
                     className="mt-1 flex items-center justify-center w-full p-3 border-2 border-dashed rounded-md cursor-pointer border-primary/30 hover:border-primary/50 bg-background hover:bg-muted/50 transition-colors"
                     onClick={() => certificateFileInputRef.current?.click()}
                 >
@@ -387,10 +387,10 @@ const ParticipantDetailFields: React.FC<{
       <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 p-2 pt-1">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">{t.pdfCancelButton}</Button>
           <Button type="button" onClick={handleParticipantSubmit(actualOnSave)} disabled={isLoading} className="w-full sm:w-auto">
-              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} 
-              {existingParticipantData ? 
-                (getTranslatedText('efUpdateParticipantButton', currentLanguage, {defaultValue: "Update Participant"})) 
-                : 
+              {isLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />}
+              {existingParticipantData ?
+                (getTranslatedText('efUpdateParticipantButton', currentLanguage, {defaultValue: "Update Participant"}))
+                :
                 (isArabicWomenProgram ? t.pdfSaveTraineeButton : t.pdfSaveParticipantButton)
               }
           </Button>
@@ -423,13 +423,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const [registrationDataForReceipt, setRegistrationDataForReceipt] = useState<RegistrationData | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const router = useRouter(); 
+  const router = useRouter();
 
   const [availablePrograms, setAvailablePrograms] = useState<HafsaProgram[]>([]);
   const [programsLoading, setProgramsLoading] = useState<boolean>(true);
   const [paymentMethods, setPaymentMethods] = useState<HafsaPaymentMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState<boolean>(true);
-  
+
   const [userRegistrations, setUserRegistrations] = useState<UserRegistrationRecord[]>([]);
   const [isLoadingUserRegistrations, setIsLoadingUserRegistrations] = useState(false);
 
@@ -506,7 +506,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     try {
       const regsCollection = collection(db, 'registrations');
       const q = query(regsCollection, where('firebaseUserId', '==', userId));
-      
+
       const querySnapshot = await getDocs(q);
       let fetchedRegs = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -518,10 +518,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         } else if (regDate instanceof Timestamp) {
             regDate = regDate.toDate();
         } else {
-            regDate = new Date(); 
+            regDate = new Date();
         }
-        return { 
-            id: doc.id, 
+        return {
+            id: doc.id,
             ...data,
             registrationDate: regDate
         } as UserRegistrationRecord;
@@ -533,16 +533,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         const dateB = b.registrationDate instanceof Date ? b.registrationDate.getTime() : 0;
         return dateB - dateA; // Descending
       });
-      
+
       setUserRegistrations(fetchedRegs);
       console.log(`[Form] Fetched ${fetchedRegs.length} registrations for user ${userId}`);
     } catch (error: any) {
       console.error("[Form] Error fetching user registrations:", error);
-      if (error.code === 'failed-precondition') { 
-        toast({ 
-            title: t.efErrorToastTitle || "Error", 
-            description: getTranslatedText('efMissingIndexErrorToastDesc', currentLanguage, {defaultValue: "A database index is required for optimal sorting of your enrollments. Please contact support or check the Firebase console for index creation instructions."}), 
-            variant: "destructive", 
+      if (error.code === 'failed-precondition') {
+        toast({
+            title: t.efErrorToastTitle || "Error",
+            description: getTranslatedText('efMissingIndexErrorToastDesc', currentLanguage, {defaultValue: "A database index is required for optimal sorting of your enrollments. Please contact support or check the Firebase console for index creation instructions."}),
+            variant: "destructive",
             duration: 10000
         });
       } else {
@@ -573,7 +573,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
       } catch (error) {
         console.error("[Form] loadInitialData: Error loading initial data:", error);
-        if (Object.keys(t).length > 0) { 
+        if (Object.keys(t).length > 0) {
             toast({ title: t.efErrorToastTitle || "Error", description: t.efLoadDataErrorToastDesc || "Failed to load initial data.", variant: "destructive" });
         } else {
             toast({ title: "Error", description: "Failed to load initial data from the server. Some features might be unavailable.", variant: "destructive" });
@@ -599,7 +599,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
       localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
       setValue('parentInfo', defaultParentValues);
-      replaceParticipants([]); 
+      replaceParticipants([]);
     }
   }, [setValue, replaceParticipants]);
 
@@ -609,7 +609,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       if (user && user.email) {
-        fetchUserRegistrations(user.uid); 
+        fetchUserRegistrations(user.uid);
         const savedParentInfoRaw = localStorage.getItem(LOCALSTORAGE_PARENT_KEY);
 
         if (savedParentInfoRaw) {
@@ -623,7 +623,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
                     setValue('parentInfo.parentFullName', user.displayName || "");
                     setValue('parentInfo.parentEmail', user.email);
-                    setValue('parentInfo.parentPhone1', ''); 
+                    setValue('parentInfo.parentPhone1', '');
                 }
             } catch (e) {
                 console.error("Error parsing parent info from LS on auth change", e);
@@ -635,7 +635,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         } else {
             setValue('parentInfo.parentFullName', user.displayName || "");
             setValue('parentInfo.parentEmail', user.email);
-            setValue('parentInfo.parentPhone1', ''); 
+            setValue('parentInfo.parentPhone1', '');
         }
 
         const savedParticipantsRaw = localStorage.getItem(LOCALSTORAGE_PARTICIPANTS_KEY);
@@ -660,7 +660,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 replaceParticipants([]);
             }
         }
-        
+
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (user.email === effectiveAdminEmail && router && typeof router.push === 'function' && !window.location.pathname.startsWith('/admin')) {
           console.log(`[EnrollmentForm] Admin user ${user.email} detected on non-admin page, redirecting to /admin.`);
@@ -673,7 +673,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       } else {
         if (currentView === 'dashboard') {
             clearLocalStorageData();
-            setUserRegistrations([]); 
+            setUserRegistrations([]);
             setCurrentView('accountCreation');
             onStageChange('initial');
         }
@@ -699,7 +699,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
            setValue('parentInfo.parentPhone1', loadedParentInfo?.parentPhone1 || '');
         }
 
-        if (loadedParentInfo?.parentEmail && loadedParentInfo?.password) { 
+        if (loadedParentInfo?.parentEmail && loadedParentInfo?.password) {
           setCurrentView('dashboard');
           onStageChange('accountCreated');
           setActiveDashboardTab('enrollments');
@@ -754,12 +754,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive"});
         return;
     }
+    // Log values IMMEDIATELY before triggering validation
+    const currentParentInfoValues = getValues('parentInfo');
+    console.log("[Form] handleAccountCreation: Values from getValues() before validation trigger:", JSON.stringify(currentParentInfoValues, null, 2));
+
     const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentEmail', 'parentPhone1', 'password', 'confirmPassword'];
     const isValid = await trigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
 
+    // Log validation outcome and errors
+    console.log("[Form] handleAccountCreation: Validation trigger result (isValid):", isValid);
+    console.log("[Form] handleAccountCreation: Current formState.errors after trigger:", JSON.stringify(errors, null, 2)); // errors is from useForm
+
     if (isValid) {
         setIsLoading(true);
-        const { parentFullName, parentEmail, password, parentPhone1 } = getValues('parentInfo');
+        // Use the values obtained *before* validation, which we logged
+        const { parentFullName, parentEmail, password, parentPhone1 } = currentParentInfoValues;
         try {
             await createUserWithEmailAndPassword(auth, parentEmail, password!);
             if (typeof window !== 'undefined') {
@@ -782,6 +791,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         }
     } else {
       toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efCheckEntriesToastDesc || "Check entries.", variant: "destructive" });
+      console.log("[Form] handleAccountCreation: Validation failed path. Detailed errors from RHF state:", JSON.stringify(errors, null, 2));
     }
   };
 
@@ -790,23 +800,26 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive" });
       return;
     }
-  
-    // Validate only login fields
+
+    console.log("[Form] handleLoginAttempt: Values before validation trigger:", JSON.stringify(getValues(['loginEmail', 'loginPassword']), null, 2));
     const isValid = await trigger(['loginEmail', 'loginPassword']);
-  
+    console.log("[Form] handleLoginAttempt: Validation trigger result (isValid):", isValid);
+    console.log("[Form] handleLoginAttempt: Current formState.errors after trigger:", JSON.stringify(errors, null, 2));
+
+
     if (isValid) {
       setIsLoading(true);
-      const { loginEmail, loginPassword } = getValues(); // Get all form values
-  
+      const { loginEmail, loginPassword } = getValues();
+
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, loginEmail!, loginPassword!); // Use destructured values
+        const userCredential = await signInWithEmailAndPassword(auth, loginEmail!, loginPassword!);
         const user = userCredential.user;
-  
+
         if (typeof window !== 'undefined') {
           localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
           localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
         }
-  
+
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (user && user.email === effectiveAdminEmail) {
           console.log(`[EnrollmentForm] Admin user ${user.email} logged in successfully. Redirecting to /admin.`);
@@ -815,7 +828,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         } else {
           const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: user.displayName || user.email! });
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
-          // User dashboard transition will be handled by onAuthStateChanged
         }
       } catch (error: any) {
         console.error("Firebase login error:", error);
@@ -828,12 +840,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setIsLoading(false);
       }
     } else {
-      // This toast indicates that loginEmail or loginPassword validation failed
       toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password.", variant: "destructive" });
+      console.log("[Form] handleLoginAttempt: Validation failed path. Detailed errors from RHF state:", JSON.stringify(errors, null, 2));
     }
   };
 
   const handleAddParticipantClick = () => {
+    if (registrationDataForReceipt) { // If a receipt is shown, new enrollments are blocked
+        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCompletePreviousEnrollmentToastDesc || "Please complete or clear the previous enrollment first (by going back from receipt)." });
+        return;
+    }
     if (programsLoading) {
         toast({ title: t.efProgramsLoadingToastTitle || "Programs Loading", description: t.efWaitProgramsLoadedToastDesc || "Wait for programs."});
         return;
@@ -842,16 +858,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         toast({ title: t.efNoProgramsToastTitle || "No Programs", description: t.efNoProgramsDesc || "No programs available.", variant: "destructive"});
         return;
     }
-    setProgramForNewParticipant(null); // Ensure we are adding a new one
-    setEditingParticipantIndex(null); // Clear any editing state
+    setProgramForNewParticipant(null);
+    setEditingParticipantIndex(null);
     setCurrentView('addParticipant');
   };
 
   const handleEditParticipantClick = (index: number) => {
+    if (registrationDataForReceipt) {
+        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCannotEditSubmittedEnrollmentToastDesc || "Cannot edit participants of a submitted enrollment from this view." });
+        return;
+    }
     const participantToEdit = participantFields[index];
     const program = availablePrograms.find(p => p.id === participantToEdit.programId);
     if (program) {
-        setProgramForNewParticipant(program); // This sets the context for ParticipantDetailFields
+        setProgramForNewParticipant(program);
         setEditingParticipantIndex(index);
         setCurrentView('addParticipant');
     } else {
@@ -860,8 +880,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const handleProgramCardClick = (program: HafsaProgram) => {
+    if (registrationDataForReceipt) {
+        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCompletePreviousEnrollmentToastDesc || "Please complete or clear the previous enrollment first." });
+        return;
+    }
     setProgramForNewParticipant(program);
-    setEditingParticipantIndex(null); // Ensure we are adding a new participant
+    setEditingParticipantIndex(null);
     setCurrentView('addParticipant');
   };
 
@@ -884,7 +908,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
 
     const currentParentEmail = getValues('parentInfo.parentEmail');
-     if (typeof window !== 'undefined' && currentParentEmail) { 
+     if (typeof window !== 'undefined' && currentParentEmail) {
         localStorage.setItem(LOCALSTORAGE_PARTICIPANTS_KEY, JSON.stringify({parentEmail: currentParentEmail, data: getValues('participants')}));
     }
     setCurrentView('dashboard');
@@ -894,6 +918,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   };
 
   const handleRemoveParticipant = (index: number) => {
+    if (registrationDataForReceipt) {
+        toast({ title: t.efActionUnavailableToastTitle || "Action Unavailable", description: t.efCannotEditSubmittedEnrollmentToastDesc || "Cannot remove participants of a submitted enrollment from this view." });
+        return;
+    }
     removeParticipant(index);
     const currentParticipants = getValues('participants');
     const currentParentEmail = getValues('parentInfo.parentEmail');
@@ -904,16 +932,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const onSubmit = async (data: EnrollmentFormData) => {
     console.log("[Form] onSubmit triggered. Beginning submission process...");
-    setIsLoading(true); 
-    setAiVerificationError(null); 
-    
+    setIsLoading(true);
+    setAiVerificationError(null);
+
     try {
       console.log("[Form] Current form data for submission (raw from RHF):", JSON.stringify(data, null, 2));
       if (data.participants && data.participants.length > 0 && !data.paymentProof) {
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
         setActiveDashboardTab('payment');
         setIsLoading(false);
-        return; 
+        return;
       }
 
       if (data.paymentProof && !data.paymentProof.proofSubmissionType) {
@@ -921,7 +949,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setActiveDashboardTab('payment');
         await trigger('paymentProof.proofSubmissionType');
         setIsLoading(false);
-        return; 
+        return;
       }
 
       let screenshotDataUriForAI: string | undefined = data.paymentProof?.screenshotDataUri;
@@ -943,7 +971,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       const verificationInput = {
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUriForAI, 
+            screenshotDataUri: screenshotDataUriForAI,
         },
         expectedAmount: calculatedPrice,
         expectedAccountName: selectedBankDetails?.accountName,
@@ -961,47 +989,47 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         couponCode: data.couponCode,
         paymentProof: {
             ...data.paymentProof!,
-            screenshotDataUri: screenshotDataUriForAI 
+            screenshotDataUri: screenshotDataUriForAI
         },
         calculatedPrice: calculatedPrice,
         paymentVerified: result.isPaymentValid,
         paymentVerificationDetails: result,
         registrationDate: new Date(),
-        firebaseUserId: firebaseUser ? firebaseUser.uid : undefined, 
+        firebaseUserId: firebaseUser ? firebaseUser.uid : undefined,
       };
-      console.log("[Form] Final registration data prepared for Firestore (before stringifying dates):", finalRegistrationData);
+      const firestoreReadyData = {
+          ...finalRegistrationData,
+          registrationDate: finalRegistrationData.registrationDate.toISOString(),
+          parentInfo: {
+              parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
+              parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
+              parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
+          },
+          participants: finalRegistrationData.participants.map(p => ({
+              ...p,
+              participantInfo: {
+                  ...p.participantInfo,
+                  dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
+                   certificateDataUri: p.participantInfo.certificateDataUri || undefined,
+                   certificateFile: undefined,
+              }
+          })),
+          paymentProof: {
+              ...finalRegistrationData.paymentProof,
+              screenshot: undefined
+          }
+      };
+      console.log("[Form] Final registration data prepared for Firestore (stringified):", JSON.stringify(firestoreReadyData, null, 2));
 
 
       if (result.isPaymentValid) {
         if (!db) {
             toast({ title: t.efDbErrorToastTitle || "DB Error", description: t.efFirestoreInitFailedToastDesc || "Firestore not initialized.", variant: "destructive" });
             setIsLoading(false);
-            return; 
+            return;
         }
         try {
-            const firestoreReadyData = {
-                ...finalRegistrationData,
-                registrationDate: finalRegistrationData.registrationDate.toISOString(), 
-                parentInfo: { 
-                    parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
-                    parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
-                    parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
-                },
-                participants: finalRegistrationData.participants.map(p => ({
-                    ...p,
-                    participantInfo: {
-                        ...p.participantInfo,
-                        dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
-                         certificateDataUri: p.participantInfo.certificateDataUri || undefined, 
-                         certificateFile: undefined, 
-                    }
-                })),
-                paymentProof: {
-                    ...finalRegistrationData.paymentProof,
-                    screenshot: undefined 
-                }
-            };
-            console.log("[Form] Attempting to save to Firestore (payment valid). Data:", JSON.stringify(firestoreReadyData, null, 2));
+            console.log("[Form] Attempting to save to Firestore (payment valid).");
             const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
             console.log("[Form] Registration data saved to Firestore. Document ID:", docRef.id);
 
@@ -1013,9 +1041,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             });
             setRegistrationDataForReceipt(finalRegistrationData);
             setCurrentView('confirmation');
-            clearLocalStorageData(); 
-            setSelectedFile(null); 
-            if (firebaseUser) fetchUserRegistrations(firebaseUser.uid); 
+            clearLocalStorageData();
+            setSelectedFile(null);
+            if (firebaseUser) fetchUserRegistrations(firebaseUser.uid);
 
         } catch (firestoreError: any) {
             console.error("[Form] Error saving registration to Firestore (payment valid):", firestoreError);
@@ -1025,47 +1053,25 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 description: desc,
                 variant: "destructive",
             });
-            setRegistrationDataForReceipt(finalRegistrationData); 
-            setCurrentView('confirmation'); 
+            setRegistrationDataForReceipt(finalRegistrationData);
+            setCurrentView('confirmation');
         }
 
-      } else { 
+      } else {
         let failureMessage = result.message || (t.efPaymentVerificationFailedToastDesc || "Payment verification failed.");
         if (result.reason && result.reason !== result.message) {
             failureMessage += ` Reason: ${result.reason}`;
         }
-        setAiVerificationError(failureMessage); 
+        setAiVerificationError(failureMessage);
         toast({
           title: t.efPaymentIssueToastTitle || "Payment Issue",
           description: failureMessage,
           variant: "destructive",
           duration: 8000,
         });
-        if (db && (firebaseUser || getValues('parentInfo.parentEmail')) ) { 
+        if (db && (firebaseUser || getValues('parentInfo.parentEmail')) ) {
            try {
-                const firestoreReadyData = { 
-                    ...finalRegistrationData, 
-                    registrationDate: finalRegistrationData.registrationDate.toISOString(),
-                     parentInfo: {
-                        parentFullName: finalRegistrationData.parentInfo.parentFullName || '',
-                        parentEmail: finalRegistrationData.parentInfo.parentEmail || '',
-                        parentPhone1: finalRegistrationData.parentInfo.parentPhone1 || '',
-                    },
-                    participants: finalRegistrationData.participants.map(p => ({
-                        ...p,
-                        participantInfo: {
-                            ...p.participantInfo,
-                            dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
-                            certificateDataUri: p.participantInfo.certificateDataUri || undefined,
-                            certificateFile: undefined, 
-                        }
-                    })),
-                    paymentProof: {
-                        ...finalRegistrationData.paymentProof,
-                        screenshot: undefined 
-                    }
-                };
-                console.log("[Form] Attempting to save to Firestore (payment NOT valid). Data:", JSON.stringify(firestoreReadyData, null, 2));
+                console.log("[Form] Attempting to save to Firestore (payment NOT valid).");
                 const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
                 console.log("[Form] Registration data (payment NOT valid) saved to Firestore. Document ID:", docRef.id);
                 toast({ title: t.efRegSubmittedForReviewToastTitle || "Submitted for Review", description: t.efRegSubmittedForReviewToastDesc || "Your registration is submitted and will be reviewed."});
@@ -1073,17 +1079,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 setCurrentView('confirmation');
                 clearLocalStorageData();
                 setSelectedFile(null);
-                if (firebaseUser) fetchUserRegistrations(firebaseUser.uid); 
+                if (firebaseUser) fetchUserRegistrations(firebaseUser.uid);
            } catch (dbError: any) {
                 console.error("[Form] Error saving non-verified registration to Firestore:", dbError);
                 toast({ title: t.efSavingErrorToastTitle, description: getTranslatedText('efRegSubmittedDbFailToastDescTpl', currentLanguage, {message: dbError.message}), variant: "destructive" });
-                setRegistrationDataForReceipt(finalRegistrationData); 
-                setCurrentView('confirmation'); 
+                setRegistrationDataForReceipt(finalRegistrationData);
+                setCurrentView('confirmation');
            }
         } else {
              console.warn("[Form] DB not available or user not logged in/no email, cannot save non-verified registration.");
-             setRegistrationDataForReceipt(finalRegistrationData); 
-             setCurrentView('confirmation'); 
+             setRegistrationDataForReceipt(finalRegistrationData);
+             setCurrentView('confirmation');
         }
       }
     } catch (error: any) {
@@ -1096,13 +1102,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false); 
+      setIsLoading(false);
     }
   };
 
   const handleBackFromReceipt = () => {
     setRegistrationDataForReceipt(null);
-    replaceParticipants([]); 
+    replaceParticipants([]);
     setValue('agreeToTerms', false);
     setValue('couponCode', '');
     resetField('paymentProof');
@@ -1117,7 +1123,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         onStageChange('initial');
     } else {
         if (typeof window !== 'undefined') {
-          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY); 
+          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
         }
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (firebaseUser.email === effectiveAdminEmail) {
@@ -1125,7 +1131,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         } else {
           setCurrentView('dashboard');
           setActiveDashboardTab('enrollments');
-          fetchUserRegistrations(firebaseUser.uid); 
+          fetchUserRegistrations(firebaseUser.uid);
         }
     }
     toast({ title: t.efReadyNewEnrollmentToastTitle || "Ready for New Enrollment", description: t.efPreviousEnrollmentClearedToastDesc || "Previous enrollment cleared." });
@@ -1134,12 +1140,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const handleViewReceipt = (registration: UserRegistrationRecord) => {
     const receiptData: RegistrationData = {
         ...registration,
-        registrationDate: new Date(registration.registrationDate as string | Date), 
+        registrationDate: new Date(registration.registrationDate as string | Date),
         participants: registration.participants.map(p => ({
             ...p,
             participantInfo: {
                 ...p.participantInfo,
-                dateOfBirth: new Date(p.participantInfo.dateOfBirth as string | Date) 
+                dateOfBirth: new Date(p.participantInfo.dateOfBirth as string | Date)
             }
         }))
     };
@@ -1256,7 +1262,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     </div>
                 </CardContent>
             </Card>
-            <Button type="button" onClick={handleSubmit(handleAccountCreation, onFormError)} disabled={isLoading} className="w-full">
+            <Button type="button" onClick={handleAccountCreation} disabled={isLoading} className="w-full">
                 {isLoading ? <Loader2 className="animate-spin mr-2"/> : <Mail className="mr-2 h-4 w-4" />} {t.efCreateAccountButton} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
         </TabsContent>
@@ -1464,7 +1470,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                 <p className="text-xs text-muted-foreground">{progTranslated.label} - Br{program?.price.toFixed(2)}</p>
                                 <p className="text-xs text-muted-foreground mt-1">{t.efContactLabel}: {enrolledParticipant.participantInfo.guardianFullName} ({enrolledParticipant.participantInfo.guardianPhone1})</p>
                             </div>
-                            {registrationDataForReceipt === null && ( 
+                            {registrationDataForReceipt === null && (
                                 <div className="flex space-x-1">
                                     <Button type="button" variant="ghost" size="icon" onClick={() => handleEditParticipantClick(index)} className="text-primary hover:text-primary/80 p-1.5 h-7 w-7">
                                         <Edit3 className="h-4 w-4" />
@@ -1486,10 +1492,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                     <p className="text-muted-foreground mb-3 sm:mb-4 text-sm">{t.efNoParticipantsMsg}</p>
                 </div>
             )}
-            
-            {registrationDataForReceipt === null && ( 
+
+            {registrationDataForReceipt === null && (
                 <Button type="button" variant="default" onClick={handleAddParticipantClick} className="w-full sm:w-auto mt-4" disabled={programsLoading || availablePrograms.length === 0}>
-                    {programsLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />} 
+                    {programsLoading ? <Loader2 className="animate-spin mr-2"/> : <PlusCircle className="mr-2 h-4 w-4" />}
                     {participantFields.length > 0 ? (t.efAddAnotherParticipantButton || "Add Another Participant") : (t.efAddNewEnrollmentButton || "Start New Enrollment")}
                 </Button>
             )}
@@ -1738,7 +1744,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                  {watchedProofSubmissionType === 'screenshot' && (
                   <div className="space-y-2">
                     <Label htmlFor="paymentProof.screenshotFile" className="text-sm">{t.efUploadScreenshotLabel}</Label>
-                    <div 
+                    <div
                         className="flex items-center justify-center w-full p-4 border-2 border-dashed rounded-lg cursor-pointer border-primary/50 hover:border-primary bg-background hover:bg-muted transition-colors"
                         onClick={() => fileInputRef.current?.click()}
                         onDragOver={(e) => e.preventDefault()}
@@ -1752,7 +1758,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                                     setValue('paymentProof.screenshotDataUri', reader.result as string);
                                 };
                                 reader.readAsDataURL(e.dataTransfer.files[0]);
-                                setAiVerificationError(null); 
+                                setAiVerificationError(null);
                             }
                         }}
                     >
@@ -1810,7 +1816,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             onClick={() => setActiveDashboardTab(tab.value)}
                             className={cn(
                                 "flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-primary h-14",
-                                "w-[80px]", 
+                                "w-[80px]",
                                 activeDashboardTab === tab.value
                                     ? "bg-primary-foreground text-primary scale-105 shadow-md"
                                     : "hover:bg-white/20"
@@ -1841,7 +1847,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             {currentView === 'addParticipant' && renderAddParticipant()}
           </CardContent>
 
-          {currentView === 'dashboard' && registrationDataForReceipt === null && ( 
+          {currentView === 'dashboard' && registrationDataForReceipt === null && (
             <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-3 sm:pt-4 p-3 sm:p-6 gap-y-2 sm:gap-y-0">
                 {activeDashboardTab !== 'payment' ? (
                     <Button
@@ -1914,7 +1920,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
             </div>
           )}
           {firebaseUser && (
-             <Button onClick={async () => {
+             <Button type="button" onClick={async () => {
                 if (auth) {
                     try {
                         await signOut(auth);
@@ -1926,7 +1932,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                 }
              }} variant="outline" className="mt-2 w-full">{t.efDialogLogoutButton}</Button>
           )}
-          <Button onClick={() => { setShowPasswordInDialog(false); onCloseAccountDialog(); }} className="mt-2 w-full">{t.efDialogCloseButton}</Button>
+          <Button type="button" onClick={() => { setShowPasswordInDialog(false); onCloseAccountDialog(); }} className="mt-2 w-full">{t.efDialogCloseButton}</Button>
         </DialogContent>
       </Dialog>
     </FormProvider>
@@ -1935,3 +1941,4 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 export default EnrollmentForm;
 
+    
