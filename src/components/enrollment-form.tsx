@@ -705,56 +705,61 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
   const handleAccountCreation = async () => {
     if (!auth) {
-        toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive"});
-        return;
+      toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive" });
+      return;
     }
     const parentDataToValidate = getValues('parentInfo');
     console.log("[Form] handleAccountCreation: Validating data:", parentDataToValidate);
+    
+    // Ensure RHFParentInfoSchema is used here for account creation specific validation
     const validationResult = RHFParentInfoSchema.safeParse(parentDataToValidate);
 
     if (validationResult.success) {
-        setIsLoading(true);
-        const { parentFullName, parentEmail, password, parentPhone1 } = validationResult.data;
-        try {
-            if (!password) {
-                toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: "Password is required for new account.", variant: "destructive" });
-                setIsLoading(false);
-                return;
-            }
-            await createUserWithEmailAndPassword(auth, parentEmail!, password);
-            if (typeof window !== 'undefined') {
-                 localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
-                 localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
-            }
-            const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, {name: parentFullName});
-            toast({ title: t.efAccountCreatedToastTitle || "Account Created!", description: desc });
-        } catch (error: any) {
-            console.error("Firebase registration error:", error);
-            let errorMessage = t.efRegistrationFailedToastDesc || "Registration failed.";
-            if (error.code === 'auth/email-already-in-use') {
-                errorMessage = t.efEmailInUseToastDesc || "Email already in use.";
-            } else if (error.code === 'auth/weak-password') {
-                errorMessage = t.efWeakPasswordToastDesc || "Password too weak.";
-            }
-            toast({ title: t.efRegistrationErrorToastTitle || "Registration Error", description: errorMessage, variant: "destructive" });
-        } finally {
-            setIsLoading(false);
+      setIsLoading(true);
+      const { parentFullName, parentEmail, password, parentPhone1 } = validationResult.data;
+      try {
+        if (!password) { // Should be caught by RHFParentInfoSchema if not optional there
+          toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: "Password is required for new account.", variant: "destructive" });
+          setIsLoading(false);
+          return;
         }
+        await createUserWithEmailAndPassword(auth, parentEmail!, password);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
+          localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+        }
+        const desc = getTranslatedText('efWelcomeUserToastDescTpl', currentLanguage, { name: parentFullName });
+        toast({ title: t.efAccountCreatedToastTitle || "Account Created!", description: desc });
+      } catch (error: any) {
+        console.error("Firebase registration error:", error);
+        let errorMessage = t.efRegistrationFailedToastDesc || "Registration failed.";
+        if (error.code === 'auth/email-already-in-use') {
+          errorMessage = t.efEmailInUseToastDesc || "Email already in use.";
+        } else if (error.code === 'auth/weak-password') {
+          errorMessage = t.efWeakPasswordToastDesc || "Password too weak.";
+        }
+        toast({ title: t.efRegistrationErrorToastTitle || "Registration Error", description: errorMessage, variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
     } else {
       console.error("[Form] handleAccountCreation: ParentInfo validation failed:", validationResult.error.flatten().fieldErrors);
       let errorMessages = "";
       for (const field in validationResult.error.flatten().fieldErrors) {
-        const fieldTyped = field as keyof ParentInfoData;
-        const messageKey = validationResult.error.flatten().fieldErrors[fieldTyped]?.[0];
-        const translatedField = getTranslatedText(`ef${fieldTyped.charAt(0).toUpperCase() + fieldTyped.slice(1)}Label`, currentLanguage, {defaultValue: field});
-        const translatedMessage = getTranslatedText(messageKey || "fallback.error", currentLanguage);
-        errorMessages += `${translatedField}: ${translatedMessage}\n`;
-        console.log(`[EnrollmentForm] Validation error for ${field}: ${messageKey}`);
+        const fieldTyped = field as keyof ParentInfoData; // RHFParentInfoSchema implies these fields
+        const fieldErrorMessages = validationResult.error.flatten().fieldErrors[fieldTyped];
+        if (fieldErrorMessages) {
+            const messageKey = fieldErrorMessages[0];
+            const translatedField = getTranslatedText(`ef${fieldTyped.charAt(0).toUpperCase() + fieldTyped.slice(1)}Label`, currentLanguage, { defaultValue: field });
+            const translatedMessage = getTranslatedText(messageKey || "fallback.error", currentLanguage);
+            errorMessages += `${translatedField}: ${translatedMessage}\n`;
+            console.log(`[EnrollmentForm] Validation error for ${field}: ${messageKey}`);
+        }
       }
       toast({
-          title: t.efValidationErrorToastTitle || "Validation Error",
-          description: errorMessages || (t.efCheckEntriesToastDesc || "Check entries."),
-          variant: "destructive"
+        title: t.efValidationErrorToastTitle || "Validation Error",
+        description: errorMessages || (t.efCheckEntriesToastDesc || "Check entries."),
+        variant: "destructive"
       });
     }
   };
@@ -764,25 +769,24 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       toast({ title: t.efAuthErrorToastTitle || "Auth Error", description: t.efAuthInitFailedToastDesc || "Auth not initialized", variant: "destructive" });
       return;
     }
-
     const loginDataToValidate: FormLoginData = {
-        loginEmail: getValues('loginEmail') || '',
-        loginPassword: getValues('loginPassword') || ''
+      loginEmail: getValues('loginEmail') || '',
+      loginPassword: getValues('loginPassword') || ''
     };
     console.log("[Form] handleLoginAttempt: Validating data:", loginDataToValidate);
+
     const validationResult = RHFLoginSchema.safeParse(loginDataToValidate);
 
     if (validationResult.success) {
       setIsLoading(true);
       const { loginEmail, loginPassword } = validationResult.data;
-
       try {
         const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
         const user = userCredential.user;
         const effectiveAdminEmail = ADMIN_EMAIL_FROM_ENV || 'admin@example.com';
         if (user && user.email === effectiveAdminEmail) {
           console.log(`[EnrollmentForm] Admin user ${user.email} logged in successfully. Redirecting to /admin.`);
-          toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, { defaultValue: "Redirecting to admin panel..." }) });
+          toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: getTranslatedText('efAdminRedirectToastDesc', currentLanguage, {defaultValue: "Redirecting to admin panel..."})});
         } else {
           const desc = getTranslatedText('efWelcomeBackUserToastDescTpl', currentLanguage, { nameOrEmail: user.displayName || user.email! });
           toast({ title: t.efLoginSuccessfulToastTitle || "Login Successful!", description: desc });
@@ -802,26 +806,37 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       let errorMessages = "";
       for (const field in validationResult.error.flatten().fieldErrors) {
         const fieldTyped = field as keyof FormLoginData;
-        const messageKey = validationResult.error.flatten().fieldErrors[fieldTyped]?.[0];
-        const translatedField = getTranslatedText(`ef${fieldTyped.charAt(0).toUpperCase() + fieldTyped.slice(1)}Label`, currentLanguage, {defaultValue: field});
-        const translatedMessage = getTranslatedText(messageKey || "fallback.error", currentLanguage);
-        errorMessages += `${translatedField}: ${translatedMessage}\n`;
-        console.log(`[EnrollmentForm] Validation error for ${field}: ${messageKey}`);
+        const fieldErrorMessages = validationResult.error.flatten().fieldErrors[fieldTyped];
+        if (fieldErrorMessages) {
+            const messageKey = fieldErrorMessages[0];
+            const translatedField = getTranslatedText(`ef${fieldTyped.charAt(0).toUpperCase() + fieldTyped.slice(1)}Label`, currentLanguage, {defaultValue: field});
+            const translatedMessage = getTranslatedText(messageKey || "fallback.error", currentLanguage);
+            errorMessages += `${translatedField}: ${translatedMessage}\n`;
+            console.log(`[EnrollmentForm] Validation error for ${field}: ${messageKey}`);
+        }
       }
       toast({
-          title: t.efValidationErrorToastTitle || "Validation Error",
-          description: errorMessages || (t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password."),
-          variant: "destructive"
+        title: t.efValidationErrorToastTitle || "Validation Error",
+        description: errorMessages || (t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password."),
+        variant: "destructive"
       });
     }
   };
 
  const onFormError = (errorsFromRHF: any) => {
-    console.error("[EnrollmentForm] Main form validation failed. Errors reported by onFormError:", errorsFromRHF);
-    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` from useForm:", errors); 
+    console.error("[EnrollmentForm] Main form validation failed. Argument `errorsFromRHF` to onFormError:", errorsFromRHF);
+    console.error("[EnrollmentForm] Main form validation failed. `formState.errors` from useForm (MORE RELIABLE):", errors); 
+    
+    let descriptionText = t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.";
+    if (Object.keys(errorsFromRHF).length === 0 && Object.keys(errors).length > 0) {
+        descriptionText = t.efCheckFormEntriesToastDesc || "Validation failed. Check console for details (formState.errors).";
+    } else if (Object.keys(errorsFromRHF).length === 0 && Object.keys(errors).length === 0) {
+        descriptionText = "An unknown validation error occurred. Please try again.";
+    }
+
     toast({
         title: t.efValidationErrorToastTitle || "Validation Error",
-        description: t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.",
+        description: descriptionText,
         variant: "destructive",
         duration: 7000,
     });
@@ -925,7 +940,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         setIsLoading(false);
         return;
       }
-      if (!data.paymentProof) {
+      if (!data.paymentProof) { // This should be caught by Zod validation if participants exist
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
         setActiveDashboardTab('payment');
         setIsLoading(false);
@@ -939,7 +954,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
       const verificationInput = {
         paymentProof: {
-            ...data.paymentProof!,
+            ...data.paymentProof!, // We've checked data.paymentProof exists
             screenshotDataUri: screenshotDataUriForAI,
         },
         expectedAmount: calculatedPrice,
@@ -954,6 +969,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         parentFullName: getValues('parentInfo.parentFullName') || firebaseUser?.displayName || 'N/A',
         parentEmail: getValues('parentInfo.parentEmail') || firebaseUser?.email || 'N/A',
         parentPhone1: getValues('parentInfo.parentPhone1') || '',
+        // Passwords are not stored in the registration document
       };
 
       const finalRegistrationData: RegistrationData = {
@@ -979,17 +995,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               participantInfo: {
                   ...p.participantInfo,
                   dateOfBirth: p.participantInfo.dateOfBirth instanceof Date ? p.participantInfo.dateOfBirth.toISOString() : p.participantInfo.dateOfBirth,
-                  certificateFile: undefined,
-                  certificateDataUri: p.participantInfo.certificateDataUri || undefined,
+                  certificateFile: undefined, // Do not store the File object
+                  certificateDataUri: p.participantInfo.certificateDataUri || undefined, // Store base64 if present
               }
           })),
           paymentProof: {
               ...finalRegistrationData.paymentProof,
-              screenshot: undefined,
+              screenshot: undefined, // Do not store the FileList object
           }
       };
       console.log("[Form] Final registration data prepared for Firestore (object):", firestoreReadyData);
-      console.log("[Form] Final registration data prepared for Firestore (stringified):", JSON.stringify(firestoreReadyData, null, 2));
+      // console.log("[Form] Final registration data prepared for Firestore (stringified):", JSON.stringify(firestoreReadyData, null, 2));
 
 
       if (!db) {
@@ -998,7 +1014,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
           return;
       }
 
-      console.log(`[Form] Attempting to save to Firestore. Payment valid according to AI: ${result.isPaymentValid}`);
+      console.log(`[Form] Attempting to save to Firestore. Payment valid according to AI/rules: ${result.isPaymentValid}`);
       const docRef = await addDoc(collection(db, "registrations"), firestoreReadyData);
       console.log("[Form] Registration data saved to Firestore. Document ID:", docRef.id);
       
@@ -1027,8 +1043,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       setRegistrationDataForReceipt(finalRegistrationData);
       setCurrentView('confirmation');
       clearLocalStorageData();
-      localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
+      localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY); // Ensure this is cleared
       setSelectedFile(null);
+      resetField('paymentProof.screenshotDataUri');
+      resetField('paymentProof.screenshot');
+      resetField('paymentProof.transactionId');
+      resetField('paymentProof.pdfLink');
+
       if (firebaseUser) fetchUserRegistrations(firebaseUser.uid);
 
     } catch (error: any) {
@@ -1122,19 +1143,22 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-        setValue('paymentProof.screenshot', event.target.files);
+        setValue('paymentProof.screenshot', event.target.files); // RHF expects a FileList
         setSelectedFile(file);
+        setAiVerificationError(null); // Clear previous AI error on new file select
         const reader = new FileReader();
         reader.onloadend = async () => {
-            setValue('paymentProof.screenshotDataUri', reader.result as string);
-            await trigger('paymentProof.screenshotDataUri'); 
+            setValue('paymentProof.screenshotDataUri', reader.result as string, { shouldValidate: true });
+            // Explicitly trigger validation for the specific field if needed,
+            // or rely on overall form validation if this is part of it.
+            // await trigger('paymentProof.screenshotDataUri');
         };
         reader.readAsDataURL(file);
     } else {
         setValue('paymentProof.screenshot', null);
         setSelectedFile(null);
-        setValue('paymentProof.screenshotDataUri', undefined);
-        await trigger('paymentProof.screenshotDataUri');
+        setValue('paymentProof.screenshotDataUri', undefined, { shouldValidate: true });
+        // await trigger('paymentProof.screenshotDataUri');
     }
   };
 
@@ -1693,7 +1717,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             e.preventDefault();
                             if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                                 handleFileSelect({ target: { files: e.dataTransfer.files } } as React.ChangeEvent<HTMLInputElement>);
-                                setAiVerificationError(null);
                             }
                         }}
                     >
@@ -1703,7 +1726,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                             accept="image/*,application/pdf"
                             className="hidden"
                             ref={fileInputRef}
-                            onChange={(e) => {handleFileSelect(e); setAiVerificationError(null);}}
+                            onChange={handleFileSelect}
                         />
                         <div className="text-center">
                             <UploadCloud className="w-10 h-10 mx-auto text-primary/70 mb-2" />
@@ -1722,6 +1745,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
                         </div>
                     </div>
                     {errors.paymentProof?.screenshot && <p className="text-sm text-destructive mt-1">{getTranslatedText((errors.paymentProof.screenshot as any).message || "fallback.error", currentLanguage)}</p>}
+                    {errors.paymentProof?.screenshotDataUri && <p className="text-sm text-destructive mt-1">{getTranslatedText(errors.paymentProof.screenshotDataUri.message || "fallback.error", currentLanguage)}</p>}
                   </div>
                 )}
                 {watchedProofSubmissionType === 'pdfLink' && (
