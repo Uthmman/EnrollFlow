@@ -460,7 +460,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
   const { control, handleSubmit, formState: { errors }, setValue, getValues, trigger, watch, reset, register, resetField } = methods;
 
   const onFormError = (errorsFromRHF: any) => {
-    console.error("[EnrollmentForm] React Hook Form Validation Errors:", JSON.stringify(errorsFromRHF, null, 2));
+    console.error("[EnrollmentForm] React Hook Form Validation Errors:", errorsFromRHF);
     toast({
         title: t.efValidationErrorToastTitle || "Validation Error",
         description: t.efCheckFormEntriesToastDesc || "Please check the form for errors and try again.",
@@ -756,21 +756,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     }
     // Log values IMMEDIATELY before triggering validation
     const currentParentInfoValues = getValues('parentInfo');
-    console.log("[Form] handleAccountCreation: Values from getValues() before validation trigger:", JSON.stringify(currentParentInfoValues, null, 2));
+    console.log("[Form] handleAccountCreation: Values from getValues() before validation trigger:", currentParentInfoValues);
 
     const fieldsToValidate: (keyof ParentInfoData)[] = ['parentFullName', 'parentEmail', 'parentPhone1', 'password', 'confirmPassword'];
     const isValid = await trigger(fieldsToValidate.map(f => `parentInfo.${f}` as `parentInfo.${keyof ParentInfoData}` ));
 
     // Log validation outcome and errors
     console.log("[Form] handleAccountCreation: Validation trigger result (isValid):", isValid);
-    console.log("[Form] handleAccountCreation: Current formState.errors after trigger:", JSON.stringify(errors, null, 2)); // errors is from useForm
+    console.log("[Form] handleAccountCreation: Current formState.errors after trigger:", errors); // errors is from useForm
 
     if (isValid) {
         setIsLoading(true);
         // Use the values obtained *before* validation, which we logged
-        const { parentFullName, parentEmail, password, parentPhone1 } = currentParentInfoValues;
+        const { parentFullName, parentEmail, password, parentPhone1 } = currentParentInfoValues; // Use the logged values
         try {
-            await createUserWithEmailAndPassword(auth, parentEmail, password!);
+            await createUserWithEmailAndPassword(auth, parentEmail!, password!); // Added non-null assertion for password
             if (typeof window !== 'undefined') {
                 localStorage.removeItem(LOCALSTORAGE_PARENT_KEY);
                 localStorage.removeItem(LOCALSTORAGE_PARTICIPANTS_KEY);
@@ -791,7 +791,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         }
     } else {
       toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efCheckEntriesToastDesc || "Check entries.", variant: "destructive" });
-      console.log("[Form] handleAccountCreation: Validation failed path. Detailed errors from RHF state:", JSON.stringify(errors, null, 2));
+      // The onFormError handler will also log these errors if handleSubmit was used, but here we ensure specific logging for this path.
+      console.log("[Form] handleAccountCreation: Validation failed path. Detailed errors from RHF state:", errors);
     }
   };
 
@@ -801,10 +802,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       return;
     }
 
-    console.log("[Form] handleLoginAttempt: Values before validation trigger:", JSON.stringify(getValues(['loginEmail', 'loginPassword']), null, 2));
+    console.log("[Form] handleLoginAttempt: Values before validation trigger:", getValues(['loginEmail', 'loginPassword']));
     const isValid = await trigger(['loginEmail', 'loginPassword']);
     console.log("[Form] handleLoginAttempt: Validation trigger result (isValid):", isValid);
-    console.log("[Form] handleLoginAttempt: Current formState.errors after trigger:", JSON.stringify(errors, null, 2));
+    console.log("[Form] handleLoginAttempt: Current formState.errors after trigger:", errors);
 
 
     if (isValid) {
@@ -841,7 +842,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
       }
     } else {
       toast({ title: t.efValidationErrorToastTitle || "Validation Error", description: t.efFillEmailPasswordToastDesc || "Please fill in a valid email and password.", variant: "destructive" });
-      console.log("[Form] handleLoginAttempt: Validation failed path. Detailed errors from RHF state:", JSON.stringify(errors, null, 2));
+      console.log("[Form] handleLoginAttempt: Validation failed path. Detailed errors from RHF state:", errors);
     }
   };
 
@@ -936,7 +937,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
     setAiVerificationError(null);
 
     try {
-      console.log("[Form] Current form data for submission (raw from RHF):", JSON.stringify(data, null, 2));
+      console.log("[Form] Current form data for submission (raw from RHF):", data);
       if (data.participants && data.participants.length > 0 && !data.paymentProof) {
         toast({ title: t.efPaymentInfoMissingToastTitle || "Payment Info Missing", description: t.efProvidePaymentDetailsToastDesc || "Provide payment details.", variant: "destructive" });
         setActiveDashboardTab('payment');
@@ -977,9 +978,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
         expectedAccountName: selectedBankDetails?.accountName,
         expectedAccountNumber: selectedBankMethod?.accountNumber,
       };
-      console.log("[Form] Calling handlePaymentVerification with input:", JSON.stringify(verificationInput, null, 2));
+      console.log("[Form] Calling handlePaymentVerification with input:", verificationInput);
       const result = await handlePaymentVerification(verificationInput);
-      console.log("[Form] handlePaymentVerification result:", JSON.stringify(result, null, 2));
+      console.log("[Form] handlePaymentVerification result:", result);
 
 
       const finalRegistrationData: RegistrationData = {
@@ -1019,6 +1020,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
               screenshot: undefined
           }
       };
+      console.log("[Form] Final registration data prepared for Firestore (object):", firestoreReadyData);
       console.log("[Form] Final registration data prepared for Firestore (stringified):", JSON.stringify(firestoreReadyData, null, 2));
 
 
@@ -1941,4 +1943,5 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ onStageChange, showAcco
 
 export default EnrollmentForm;
 
+    
     
