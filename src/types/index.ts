@@ -6,10 +6,9 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^[0-9]{9,15}$/; 
 
 export const ParentInfoSchema = z.object({
-  parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters."),
-  parentEmail: z.string().regex(emailRegex, "Invalid email address format."),
-  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX)."),
-  // Made password and confirmPassword non-optional as they are fundamentally required for account creation.
+  parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim(),
+  parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim(),
+  parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim(),
   password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters."),
 }).superRefine((data, ctx) => {
@@ -24,20 +23,20 @@ export const ParentInfoSchema = z.object({
 export type ParentInfoData = z.infer<typeof ParentInfoSchema>;
 
 export const ParticipantInfoSchema = z.object({
-  firstName: z.string().min(2, "Participant's/Trainee's first name must be at least 2 characters."),
+  firstName: z.string().min(2, "Participant's/Trainee's first name must be at least 2 characters.").trim(),
   gender: z.enum(["male", "female"], { required_error: "Gender is required." }),
   dateOfBirth: z.date({ required_error: "Date of birth is required." }),
-  specialAttention: z.string().optional(),
+  specialAttention: z.string().trim().optional(),
   schoolGrade: z.string().optional(),
   quranLevel: z.string().optional(),
-  guardianFullName: z.string().min(3, "Guardian's/Trainee's full name must be at least 3 characters."),
-  guardianPhone1: z.string().regex(phoneRegex, "Guardian's/Trainee's primary phone invalid."),
+  guardianFullName: z.string().min(3, "Guardian's/Trainee's full name must be at least 3 characters.").trim(),
+  guardianPhone1: z.string().regex(phoneRegex, "Guardian's/Trainee's primary phone invalid.").trim(),
   guardianPhone2: z.string().regex(phoneRegex, "Secondary phone invalid.").optional().or(z.literal('')),
-  guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Telegram phone invalid."),
+  guardianTelegramPhoneNumber: z.string().regex(phoneRegex, "Telegram phone invalid.").trim(),
   guardianUsePhone1ForTelegram: z.boolean().optional(),
   guardianUsePhone2ForTelegram: z.boolean().optional(),
-  certificateFile: z.any().optional(), // For File object during upload
-  certificateDataUri: z.string().optional(), // For storing as base64
+  certificateFile: z.any().optional(), 
+  certificateDataUri: z.string().optional(), 
 });
 export type ParticipantInfoData = z.infer<typeof ParticipantInfoSchema>;
 
@@ -68,7 +67,6 @@ export const EnrollmentFormSchema = z.object({
   }),
   couponCode: z.string().optional(),
   paymentProof: PaymentProofSchema.optional(),
-  // loginEmail and loginPassword are for the login form specifically
   loginEmail: z.string().regex(emailRegex, "Invalid email address format.").optional(),
   loginPassword: z.string().min(6, "Password must be at least 6 characters.").optional(),
 })
@@ -76,19 +74,18 @@ export const EnrollmentFormSchema = z.object({
     const hasParticipants = data.participants && data.participants.length > 0;
 
     if (hasParticipants) {
-        // If participants are enrolled, payment proof is mandatory.
         if (!data.paymentProof) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                path: ['paymentProof'], // General error for the paymentProof object
+                path: ['paymentProof'],
                 message: 'Payment details are required when participants are enrolled.',
             });
             return; 
         }
 
-        const { paymentType, proofSubmissionType, transactionId, screenshot, pdfLink, screenshotDataUri } = data.paymentProof;
+        const { paymentType, proofSubmissionType, transactionId, pdfLink, screenshotDataUri } = data.paymentProof;
 
-        if (!paymentType) {
+        if (!paymentType || paymentType.trim() === '') {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['paymentProof', 'paymentType'],
@@ -112,21 +109,20 @@ export const EnrollmentFormSchema = z.object({
                     });
                 }
             } else if (proofSubmissionType === 'screenshot') {
-                if (typeof window !== 'undefined') { 
-                    const ssAsFileList = screenshot as FileList | undefined | null;
-                    if ((!ssAsFileList || ssAsFileList.length === 0) && !screenshotDataUri) {
-                        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'Please upload a screenshot file for verification.' });
-                    } else if (ssAsFileList && ssAsFileList.length > 1) {
-                         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'Only one screenshot can be uploaded.' });
-                    } else if (ssAsFileList && ssAsFileList[0] && !(ssAsFileList[0] instanceof File)) {
-                         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'A valid screenshot file object is required.' });
-                    }
-                } else if (!screenshotDataUri && !screenshot) { 
-                     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'screenshot'], message: 'Screenshot is required for this submission type (ensure it is uploaded).' });
+                 if (!screenshotDataUri || screenshotDataUri.trim() === '') {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'screenshot'], // Point error to the file input field
+                        message: 'Please upload a screenshot for verification.',
+                    });
                 }
             } else if (proofSubmissionType === 'pdfLink') {
                 if (!pdfLink || pdfLink.trim() === '' || (!pdfLink.startsWith('http://') && !pdfLink.startsWith('https://'))) { 
-                    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paymentProof', 'pdfLink'], message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.' });
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'pdfLink'],
+                        message: 'A valid PDF link (starting with http:// or https://) is required for this proof type.',
+                    });
                 }
             }
         }
@@ -144,7 +140,7 @@ export type RegistrationData = {
   calculatedPrice: number;
   paymentVerified: boolean;
   paymentVerificationDetails?: any;
-  registrationDate: Date | string; // Allow string for Firestore data, convert to Date in app
+  registrationDate: Date | string; 
   firebaseUserId?: string;
 };
 
