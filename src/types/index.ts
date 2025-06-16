@@ -64,22 +64,23 @@ export const EnrolledParticipantSchema = z.object({
 });
 export type EnrolledParticipantData = z.infer<typeof EnrolledParticipantSchema>;
 
-// Simplified PaymentProofSchema focusing on individual field types
+// Base PaymentProofSchema focusing on individual field types, made optional here
 export const PaymentProofSchema = z.object({
-  paymentType: z.string().min(1, "Payment method is required."), // Basic check
+  paymentType: z.string().min(1, "Payment method is required."),
   proofSubmissionType: z.enum(['transactionId', 'screenshot', 'pdfLink'], {
-    required_error: "Proof submission method is required.", // Basic check
+    required_error: "Proof submission method is required.",
   }),
-  screenshot: z.any().optional(), // For the File object
-  screenshotDataUri: z.string().optional().or(z.literal('')), // Allow empty initially
+  screenshot: z.any().optional(), 
+  screenshotDataUri: z.string().optional().or(z.literal('')),
   pdfLink: z.string().url("Invalid URL format. Must be http:// or https://").optional().or(z.literal('')),
-  transactionId: z.string().optional().or(z.literal('')), // Allow empty initially
-});
+  transactionId: z.string().optional().or(z.literal('')),
+}).optional(); // Make the whole object optional at this level
+
 export type PaymentProofData = z.infer<typeof PaymentProofSchema>;
 
 
 export const EnrollmentFormSchema = z.object({
-  parentInfo: z.object({ // Manually define as optional for submission context
+  parentInfo: z.object({
     parentFullName: z.string().min(3, "Registrant's full name must be at least 3 characters.").trim().optional(),
     parentEmail: z.string().regex(emailRegex, "Invalid email address format.").trim().optional(),
     parentPhone1: z.string().regex(phoneRegex, "Primary phone number invalid (e.g., 0911XXXXXX).").trim().optional(),
@@ -89,7 +90,7 @@ export const EnrollmentFormSchema = z.object({
     message: "You must agree to the terms and conditions.",
   }),
   couponCode: z.string().optional(),
-  paymentProof: PaymentProofSchema.optional(), // Make the whole object optional initially
+  paymentProof: PaymentProofSchema, // Referencing the optional schema
   loginEmail: z.string().regex(emailRegex, "Invalid email address format for login.").trim().optional(),
   loginPassword: z.string().min(6, "Password for login must be at least 6 characters.").optional(),
 })
@@ -97,17 +98,29 @@ export const EnrollmentFormSchema = z.object({
     const hasParticipants = data.participants && data.participants.length > 0;
 
     if (hasParticipants) {
-        // If there are participants, paymentProof object must exist
         if (!data.paymentProof) {
+            // If paymentProof object itself is missing, flag its conceptually mandatory sub-fields
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                path: ['paymentProof'], // Path for the entire paymentProof object
-                message: 'Payment details are required when participants are enrolled.',
+                path: ['paymentProof', 'paymentType'], 
+                message: 'Payment method (bank) selection is required.',
             });
-            return; // Stop further validation of paymentProof if it's not provided
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof', 'proofSubmissionType'],
+                message: 'Proof submission method selection is required.',
+            });
+            // Optionally, add a general message to the paymentProof object path itself
+            // This might not always show up in errorsFromRHF argument but helps formState.errors
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['paymentProof'], 
+                message: 'Payment details are incomplete. Please select method and proof type.',
+            });
+            return; // Stop further validation of paymentProof if the object itself is missing
         }
 
-        // Validate paymentType within paymentProof
+        // If paymentProof object exists, validate its properties
         if (!data.paymentProof.paymentType || data.paymentProof.paymentType.trim() === '') {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
@@ -116,42 +129,38 @@ export const EnrollmentFormSchema = z.object({
             });
         }
         
-        // Validate proofSubmissionType within paymentProof
         if (!data.paymentProof.proofSubmissionType) {
              ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['paymentProof', 'proofSubmissionType'],
                 message: 'Proof submission method selection is required.',
             });
-        }
-
-        // Conditional validation based on proofSubmissionType
-        if (data.paymentProof.proofSubmissionType === 'transactionId') {
-            if (!data.paymentProof.transactionId || data.paymentProof.transactionId.trim().length < 3) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['paymentProof', 'transactionId'],
-                    message: 'Transaction ID is required and must be at least 3 characters.',
-                });
-            }
-        } else if (data.paymentProof.proofSubmissionType === 'screenshot') {
-            if (!data.paymentProof.screenshotDataUri || data.paymentProof.screenshotDataUri.trim() === '') {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    // The UI field that the user interacts with for upload is typically associated with 'screenshot' (the File object).
-                    // The 'screenshotDataUri' is an internal representation.
-                    // Pointing the error to 'screenshot' might make more sense for RHF field error display.
-                    path: ['paymentProof', 'screenshot'], 
-                    message: 'A screenshot file is required for this submission type.',
-                });
-            }
-        } else if (data.paymentProof.proofSubmissionType === 'pdfLink') {
-            if (!data.paymentProof.pdfLink || data.paymentProof.pdfLink.trim() === '' || !z.string().url().safeParse(data.paymentProof.pdfLink).success) {
-                 ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['paymentProof', 'pdfLink'],
-                    message: 'A valid PDF link (e.g., https://...) is required.',
-                });
+        } else { // Only check sub-proof types if proofSubmissionType IS selected
+            if (data.paymentProof.proofSubmissionType === 'transactionId') {
+                if (!data.paymentProof.transactionId || data.paymentProof.transactionId.trim().length < 3) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'transactionId'],
+                        message: 'Transaction ID is required and must be at least 3 characters.',
+                    });
+                }
+            } else if (data.paymentProof.proofSubmissionType === 'screenshot') {
+                if (!data.paymentProof.screenshotDataUri || data.paymentProof.screenshotDataUri.trim() === '') {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        // Path for UI field related to screenshot upload
+                        path: ['paymentProof', 'screenshot'], 
+                        message: 'A screenshot file is required for this submission type.',
+                    });
+                }
+            } else if (data.paymentProof.proofSubmissionType === 'pdfLink') {
+                if (!data.paymentProof.pdfLink || data.paymentProof.pdfLink.trim() === '' || !z.string().url().safeParse(data.paymentProof.pdfLink).success) {
+                     ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['paymentProof', 'pdfLink'],
+                        message: 'A valid PDF link (e.g., https://...) is required.',
+                    });
+                }
             }
         }
     }
